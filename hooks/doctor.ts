@@ -20,6 +20,18 @@ export type DoctorInput = {
   }
 }
 
+export const versionText = (info: unknown): string => {
+  if (typeof info === 'string') {
+    return info
+  }
+
+  if (typeof info === 'object' && info !== null && 'version' in info) {
+    return versionText((info as { version: unknown }).version)
+  }
+
+  return info === undefined || info === null ? 'unknown' : JSON.stringify(info)
+}
+
 const flag = (report: FlagReport, keyWidth: number): string =>
   `  ${report.key.padEnd(keyWidth)}  ${report.value ? 'on ' : 'off'}  (${report.from})`
 

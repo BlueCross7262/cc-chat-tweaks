@@ -181,6 +181,9 @@ export const closeOpenRun = (stored: RunState): RunState => {
   return runs === state.runs ? state : { ...state, runs }
 }
 
+export const closeRunOnTurnEnd = (stored: RunState, agentId: string | undefined): RunState =>
+  agentId === undefined ? closeOpenRun(stored) : stored
+
 export const applyRow = (stored: RunState, row: AppendedRow): RunState => {
   const state = normalizeState(stored)
 

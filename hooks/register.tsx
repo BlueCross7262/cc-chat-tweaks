@@ -20,7 +20,7 @@ import {
 import {
   applyRow,
   changeOf,
-  closeOpenRun,
+  closeRunOnTurnEnd,
   EMPTY_RUN_STATE,
   hasPending,
   headerText,
@@ -30,7 +30,7 @@ import {
   viewOf,
   type Header,
 } from './runs'
-import { formatReport, type DoctorInput } from './doctor'
+import { formatReport, versionText, type DoctorInput } from './doctor'
 import {
   describeFlags,
   FLAG_DEFAULTS,
@@ -134,7 +134,7 @@ export const register: Register = on => {
   on('turn.complete', async ($, e, next) => {
     try {
       const current = await read($, runsAtom)
-      const updated = closeOpenRun(current)
+      const updated = closeRunOnTurnEnd(current, e.agentId)
 
       if (updated !== current) {
         await update($, runsAtom, () => updated)
@@ -234,7 +234,7 @@ const collectDoctorInput = async ($: EngineInterface): Promise<DoctorInput> => {
   )
   const state = normalizeState(await read($, runsAtom))
   const surface = await $.session.surface().then(String, () => 'unknown')
-  const version = await $.session.version().then(info => info.version, () => 'unknown')
+  const version = await $.session.version().then(versionText, () => 'unknown')
 
   return {
     flags: describeFlags(named),

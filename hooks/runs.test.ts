@@ -5,6 +5,7 @@ import {
   applyRow,
   changeOf,
   closeOpenRun,
+  closeRunOnTurnEnd,
   diffCounts,
   EMPTY_RUN_STATE,
   headerText,
@@ -154,6 +155,21 @@ test('reads a state stored by an older version that lacks the done list', () => 
   expect(viewOf(legacy, ['a']).header?.isPending).toBe(true)
   expect(applyRow(legacy, resultFor('a', 'b')).done).toEqual(['a', 'b'])
   expect(closeOpenRun(legacy).done).toEqual([])
+})
+
+test('a subagent turn ending leaves the open main run alone', () => {
+  const open = feed([response(use('a'))])
+  const afterSubagent = closeRunOnTurnEnd(open, 'p15-impl')
+  const state = feed([response(use('b'))], afterSubagent)
+
+  expect(afterSubagent).toBe(open)
+  expect(state.runs.map(run => run.calls.map(call => call.id))).toEqual([['a', 'b']])
+})
+
+test('a main turn ending closes the open run', () => {
+  const state = feed([response(use('b'))], closeRunOnTurnEnd(feed([response(use('a'))]), undefined))
+
+  expect(state.runs.map(run => run.calls.map(call => call.id))).toEqual([['a'], ['b']])
 })
 
 test('lists the tools most used first and cuts the list', () => {

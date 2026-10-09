@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { checksOf, formatReport, type DoctorInput } from './doctor'
+import { checksOf, formatReport, versionText, type DoctorInput } from './doctor'
 
 const input = (patch: Partial<DoctorInput> = {}): DoctorInput => ({
   flags: [
@@ -25,6 +25,14 @@ test('prints the fold counters and the environment', () => {
   expect(text).toContain('runs tracked: 3, pending: no, failed calls: 0, change records: 5')
   expect(text).toContain('surface: terminal')
   expect(text).toContain('claude code: 2.1.0')
+})
+
+test('reads the version from a string, an object or a nested object', () => {
+  expect(versionText('2.1.295')).toBe('2.1.295')
+  expect(versionText({ version: '2.1.295', base: '2.1.295' })).toBe('2.1.295')
+  expect(versionText({ version: { version: '2.1.295' } })).toBe('2.1.295')
+  expect(versionText(undefined)).toBe('unknown')
+  expect(versionText({ base: '2.1.295' })).toBe('{"base":"2.1.295"}')
 })
 
 test('reports no problem when everything is in place', () => {
