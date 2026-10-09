@@ -6,7 +6,6 @@ const set = (key: string, value: unknown) => ({ ccChatTweaks: { chat: { [key]: v
 
 test('every switch is off when no source sets it', () => {
   expect(isFlagOn([], 'use-tool-fold')).toBe(false)
-  expect(isFlagOn([], 'use-progress-line')).toBe(false)
   expect(isFlagOn([], 'use-edit-summary')).toBe(false)
   expect(isFlagOn([{}, { ccChatTweaks: {} }, { ccChatTweaks: { chat: {} } }], 'use-tool-fold')).toBe(false)
 })
@@ -33,9 +32,8 @@ test('ignores a malformed namespace', () => {
 })
 
 test('reads every flag at once', () => {
-  expect(flagsOf([set('use-edit-summary', true), set('use-progress-line', false)])).toEqual({
+  expect(flagsOf([set('use-edit-summary', true)])).toEqual({
     'use-tool-fold': false,
-    'use-progress-line': false,
     'use-edit-summary': true,
   })
 })
@@ -55,11 +53,11 @@ test('adds only the missing switches with their default and keeps everything els
   const existing = { theme: 'dark', ccChatTweaks: { chat: { 'use-tool-fold': true }, other: 1 } }
   const { settings, added } = withMissingDefaults(existing)
 
-  expect(added).toEqual(['use-progress-line', 'use-edit-summary'])
+  expect(added).toEqual(['use-edit-summary'])
   expect(settings).toEqual({
     theme: 'dark',
     ccChatTweaks: {
-      chat: { 'use-tool-fold': true, 'use-progress-line': false, 'use-edit-summary': false },
+      chat: { 'use-tool-fold': true, 'use-edit-summary': false },
       other: 1,
     },
   })
@@ -67,15 +65,15 @@ test('adds only the missing switches with their default and keeps everything els
 })
 
 test('builds the whole section for an empty or malformed file', () => {
-  expect(withMissingDefaults({}).added).toHaveLength(3)
-  expect(withMissingDefaults(null).added).toHaveLength(3)
+  expect(withMissingDefaults({}).added).toHaveLength(2)
+  expect(withMissingDefaults(null).added).toHaveLength(2)
   expect(withMissingDefaults({ ccChatTweaks: 'x' }).settings).toEqual({
-    ccChatTweaks: { chat: { 'use-tool-fold': false, 'use-progress-line': false, 'use-edit-summary': false } },
+    ccChatTweaks: { chat: { 'use-tool-fold': false, 'use-edit-summary': false } },
   })
 })
 
 test('reports nothing to add when every switch is present', () => {
-  const full = { ccChatTweaks: { chat: { 'use-tool-fold': true, 'use-progress-line': false, 'use-edit-summary': false } } }
+  const full = { ccChatTweaks: { chat: { 'use-tool-fold': true, 'use-edit-summary': false } } }
 
   expect(withMissingDefaults(full).added).toEqual([])
 })

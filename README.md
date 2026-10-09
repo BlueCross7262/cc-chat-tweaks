@@ -17,7 +17,6 @@ Every feature is off until you turn it on. Switches live under `ccChatTweaks.cha
 | Key | Default | Feature |
 |---|---|---|
 | `use-tool-fold` | `false` | Fold consecutive tool calls into one line. |
-| `use-progress-line` | `false` | Draw the phase-chain progress line above the prompt. |
 | `use-edit-summary` | `false` | Draw `Edit` and `Write` calls as one summary line. |
 
 ```json
@@ -25,7 +24,6 @@ Every feature is off until you turn it on. Switches live under `ccChatTweaks.cha
   "ccChatTweaks": {
     "chat": {
       "use-tool-fold": true,
-      "use-progress-line": true,
       "use-edit-summary": false
     }
   }
@@ -42,7 +40,7 @@ Every feature is off until you turn it on. Switches live under `ccChatTweaks.cha
 /tweaks-doctor
 ```
 
-Prints each switch with its value and the source it came from, the fold counters, the progress-line state and a list of checks. Add `--apply` to write the missing switches (see above).
+Prints each switch with its value and the source it came from, the fold counters, the environment and a list of checks. Add `--apply` to write the missing switches (see above).
 
 ## Features
 
@@ -71,20 +69,6 @@ An `Edit` or `Write` call that is not folded draws as one line. The diff body is
 ● Write(notes.md) +12
 ```
 
-### `use-progress-line`
-
-Above the prompt: `Phase n/N · Story n/N · title`. It reads the chain state files that the [let-me-go-home](https://github.com/BlueCross7262/let-me-go-home) plugin writes under `.lmgh/state/sessions`. Without that plugin the line stays empty.
-
-## Options
-
-Set at install time or with `claude plugin configure cc-chat-tweaks`.
-
-| Option | Meaning |
-|---|---|
-| `projectRoot` | The repository that runs the phase chain. Empty uses the session's own root. |
-| `sessionId` | The session id that owns the chain state. Empty uses the session's own id. |
-| `debugFile` | Absolute path of a JSON file that receives the shown progress line and read failures. Empty writes nothing. |
-
 ## Develop
 
 ```
@@ -97,15 +81,14 @@ The sources are TypeScript loaded as is, with no build step.
 
 | File | Role |
 |---|---|
-| `hooks/register.tsx` | The hooks module: the three features. `$` cannot cross an import, so every function that uses it lives here. |
+| `hooks/register.tsx` | The hooks module: the features and the doctor command. `$` cannot cross an import, so every function that uses it lives here. |
 | `hooks/settings.ts` | The `use-*` switches, their defaults, their lookup across settings sources and the missing-switch merge. |
 | `hooks/doctor.ts` | Pure report building for `/tweaks-doctor`. |
 | `hooks/runs.ts` | Pure run bookkeeping: boundaries, pending state, change totals. |
 | `hooks/edit-counts.ts` | Pure line counting and unified-diff building. |
-| `hooks/line.ts` | Pure progress-line building. |
 | `types/index.d.ts` | The `$.state` contract. |
 
-To add a feature, add its key and default to `FLAG_DEFAULTS` in `hooks/settings.ts`, add it to `flagsOf`, and read the flag in the hook that draws it.
+To add a feature, add its key and default to `FLAG_DEFAULTS` and to `flagsOf` in `hooks/settings.ts`, and read the flag in the hook that draws it.
 
 ## License
 

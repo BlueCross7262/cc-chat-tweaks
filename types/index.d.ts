@@ -1,5 +1,3 @@
-export type ProgressLine = string | null
-
 export type Call = { id: string; name: string }
 
 export type Run = { id: string; calls: Call[]; isClosed: boolean }
@@ -10,6 +8,6 @@ export type RunState = { runs: Run[]; failed: string[]; done: string[]; changes:
 
 declare module 'claude-code' {
   interface PluginState {
-    'cc-chat-tweaks': { line: ProgressLine; expanded: string[]; runs: RunState; blink: boolean }
+    'cc-chat-tweaks': { expanded: string[]; runs: RunState; blink: boolean }
   }
 }

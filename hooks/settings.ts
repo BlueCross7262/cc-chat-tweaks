@@ -4,7 +4,6 @@ export const SETTINGS_SOURCES = ['policy', 'flag', 'local', 'project', 'user'] a
 
 export const FLAG_DEFAULTS = {
   'use-tool-fold': false,
-  'use-progress-line': false,
   'use-edit-summary': false,
 } as const
 
@@ -76,6 +75,5 @@ const hasFlag = (source: unknown, key: FlagKey): boolean => {
 
 export const flagsOf = (sources: readonly unknown[]): Flags => ({
   'use-tool-fold': isFlagOn(sources, 'use-tool-fold'),
-  'use-progress-line': isFlagOn(sources, 'use-progress-line'),
   'use-edit-summary': isFlagOn(sources, 'use-edit-summary'),
 })

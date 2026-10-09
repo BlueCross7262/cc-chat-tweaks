@@ -17,7 +17,6 @@ import {
   verbOf,
   type EditOutput,
 } from './edit-counts'
-import { buildLine, chainPathOf, pickPointer } from './line'
 import {
   applyRow,
   changeOf,
@@ -42,14 +41,9 @@ import {
 } from './settings'
 
 const DOCTOR_COMMAND = 'tweaks-doctor'
-const STATE_DIR = '.lmgh'
 const ROW_MARK = '● '
-const INTERVAL_MS = 2000
 const BLINK_MS = 600
-const SCAN_EVERY_TICKS = 15
-const POINTER_FILE = 'phase-chain-state.json'
 
-const lineAtom = atom({ plugin: 'cc-chat-tweaks', key: 'line' } as const, null)
 const expandedAtom = atom({ plugin: 'cc-chat-tweaks', key: 'expanded' } as const, [])
 const runsAtom = atom({ plugin: 'cc-chat-tweaks', key: 'runs' } as const, EMPTY_RUN_STATE)
 const blinkAtom = atom({ plugin: 'cc-chat-tweaks', key: 'blink' } as const, true)
@@ -63,133 +57,11 @@ type SettingsReader = {
 const readFlags = async ($: SettingsReader): Promise<Flags> =>
   flagsOf(await Promise.all(SETTINGS_SOURCES.map(source => $.settings.read({ source }))))
 
-const textOf = (value: unknown): string =>
-  typeof value === 'string' ? value.trim() : ''
-
 const messageOf = (error: unknown): string =>
   error instanceof Error ? error.message : String(error)
 
-export const register: Register = (on, options) => {
+export const register: Register = on => {
   on('session.start', async ($, e, next) => {
-    const debugFile = textOf(options.debugFile)
-    const failures: string[] = []
-    let shown: string | undefined
-    let written = ''
-
-    const readJson = async (path: string): Promise<unknown> => {
-      try {
-        return JSON.parse(await $.fs.read(path))
-      } catch (error) {
-        failures.push(`${path}: ${messageOf(error)}`)
-
-        return null
-      }
-    }
-
-    let cachedName = ''
-    let ticks = 0
-
-    const quietJson = async (path: string): Promise<unknown> => {
-      try {
-        return JSON.parse(await $.fs.read(path))
-      } catch {
-        return null
-      }
-    }
-
-    const findPointer = async (sessionsDir: string, root: string): Promise<unknown> => {
-      if (cachedName !== '') {
-        const cached = await quietJson(`${sessionsDir}/${cachedName}/${POINTER_FILE}`)
-
-        if (pickPointer([cached], root) !== null) {
-          return cached
-        }
-
-        cachedName = ''
-      }
-
-      const isScanTick = ticks % SCAN_EVERY_TICKS === 0
-
-      ticks += 1
-
-      if (!isScanTick) {
-        return null
-      }
-
-      let names: string[] = []
-
-      try {
-        const entries = await $.fs.list(sessionsDir)
-
-        names = entries.filter(entry => entry.kind === 'dir').map(entry => entry.name)
-      } catch {
-        return null
-      }
-
-      const pointers = await Promise.all(
-        names.map(name => quietJson(`${sessionsDir}/${name}/${POINTER_FILE}`)),
-      )
-      const picked = pickPointer(pointers, root)
-      const index = pointers.indexOf(picked)
-
-      cachedName = index >= 0 ? (names[index] ?? '') : ''
-
-      return picked
-    }
-
-    const tick = async (): Promise<void> => {
-      let line: string | undefined
-      let root = ''
-      let sessionId = ''
-
-      failures.length = 0
-
-      try {
-        root = textOf(options.projectRoot) || (await $.session.root())
-        sessionId = textOf(options.sessionId) || (await $.session.id())
-        const sessionsDir = `${root.replace(/\\/g, '/')}/${STATE_DIR}/state/sessions`
-        const dir = `${sessionsDir}/${sessionId}`
-        let pointer = await readJson(`${dir}/${POINTER_FILE}`)
-
-        if (chainPathOf(pointer) === null) {
-          pointer = await findPointer(sessionsDir, root)
-        }
-        const chainPath = chainPathOf(pointer)
-        const chain = chainPath === null ? null : await readJson(chainPath)
-        const prd = await readJson(`${dir}/prd.json`)
-        const ralph = await readJson(`${dir}/ralph-state.json`)
-
-        line = buildLine({ pointer, chain, prd, ralph })
-      } catch (error) {
-        failures.push(messageOf(error))
-        line = undefined
-      }
-
-      if (line !== shown) {
-        shown = line
-        await update($, lineAtom, () => line ?? null)
-      }
-
-      if (debugFile !== '') {
-        const snapshot = JSON.stringify({
-          line: line ?? null,
-          root,
-          sessionId,
-          failures,
-        })
-
-        if (snapshot !== written) {
-          written = snapshot
-
-          try {
-            await $.fs.write(debugFile, snapshot)
-          } catch {
-            written = ''
-          }
-        }
-      }
-    }
-
     const blinkTick = async (): Promise<void> => {
       try {
         const isPending = hasPending(await read($, runsAtom))
@@ -205,45 +77,22 @@ export const register: Register = (on, options) => {
       }
     }
 
-    try {
-      await $.command.register({
+    await $.command
+      .register({
         name: DOCTOR_COMMAND,
         description: 'Check cc-chat-tweaks settings and state; --apply adds missing switches to settings.json',
         argumentHint: '[--apply]',
       })
-    } catch {
-      shown = undefined
-    }
+      .catch(() => undefined)
 
-    $.clock.every(INTERVAL_MS, tick)
     $.clock.every(BLINK_MS, blinkTick)
-    void tick()
 
     return next(e)
   })
 
-  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
-    const text = await read($, lineAtom)
-
-    if (e.props.hasSurvey || text === null || !(await readFlags($))['use-progress-line']) {
-      return next(e)
-    }
-
-    const { Box, Text } = $.ui.resolve(e)
-
-    return (
-      <Box>
-        <Text dimColor>{'❯❯ '}</Text>
-        <Text bold color="cyan">
-          {text}
-        </Text>
-      </Box>
-    )
-  })
-
   on('command.run', { command: DOCTOR_COMMAND }, async ($, e) => {
     const applied = e.args.trim() === '--apply' ? await applyDefaults($) : null
-    const report = formatReport(await collectDoctorInput($, options))
+    const report = formatReport(await collectDoctorInput($))
 
     return { text: applied === null ? report : `${applied}\n\n${report}` }
   })
@@ -339,8 +188,6 @@ export const register: Register = (on, options) => {
   })
 }
 
-type PluginOptions = { projectRoot?: unknown; sessionId?: unknown; debugFile?: unknown }
-
 const settingsPathOf = async ($: EngineInterface): Promise<string> => {
   const home = (await $.env.get('USERPROFILE')) ?? (await $.env.get('HOME')) ?? ''
 
@@ -382,22 +229,11 @@ const applyDefaults = async ($: EngineInterface): Promise<string> => {
   return `Added to ${path}: ${added.map(key => `${key}=${String(FLAG_DEFAULTS[key])}`).join(', ')}.`
 }
 
-const collectDoctorInput = async ($: EngineInterface, options: PluginOptions): Promise<DoctorInput> => {
+const collectDoctorInput = async ($: EngineInterface): Promise<DoctorInput> => {
   const named = await Promise.all(
     SETTINGS_SOURCES.map(async source => [source, await $.settings.read({ source })] as const),
   )
   const userSettings = named.find(([source]) => source === 'user')?.[1]
-  const root = textOf(options.projectRoot) || (await $.session.root())
-  const sessionId = textOf(options.sessionId) || (await $.session.id())
-  const pointerPath = `${root.replace(/\\/g, '/')}/${STATE_DIR}/state/sessions/${sessionId}/${POINTER_FILE}`
-  let pointerFound = true
-
-  try {
-    await $.fs.read(pointerPath)
-  } catch {
-    pointerFound = false
-  }
-
   const state = normalizeState(await read($, runsAtom))
   const surface = await $.session.surface().then(String, () => 'unknown')
   const version = await $.session.version().then(String, () => 'unknown')
@@ -411,13 +247,6 @@ const collectDoctorInput = async ($: EngineInterface, options: PluginOptions): P
       pending: hasPending(state),
       failed: state.failed.length,
       changes: state.changes.length,
-    },
-    line: {
-      root,
-      sessionId,
-      pointerFound,
-      shown: await read($, lineAtom),
-      debugFile: textOf(options.debugFile),
     },
     env: { surface, version },
   }
