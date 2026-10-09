@@ -30,17 +30,15 @@ Every feature is off until you turn it on. Switches live under `ccChatTweaks.cha
 }
 ```
 
-### Add the switches to settings.json
-
-`/tweaks-doctor --apply` writes every missing switch into your user `settings.json` with its default, `false`, so you can see and flip them. It never changes a value that is already there and it leaves a file that is not plain JSON alone.
-
 ## Doctor
 
 ```
 /tweaks-doctor
 ```
 
-Prints each switch with its value and the source it came from, the fold counters, the environment and a list of checks. Add `--apply` to write the missing switches (see above).
+First it writes every switch your user `settings.json` lacks, with its default, `false`, so you can see and flip them. It never changes a value that is already there. It leaves a file that is not plain JSON alone and says so.
+
+Then it prints each switch with its value and the source it came from, the fold counters, the environment and a list of checks.
 
 ## Features
 

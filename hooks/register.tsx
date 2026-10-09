@@ -80,8 +80,7 @@ export const register: Register = on => {
     await $.command
       .register({
         name: DOCTOR_COMMAND,
-        description: 'Check cc-chat-tweaks settings and state; --apply adds missing switches to settings.json',
-        argumentHint: '[--apply]',
+        description: 'Check cc-chat-tweaks settings and state, and add missing switches to settings.json as false',
       })
       .catch(() => undefined)
 
@@ -90,11 +89,11 @@ export const register: Register = on => {
     return next(e)
   })
 
-  on('command.run', { command: DOCTOR_COMMAND }, async ($, e) => {
-    const applied = e.args.trim() === '--apply' ? await applyDefaults($) : null
+  on('command.run', { command: DOCTOR_COMMAND }, async $ => {
+    const applied = await applyDefaults($)
     const report = formatReport(await collectDoctorInput($))
 
-    return { text: applied === null ? report : `${applied}\n\n${report}` }
+    return { text: `${applied}\n\n${report}` }
   })
 
   on('session.append', async ($, e, next) => {
@@ -233,15 +232,12 @@ const collectDoctorInput = async ($: EngineInterface): Promise<DoctorInput> => {
   const named = await Promise.all(
     SETTINGS_SOURCES.map(async source => [source, await $.settings.read({ source })] as const),
   )
-  const userSettings = named.find(([source]) => source === 'user')?.[1]
   const state = normalizeState(await read($, runsAtom))
   const surface = await $.session.surface().then(String, () => 'unknown')
-  const version = await $.session.version().then(String, () => 'unknown')
+  const version = await $.session.version().then(info => info.version, () => 'unknown')
 
   return {
     flags: describeFlags(named),
-    missing: withMissingDefaults(userSettings).added,
-    settingsPath: await settingsPathOf($),
     runs: {
       tracked: state.runs.length,
       pending: hasPending(state),

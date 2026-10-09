@@ -7,8 +7,6 @@ const input = (patch: Partial<DoctorInput> = {}): DoctorInput => ({
     { key: 'use-tool-fold', value: true, from: 'user' },
     { key: 'use-edit-summary', value: false, from: 'default' },
   ],
-  missing: [],
-  settingsPath: 'C:/Users/x/.claude/settings.json',
   runs: { tracked: 3, pending: false, failed: 0, changes: 5 },
   env: { surface: 'terminal', version: '2.1.0' },
   ...patch,
@@ -31,13 +29,6 @@ test('prints the fold counters and the environment', () => {
 
 test('reports no problem when everything is in place', () => {
   expect(checksOf(input())).toEqual(['[ok] No problem found.'])
-})
-
-test('tells how to add switches that settings.json lacks', () => {
-  const [first] = checksOf(input({ missing: ['use-edit-summary'] }))
-
-  expect(first).toContain('lacks 1 switch(es): use-edit-summary')
-  expect(first).toContain('/tweaks-doctor --apply')
 })
 
 test('warns when folding is on and no run has been tracked', () => {

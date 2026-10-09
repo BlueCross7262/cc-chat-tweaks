@@ -8,8 +8,6 @@ export type FlagReport = {
 
 export type DoctorInput = {
   flags: FlagReport[]
-  missing: FlagKey[]
-  settingsPath: string
   runs: {
     tracked: number
     pending: boolean
@@ -30,12 +28,6 @@ const isOn = (input: DoctorInput, key: FlagKey): boolean =>
 
 export const checksOf = (input: DoctorInput): string[] => {
   const checks: string[] = []
-
-  if (input.missing.length > 0) {
-    checks.push(
-      `[warn] ${input.settingsPath} lacks ${input.missing.length} switch(es): ${input.missing.join(', ')}. Run /tweaks-doctor --apply to add them with their default (false).`,
-    )
-  }
 
   if (isOn(input, 'use-tool-fold') && input.runs.tracked === 0) {
     checks.push(
