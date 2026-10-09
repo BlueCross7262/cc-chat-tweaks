@@ -1,0 +1,28 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "cc-chat-tweaks",
+  "description": "Claude Code chat display tweaks: folded tool-call rows, Edit/Write summaries and a phase-chain progress line",
+  "owner": {
+    "name": "BlueCross7262"
+  },
+  "plugins": [
+    {
+      "name": "cc-chat-tweaks",
+      "description": "Chat display tweaks for Claude Code: folded tool-call rows, an Edit/Write summary row and a phase-chain progress line, each switched by a use-* setting.",
+      "version": "0.0.1",
+      "author": {
+        "name": "BlueCross7262"
+      },
+      "source": "./",
+      "category": "productivity",
+      "tags": [
+        "mod",
+        "chat",
+        "ui",
+        "tool-calls",
+        "progress-line"
+      ]
+    }
+  ],
+  "version": "0.0.1"
+}

@@ -1,0 +1,5 @@
+node_modules/
+.serena/
+.claude/settings.local.json
+.claude-plugin/types/
+tsconfig.json

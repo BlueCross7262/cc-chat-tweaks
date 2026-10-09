@@ -1,0 +1,39 @@
+{
+  "name": "cc-chat-tweaks",
+  "version": "0.0.1",
+  "description": "Chat display tweaks for Claude Code: folded tool-call rows, an Edit/Write summary row and a phase-chain progress line, each switched by a use-* setting.",
+  "author": {
+    "name": "BlueCross7262"
+  },
+  "license": "MIT",
+  "repository": "https://github.com/BlueCross7262/cc-chat-tweaks",
+  "keywords": [
+    "claude-code",
+    "mod",
+    "chat",
+    "ui",
+    "tool-calls",
+    "progress-line"
+  ],
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "projectRoot": {
+      "type": "string",
+      "title": "Project root",
+      "description": "The repository that runs the phase chain, shown on the line above the prompt. Empty uses this session's own project root.",
+      "default": ""
+    },
+    "sessionId": {
+      "type": "string",
+      "title": "Chain session id",
+      "description": "The session id that owns the chain state under .lmgh/state/sessions. Empty uses this session's own id.",
+      "default": ""
+    },
+    "debugFile": {
+      "type": "string",
+      "title": "Debug file",
+      "description": "Absolute path of a JSON file that receives the shown line and any read failures whenever they change. Empty writes nothing.",
+      "default": ""
+    }
+  }
+}
