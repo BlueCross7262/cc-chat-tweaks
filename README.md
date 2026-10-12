@@ -47,13 +47,13 @@ Then it prints each switch with its value and the source it came from, the fold 
 Consecutive tool calls with no assistant message between them fold into one line:
 
 ```
-● Calling Read, Edit, replace_content 5 times ... +9 -3
-● Called Read, Edit, replace_content 7 times ... +13 -5
+● Calling 5 times Read, Edit, replace_content ... +9 -3
+● Called 7 times Read, Edit, replace_content ... +13 -5
 ```
 
 - `Calling` with a blinking blue `●` while a call has no result yet. `Called` with a green `●` once every call has finished. The colours follow your theme.
 - The `+N -M` total counts the lines changed by `Edit`, `Write` and Serena's `replace_content`, `insert_after_symbol`, `insert_before_symbol` and `replace_symbol_body`. `Edit` and `Write` read the exact diff. The Serena figures come from the call arguments and are approximate: `replace_symbol_body` counts added lines only.
-- Every run folds, even a single call: `● Called Edit 1 time ... +3 -1`. A failed call keeps its own row, so an error never hides behind the summary.
+- Every run folds, even a single call: `● Called 1 time Edit ... +3 -1`. A failed call keeps its own row, so an error never hides behind the summary.
 - A call row is not drawn while the model is still writing the call. The folded line appears when the call is stored. A call that is in no run, such as one made by a subagent, stays hidden until it has a result.
 - Calls made by subagents are not folded.
 - `AskUserQuestion` and `Skill` are never folded. Each keeps its own row and ends the run before it.

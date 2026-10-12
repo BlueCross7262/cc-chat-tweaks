@@ -121,7 +121,7 @@ test('a lone call folds into a header of its own', () => {
   const view = viewOf(state, ['a'])
 
   expect(view.showRow).toBe(false)
-  expect(view.header && headerText(view.header)).toBe('Calling Edit 1 time')
+  expect(view.header && headerText(view.header)).toBe('Calling 1 time Edit')
 })
 
 test('a lone failed call keeps its ordinary row', () => {
@@ -231,6 +231,14 @@ test('lists the tools most used first and cuts the list', () => {
   expect(namesOf(calls)).toBe('Read, Edit, Bash, Grep, …')
 })
 
+test('a trailing comma after the last tool name is dropped', () => {
+  const named = (...names: string[]) => names.map((name, index) => ({ id: String(index), name }))
+
+  expect(namesOf(named('Read', 'Edit,'))).toBe('Read, Edit')
+  expect(namesOf(named('Read', 'Edit', ' , '))).toBe('Read, Edit')
+  expect(namesOf(named('Read', ''))).toBe('Read')
+})
+
 const resultFor = (...ids: string[]): AppendedRow => ({
   door: 'tool-result',
   content: ids.map(id => ({ type: 'tool_result', tool_use_id: id })),
@@ -244,10 +252,10 @@ test('says Calling while a call has no result and Called once every call has one
     return header && headerText(header)
   }
 
-  expect(textOf(calls)).toBe('Calling Read, Edit 3 times')
-  expect(textOf(feed([resultFor('a', 'b', 'c')], calls))).toBe('Calling Read, Edit 3 times')
-  expect(textOf(closeOpenRun(feed([resultFor('a', 'b')], calls)))).toBe('Calling Read, Edit 3 times')
-  expect(textOf(closeOpenRun(feed([resultFor('a', 'b', 'c')], calls)))).toBe('Called Read, Edit 3 times')
+  expect(textOf(calls)).toBe('Calling 3 times Read, Edit')
+  expect(textOf(feed([resultFor('a', 'b', 'c')], calls))).toBe('Calling 3 times Read, Edit')
+  expect(textOf(closeOpenRun(feed([resultFor('a', 'b')], calls)))).toBe('Calling 3 times Read, Edit')
+  expect(textOf(closeOpenRun(feed([resultFor('a', 'b', 'c')], calls)))).toBe('Called 3 times Read, Edit')
 })
 
 test('a text message closes the run so a finished run reads Called', () => {
@@ -258,7 +266,7 @@ test('a text message closes the run so a finished run reads Called', () => {
   ])
   const header = viewOf(state, ['a']).header
 
-  expect(header && headerText(header)).toBe('Called Read 2 times')
+  expect(header && headerText(header)).toBe('Called 2 times Read')
 })
 
 test('counts only the lines that differ between two texts', () => {

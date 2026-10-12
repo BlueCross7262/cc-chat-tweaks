@@ -280,9 +280,11 @@ const entriesOf = (calls: readonly Call[]): [string, number][] => {
   const counts = new Map<string, number>()
 
   for (const call of calls) {
-    const label = labelOf(call.name)
+    const label = labelOf(call.name).trim()
 
-    counts.set(label, (counts.get(label) ?? 0) + 1)
+    if (label !== '') {
+      counts.set(label, (counts.get(label) ?? 0) + 1)
+    }
   }
 
   return [...counts.entries()].sort((left, right) => right[1] - left[1])
@@ -292,8 +294,10 @@ export const namesOf = (calls: readonly Call[]): string => {
   const entries = entriesOf(calls)
   const shown = entries.slice(0, TALLY_SHOWN).map(([label]) => label)
 
-  return entries.length > TALLY_SHOWN ? `${shown.join(', ')}, …` : shown.join(', ')
+  const names = entries.length > TALLY_SHOWN ? `${shown.join(', ')}, …` : shown.join(', ')
+
+  return names.replace(/[,\s]+$/, '')
 }
 
 export const headerText = (header: Header): string =>
-  `${header.isPending ? 'Calling' : 'Called'} ${namesOf(header.calls)} ${header.count} ${header.count === 1 ? 'time' : 'times'}`
+  `${header.isPending ? 'Calling' : 'Called'} ${header.count} ${header.count === 1 ? 'time' : 'times'} ${namesOf(header.calls)}`
