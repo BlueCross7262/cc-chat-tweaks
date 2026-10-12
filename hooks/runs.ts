@@ -292,7 +292,10 @@ const entriesOf = (calls: readonly Call[]): [string, number][] => {
 
 export const namesOf = (calls: readonly Call[]): string => {
   const entries = entriesOf(calls)
-  const shown = entries.slice(0, TALLY_SHOWN).map(([label]) => label)
+  const shown = entries
+    .slice(0, TALLY_SHOWN)
+    .map(([label]) => label)
+    .sort((left, right) => (left < right ? -1 : left > right ? 1 : 0))
 
   const names = entries.length > TALLY_SHOWN ? `${shown.join(', ')}, …` : shown.join(', ')
 

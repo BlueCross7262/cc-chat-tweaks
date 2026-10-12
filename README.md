@@ -47,10 +47,11 @@ Then it prints each switch with its value and the source it came from, the fold 
 Consecutive tool calls with no assistant message between them fold into one line:
 
 ```
-● Calling 5 times Read, Edit, replace_content ... +9 -3
-● Called 7 times Read, Edit, replace_content ... +13 -5
+● Calling 5 times Edit, Read, replace_content ... +9 -3
+● Called 7 times Edit, Read, replace_content ... +13 -5
 ```
 
+- Tool names sort with capital letters first, then lowercase, each from a to z. The line shows the 4 most used tools and ends with `…` when there are more.
 - `Calling` with a blinking blue `●` while a call has no result yet. `Called` with a green `●` once every call has finished. The colours follow your theme.
 - The `+N -M` total counts the lines changed by `Edit`, `Write` and Serena's `replace_content`, `insert_after_symbol`, `insert_before_symbol` and `replace_symbol_body`. `Edit` and `Write` read the exact diff. The Serena figures come from the call arguments and are approximate: `replace_symbol_body` counts added lines only.
 - Every run folds, even a single call: `● Called 1 time Edit ... +3 -1`. A failed call keeps its own row, so an error never hides behind the summary.

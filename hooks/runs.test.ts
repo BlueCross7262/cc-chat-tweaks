@@ -222,20 +222,29 @@ test('a main turn ending closes the open run', () => {
   expect(state.runs.map(run => run.calls.map(call => call.id))).toEqual([['a'], ['b']])
 })
 
-test('lists the tools most used first and cuts the list', () => {
+test('keeps the most used tools, cuts the list and sorts the names', () => {
   const calls = ['Read', 'Read', 'Edit', 'Bash', 'Grep', 'Glob', 'Write'].map((name, index) => ({
     id: String(index),
     name,
   }))
 
-  expect(namesOf(calls)).toBe('Read, Edit, Bash, Grep, …')
+  expect(namesOf(calls)).toBe('Bash, Edit, Grep, Read, …')
+})
+
+test('sorts capitalised names first, then lowercase names, each a to z', () => {
+  const calls = ['replace_content', 'Read', 'mcp__serena__find_symbol', 'Edit'].map((name, index) => ({
+    id: String(index),
+    name,
+  }))
+
+  expect(namesOf(calls)).toBe('Edit, Read, find_symbol, replace_content')
 })
 
 test('a trailing comma after the last tool name is dropped', () => {
   const named = (...names: string[]) => names.map((name, index) => ({ id: String(index), name }))
 
-  expect(namesOf(named('Read', 'Edit,'))).toBe('Read, Edit')
-  expect(namesOf(named('Read', 'Edit', ' , '))).toBe('Read, Edit')
+  expect(namesOf(named('Read', 'zed,'))).toBe('Read, zed')
+  expect(namesOf(named('Read', 'zed', ' '))).toBe('Read, zed')
   expect(namesOf(named('Read', ''))).toBe('Read')
 })
 
@@ -252,10 +261,10 @@ test('says Calling while a call has no result and Called once every call has one
     return header && headerText(header)
   }
 
-  expect(textOf(calls)).toBe('Calling 3 times Read, Edit')
-  expect(textOf(feed([resultFor('a', 'b', 'c')], calls))).toBe('Calling 3 times Read, Edit')
-  expect(textOf(closeOpenRun(feed([resultFor('a', 'b')], calls)))).toBe('Calling 3 times Read, Edit')
-  expect(textOf(closeOpenRun(feed([resultFor('a', 'b', 'c')], calls)))).toBe('Called 3 times Read, Edit')
+  expect(textOf(calls)).toBe('Calling 3 times Edit, Read')
+  expect(textOf(feed([resultFor('a', 'b', 'c')], calls))).toBe('Calling 3 times Edit, Read')
+  expect(textOf(closeOpenRun(feed([resultFor('a', 'b')], calls)))).toBe('Calling 3 times Edit, Read')
+  expect(textOf(closeOpenRun(feed([resultFor('a', 'b', 'c')], calls)))).toBe('Called 3 times Edit, Read')
 })
 
 test('a text message closes the run so a finished run reads Called', () => {
