@@ -30,6 +30,26 @@ test('tool calls without a message between them join one run', () => {
   expect(state.runs[0]?.calls.map(call => call.id)).toEqual(['a', 'b', 'c'])
 })
 
+test('AskUserQuestion joins no run and closes the open one', () => {
+  const state = feed([response(use('a'), use('q', 'AskUserQuestion'), use('b'))])
+
+  expect(state.runs.map(run => run.calls.map(call => call.id))).toEqual([['a'], ['b']])
+  expect(viewOf(state, ['q'])).toEqual({ header: null, showRow: true })
+})
+
+test('Skill joins no run and closes the open one', () => {
+  const state = feed([response(use('a'), use('s', 'Skill'), use('b'))])
+
+  expect(state.runs.map(run => run.calls.map(call => call.id))).toEqual([['a'], ['b']])
+  expect(viewOf(state, ['s'])).toEqual({ header: null, showRow: true })
+})
+
+test('AskUserQuestion alone leaves the runs untouched', () => {
+  const state = feed([response(use('q', 'AskUserQuestion'))])
+
+  expect(state).toBe(EMPTY_RUN_STATE)
+})
+
 test('a text message closes the run and the next call starts another', () => {
   const state = feed([
     response(use('a'), use('b')),

@@ -3,6 +3,7 @@ import { countOutput, type EditOutput } from './edit-counts'
 
 export const FOLD_MIN_CALLS = 1
 
+const UNFOLDED_TOOLS = ['AskUserQuestion', 'Skill']
 const MAX_RUNS = 60
 const MAX_IDS = 400
 const TALLY_SHOWN = 4
@@ -145,7 +146,9 @@ const withResponse = (state: RunState, blocks: Block[]): RunState => {
   let runs = state.runs
 
   for (const block of blocks) {
-    if (block.type === 'tool_use' && typeof block.id === 'string') {
+    if (block.type === 'tool_use' && UNFOLDED_TOOLS.includes(block.name ?? '')) {
+      runs = closeLast(runs)
+    } else if (block.type === 'tool_use' && typeof block.id === 'string') {
       runs = addCall(runs, { id: block.id, name: block.name ?? 'tool' })
     } else if (block.type === 'text' && (block.text ?? '').trim() !== '') {
       runs = closeLast(runs)

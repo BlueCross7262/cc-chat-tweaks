@@ -55,6 +55,7 @@ Consecutive tool calls with no assistant message between them fold into one line
 - The `+N -M` total counts the lines changed by `Edit`, `Write` and Serena's `replace_content`, `insert_after_symbol`, `insert_before_symbol` and `replace_symbol_body`. `Edit` and `Write` read the exact diff. The Serena figures come from the call arguments and are approximate: `replace_symbol_body` counts added lines only.
 - Every run folds, even a single call: `● Called Edit 1 time ... +3 -1`. A failed call keeps its own row, so an error never hides behind the summary.
 - Calls made by subagents are not folded.
+- `AskUserQuestion` and `Skill` are never folded. Each keeps its own row and ends the run before it.
 - Rows inside a folded line cannot be opened from the line. Use the full transcript (`ctrl+o`).
 - Clicking a folded line for `Grep`, MCP tools and other calls the engine groups can still select the row (a blank line below, an inverted background). The engine draws that, and a plugin cannot turn it off.
 
