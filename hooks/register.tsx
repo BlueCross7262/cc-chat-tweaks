@@ -24,6 +24,7 @@ import {
   EMPTY_RUN_STATE,
   hasPending,
   headerText,
+  isStreamingRow,
   normalizeState,
   recordChange,
   SHOW_ROW,
@@ -148,6 +149,13 @@ export const register: Register = on => {
 
   on('ui.render', { component: 'ToolUse' }, async ($, e, next) => {
     const flags = await readFlags($)
+
+    if (flags['use-tool-fold'] && isStreamingRow(await read($, runsAtom), e.props)) {
+      const { Box } = $.ui.resolve(e)
+
+      return <Box key={`streaming-${e.props.tool_use_id}`} />
+    }
+
     const view = flags['use-tool-fold']
       ? viewOf(await read($, runsAtom), [e.props.tool_use_id])
       : SHOW_ROW

@@ -221,6 +221,21 @@ export const hasPending = (stored: RunState): boolean => {
 
 export const SHOW_ROW: RowView = { header: null, showRow: true }
 
+export type RowProps = {
+  tool: string
+  tool_use_id: string
+  output?: unknown
+  isErrored: boolean
+  isInterrupted: boolean
+}
+
+export const isStreamingRow = (stored: RunState, props: RowProps): boolean =>
+  !UNFOLDED_TOOLS.includes(props.tool) &&
+  props.output === undefined &&
+  !props.isErrored &&
+  !props.isInterrupted &&
+  !normalizeState(stored).runs.some(run => run.calls.some(call => call.id === props.tool_use_id))
+
 export const viewOf = (stored: RunState, ids: readonly string[]): RowView => {
   const state = normalizeState(stored)
   const run = state.runs.find(item => item.calls.some(call => call.id === ids[0]))

@@ -9,11 +9,13 @@ import {
   diffCounts,
   EMPTY_RUN_STATE,
   headerText,
+  isStreamingRow,
   labelOf,
   namesOf,
   recordChange,
   viewOf,
   type AppendedRow,
+  type RowProps,
 } from './runs'
 
 const response = (...blocks: unknown[]): AppendedRow => ({ door: 'response', content: blocks })
@@ -129,6 +131,34 @@ test('a lone failed call keeps its ordinary row', () => {
   })
 
   expect(viewOf(state, ['a'])).toEqual({ header: null, showRow: true })
+})
+
+const rowOf = (id: string, over: Partial<RowProps> = {}): RowProps => ({
+  tool: 'Read',
+  tool_use_id: id,
+  output: undefined,
+  isErrored: false,
+  isInterrupted: false,
+  ...over,
+})
+
+test('a row drawn before its response is stored is hidden', () => {
+  expect(isStreamingRow(EMPTY_RUN_STATE, rowOf('a'))).toBe(true)
+})
+
+test('a row whose call is already in a run is not hidden', () => {
+  expect(isStreamingRow(feed([response(use('a'))]), rowOf('a'))).toBe(false)
+})
+
+test('a row with a result, an error or an interrupt is not hidden', () => {
+  expect(isStreamingRow(EMPTY_RUN_STATE, rowOf('a', { output: {} }))).toBe(false)
+  expect(isStreamingRow(EMPTY_RUN_STATE, rowOf('a', { isErrored: true }))).toBe(false)
+  expect(isStreamingRow(EMPTY_RUN_STATE, rowOf('a', { isInterrupted: true }))).toBe(false)
+})
+
+test('AskUserQuestion and Skill rows are never hidden', () => {
+  expect(isStreamingRow(EMPTY_RUN_STATE, rowOf('q', { tool: 'AskUserQuestion' }))).toBe(false)
+  expect(isStreamingRow(EMPTY_RUN_STATE, rowOf('s', { tool: 'Skill' }))).toBe(false)
 })
 
 test('a call that is in no run stays an ordinary row', () => {
