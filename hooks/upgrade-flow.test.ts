@@ -1,7 +1,8 @@
 import type { On } from 'claude-code'
 import { expect, mock, test, type Engine } from 'claude-code/testing'
 
-const PLUGIN = 'prompt-upgrade'
+const PLUGIN = 'cc-chat-tweaks'
+const PANE = 'prompt-upgrade'
 const LONG = 'please summarise the attached design document for me'
 const USAGE = { input_tokens: 1, output_tokens: 1 }
 
@@ -30,7 +31,7 @@ const world = (
   })
   const group = { 'use-prompt-upgrade': options.enabled ?? true, 'use-questions': options.useQuestions ?? true }
   mock.store(on, {})
-  on('settings.read', (_$, e) => ({ value: (e as { source?: string }).source === 'user' ? { promptUpgrade: { chat: group } } : {} }) as never)
+  on('settings.read', (_$, e) => ({ value: (e as { source?: string }).source === 'user' ? { ccChatTweaks: { chat: group } } : {} }) as never)
   on('session.surfaces', () => ({ value: ['terminal'] }) as never)
   on('ui.open', () => ({ value: options.isPlaced === false ? { isPlaced: false, reason: 'narrow' } : { isPlaced: true } }) as never)
   on('ui.close', (_$, e) => {
@@ -86,13 +87,13 @@ test('a long composer prompt is dropped, upgraded and resubmitted once', async (
   expect(result).toMatchObject({ drop: expect.any(String) })
   expect(s.entered).toEqual([])
 
-  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'Pane', props: {} as never, requestId: PLUGIN })
-  await $.ui.select({ plugin: PLUGIN, key: 'q0', value: 'bullets', requestId: PLUGIN })
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'Pane', props: {} as never, requestId: PANE })
+  await $.ui.select({ plugin: PLUGIN, key: 'q0', value: 'bullets', requestId: PANE })
   expect((await ui.find({ type: 'Markdown' }))?.text).toContain('Summarise the design document as bullets.')
 
-  await $.ui.press({ plugin: PLUGIN, key: 'Send this prompt', requestId: PLUGIN })
+  await $.ui.press({ plugin: PLUGIN, key: 'Send this prompt', requestId: PANE })
   expect(s.entered).toEqual(['Summarise the design document as bullets.'])
-  expect(s.closed).toContain(PLUGIN)
+  expect(s.closed).toContain(PANE)
 
   const again = await submit($, 'Summarise the design document as bullets.', { origin: { kind: 'plugin', name: PLUGIN, asUser: true } })
   expect(again).toMatchObject({ text: 'Summarise the design document as bullets.' })
@@ -102,9 +103,9 @@ test('no questions goes straight to the rewrite and Send original sends the orig
   const s = world($, on, { answers: [JSON.stringify({ questions: [] }), 'A rewritten prompt.'] })
   await submit($, LONG)
   await settle(s)
-  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'Pane', props: {} as never, requestId: PLUGIN })
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'Pane', props: {} as never, requestId: PANE })
   expect((await ui.find({ type: 'Markdown' }))?.text).toContain('A rewritten prompt.')
-  await $.ui.press({ plugin: PLUGIN, key: 'Send original', requestId: PLUGIN })
+  await $.ui.press({ plugin: PLUGIN, key: 'Send original', requestId: PANE })
   expect(s.entered).toEqual([LONG])
 })
 
@@ -112,10 +113,10 @@ test('a Haiku failure falls back to the original prompt', async ($, on) => {
   const s = world($, on, { answers: [null, null] })
   await submit($, LONG)
   await settle(s)
-  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'Pane', props: {} as never, requestId: PLUGIN })
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'Pane', props: {} as never, requestId: PANE })
   expect((await ui.find({ type: 'Markdown' }))?.text).toBe(LONG)
   expect(await ui.find({ type: 'Text', text: /did not answer/ })).toBeDefined()
-  await $.ui.press({ plugin: PLUGIN, key: 'Send this prompt', requestId: PLUGIN })
+  await $.ui.press({ plugin: PLUGIN, key: 'Send this prompt', requestId: PANE })
   expect(s.entered).toEqual([LONG])
 })
 
@@ -123,8 +124,8 @@ test('Cancel puts the original back in the prompt box and enters nothing', async
   const s = world($, on, { answers: [JSON.stringify({ questions: [{ q: 'Which?', options: ['a', 'b'] }] })] })
   await submit($, LONG)
   await settle(s)
-  await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'Pane', props: {} as never, requestId: PLUGIN })
-  await $.ui.press({ plugin: PLUGIN, key: 'Cancel', requestId: PLUGIN })
+  await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'Pane', props: {} as never, requestId: PANE })
+  await $.ui.press({ plugin: PLUGIN, key: 'Cancel', requestId: PANE })
   expect(s.filled).toEqual([LONG])
   expect(s.entered).toEqual([])
 })
@@ -155,14 +156,14 @@ test('a second prompt while the pane is open passes through', async ($, on) => {
 const QUESTION = JSON.stringify({ questions: [{ q: 'Which?', options: ['a', 'b'] }] })
 
 const mountPane = ($: Engine) =>
-  $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'Pane', props: {} as never, requestId: PLUGIN })
+  $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'Pane', props: {} as never, requestId: PANE })
 
 test('Skip the rest upgrades without answers', async ($, on) => {
   const s = world($, on, { answers: [QUESTION, 'Upgraded without answers.'] })
   await submit($, LONG)
   await settle(s)
   const ui = await mountPane($)
-  await $.ui.press({ plugin: PLUGIN, key: 'Skip the rest, upgrade now', requestId: PLUGIN })
+  await $.ui.press({ plugin: PLUGIN, key: 'Skip the rest, upgrade now', requestId: PANE })
   expect((await ui.find({ type: 'Markdown' }))?.text).toContain('Upgraded without answers.')
 })
 
@@ -172,9 +173,9 @@ test('a revision replaces the draft and Undo brings the previous one back', asyn
   await settle(s)
   const ui = await mountPane($)
   expect((await ui.find({ type: 'Markdown' }))?.text).toContain('First draft.')
-  await $.ui.input({ plugin: PLUGIN, key: 'revise', text: 'make it shorter', requestId: PLUGIN })
+  await $.ui.input({ plugin: PLUGIN, key: 'revise', text: 'make it shorter', requestId: PANE })
   expect((await ui.find({ type: 'Markdown' }))?.text).toContain('Second draft.')
-  await $.ui.press({ plugin: PLUGIN, key: 'Undo revision', requestId: PLUGIN })
+  await $.ui.press({ plugin: PLUGIN, key: 'Undo revision', requestId: PANE })
   expect((await ui.find({ type: 'Markdown' }))?.text).toContain('First draft.')
 })
 
@@ -183,7 +184,7 @@ test('a failed revision keeps the draft and says so', async ($, on) => {
   await submit($, LONG)
   await settle(s)
   const ui = await mountPane($)
-  await $.ui.input({ plugin: PLUGIN, key: 'revise', text: 'make it shorter', requestId: PLUGIN })
+  await $.ui.input({ plugin: PLUGIN, key: 'revise', text: 'make it shorter', requestId: PANE })
   expect((await ui.find({ type: 'Markdown' }))?.text).toContain('First draft.')
   expect(await ui.find({ type: 'Text', text: /unchanged/ })).toBeDefined()
 })
@@ -193,7 +194,7 @@ test('Edit in prompt box fills the draft and lets the next submit through once',
   await submit($, LONG)
   await settle(s)
   await mountPane($)
-  await $.ui.press({ plugin: PLUGIN, key: 'Edit in prompt box', requestId: PLUGIN })
+  await $.ui.press({ plugin: PLUGIN, key: 'Edit in prompt box', requestId: PANE })
   expect(s.filled).toEqual(['Draft to edit.'])
   const edited = await submit($, 'Draft to edit, then changed by hand.')
   expect(edited).toMatchObject({ text: 'Draft to edit, then changed by hand.' })
@@ -205,7 +206,7 @@ test('a Haiku answer that arrives after Cancel is ignored', async ($, on) => {
   const s = world($, on, { answers: [QUESTION, 'Late draft.'] })
   await submit($, LONG)
   await mountPane($)
-  await $.ui.press({ plugin: PLUGIN, key: 'Cancel', requestId: PLUGIN }).catch(() => undefined)
+  await $.ui.press({ plugin: PLUGIN, key: 'Cancel', requestId: PANE }).catch(() => undefined)
   await settle(s)
   expect(s.entered).toEqual([])
 })
@@ -226,7 +227,7 @@ test('when the prompt box cannot be refilled the full text goes to the clipboard
   await submit($, LONG_TEXT)
   await settle(s)
   await mountPane($)
-  await $.ui.press({ plugin: PLUGIN, key: 'Cancel', requestId: PLUGIN })
+  await $.ui.press({ plugin: PLUGIN, key: 'Cancel', requestId: PANE })
   expect(s.copied).toEqual([LONG_TEXT])
   expect(s.toasts.join('')).not.toContain('...')
 })
@@ -236,7 +237,7 @@ test('when neither refill nor clipboard works the toast carries the whole text',
   await submit($, LONG_TEXT)
   await settle(s)
   await mountPane($)
-  await $.ui.press({ plugin: PLUGIN, key: 'Cancel', requestId: PLUGIN })
+  await $.ui.press({ plugin: PLUGIN, key: 'Cancel', requestId: PANE })
   expect(s.toasts.some(text => text.includes(LONG_TEXT))).toBe(true)
 })
 

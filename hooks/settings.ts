@@ -5,9 +5,15 @@ export const SETTINGS_SOURCES = ['policy', 'flag', 'local', 'project', 'user'] a
 export const FLAG_DEFAULTS = {
   'use-tool-fold': false,
   'use-edit-summary': false,
+  'use-prompt-upgrade': false,
+  'use-questions': true,
 } as const
 
 export type FlagKey = keyof typeof FLAG_DEFAULTS
+
+export const OPTION_KEYS: readonly FlagKey[] = ['use-questions']
+
+export const isFeatureKey = (key: FlagKey): boolean => !OPTION_KEYS.includes(key)
 
 export type Flags = Record<FlagKey, boolean>
 
@@ -76,4 +82,6 @@ const hasFlag = (source: unknown, key: FlagKey): boolean => {
 export const flagsOf = (sources: readonly unknown[]): Flags => ({
   'use-tool-fold': isFlagOn(sources, 'use-tool-fold'),
   'use-edit-summary': isFlagOn(sources, 'use-edit-summary'),
+  'use-prompt-upgrade': isFlagOn(sources, 'use-prompt-upgrade'),
+  'use-questions': isFlagOn(sources, 'use-questions'),
 })

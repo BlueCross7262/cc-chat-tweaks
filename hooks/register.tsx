@@ -32,6 +32,8 @@ import {
   type Header,
 } from './runs'
 import { formatReport, versionText, type DoctorInput } from './doctor'
+import { COMMAND as UPGRADE_COMMAND, COMMAND_HELP, KEY_MIN_LEN, registerUpgrade } from './upgrade'
+import { EMPTY_FLOW, parseMinLen } from './upgrade-logic'
 import {
   describeFlags,
   FLAG_DEFAULTS,
@@ -48,6 +50,7 @@ const BLINK_MS = 600
 const expandedAtom = atom({ plugin: 'cc-chat-tweaks', key: 'expanded' } as const, [])
 const runsAtom = atom({ plugin: 'cc-chat-tweaks', key: 'runs' } as const, EMPTY_RUN_STATE)
 const blinkAtom = atom({ plugin: 'cc-chat-tweaks', key: 'blink' } as const, true)
+const flowAtom = atom({ plugin: 'cc-chat-tweaks', key: 'flow' } as const, EMPTY_FLOW)
 
 type ToolUseInput = RenderInputOf<'ToolUse', RenderSurface>
 
@@ -62,6 +65,8 @@ const messageOf = (error: unknown): string =>
   error instanceof Error ? error.message : String(error)
 
 export const register: Register = on => {
+  registerUpgrade(on)
+
   on('session.start', async ($, e, next) => {
     const blinkTick = async (): Promise<void> => {
       try {
@@ -81,9 +86,11 @@ export const register: Register = on => {
     await $.command
       .register({
         name: DOCTOR_COMMAND,
-        description: 'Check cc-chat-tweaks settings and state, and add missing switches to settings.json as false',
+        description: 'Check cc-chat-tweaks settings and state, and add missing switches to settings.json with their defaults',
       })
       .catch(() => undefined)
+
+    await $.command.register({ name: UPGRADE_COMMAND, description: COMMAND_HELP }).catch(() => undefined)
 
     $.clock.every(BLINK_MS, blinkTick)
 
@@ -243,6 +250,8 @@ const collectDoctorInput = async ($: EngineInterface): Promise<DoctorInput> => {
   const state = normalizeState(await read($, runsAtom))
   const surface = await $.session.surface().then(String, () => 'unknown')
   const version = await $.session.version().then(versionText, () => 'unknown')
+  const flow = await read($, flowAtom)
+  const minLen = parseMinLen(await $.store.get(KEY_MIN_LEN))
 
   return {
     flags: describeFlags(named),
@@ -252,6 +261,7 @@ const collectDoctorInput = async ($: EngineInterface): Promise<DoctorInput> => {
       failed: state.failed.length,
       changes: state.changes.length,
     },
+    upgrade: { phase: flow.phase, minLen },
     env: { surface, version },
   }
 }

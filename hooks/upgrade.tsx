@@ -24,13 +24,13 @@ import {
   undo,
   withDraft,
   withQuestions,
-} from './logic'
-import { CALLS, Q_SYSTEM, R_SYSTEM, REVISE_SYSTEM } from './prompts'
+} from './upgrade-logic'
+import { CALLS, Q_SYSTEM, R_SYSTEM, REVISE_SYSTEM } from './upgrade-prompts'
 import { describeFlags, flagsOf, SETTINGS_SOURCES, type Flags } from './settings'
 
 const PANE = 'prompt-upgrade'
 
-const flowAtom = atom({ plugin: 'prompt-upgrade', key: 'flow' } as const, EMPTY_FLOW)
+const flowAtom = atom({ plugin: 'cc-chat-tweaks', key: 'flow' } as const, EMPTY_FLOW)
 
 const FAILED_NOTICE = 'Haiku did not answer. Showing the original prompt.'
 const REVISE_FAILED_NOTICE = 'Haiku did not answer. The draft is unchanged.'
@@ -212,7 +212,7 @@ const recoverAfterReload = async ($: EngineInterface): Promise<void> => {
   if (f.phase === 'idle') return
   await setFlow($, reset)
   await $.ui.close({ id: PANE })
-  if (f.original !== '') await restoreText($, f.original)
+  if (f.original !== '') $.ui.toast(`Prompt Upgrade reloaded and closed its pane. Your earlier prompt: ${f.original}`)
 }
 
 type PaneInput = RenderInputOf<'Pane', Exclude<RenderSurface, 'mobile'>>
@@ -336,9 +336,10 @@ const renderPane = ($: EngineInterface, e: PaneInput, flow: Flow) => {
   )
 }
 
-const COMMAND = 'prompt-upgrade'
+export const COMMAND = 'prompt-upgrade'
+export const COMMAND_HELP = 'Show the Prompt Upgrade switches, set its threshold, reset it, or read the PoC probe log'
 const PROBE_PANE = 'prompt-upgrade-probe'
-const KEY_MIN_LEN = 'minLen'
+export const KEY_MIN_LEN = 'minLen'
 const KEY_PROBE = 'probe'
 const KEY_LOG = 'probe-log'
 const LOG_LIMIT = 30
@@ -446,22 +447,18 @@ const interceptOrPass = async ($: EngineInterface, e: PromptSubmitInput) => {
   return null
 }
 
-export const register: Register = on => {
-  on('session.start', async ($, e, next) => {
-    await $.command.register({
-      name: COMMAND,
-      description: 'Show the Prompt Upgrade switches, set its threshold, reset it, or read the PoC probe log',
-    })
-    try {
-      await recoverAfterReload($)
-    } catch {
-      await abandon($)
-    }
-
-    return next(e)
-  })
+export const registerUpgrade = (on: Parameters<Register>[0]): void => {
+  let isChecked = false
 
   on('prompt.submit', async ($, e, next) => {
+    if (!isChecked) {
+      isChecked = true
+      try {
+        await recoverAfterReload($)
+      } catch {
+        await abandon($)
+      }
+    }
     try {
       await recordProbe($, e)
     } catch (cause) {

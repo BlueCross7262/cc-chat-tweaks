@@ -20,7 +20,7 @@ import {
   withDraft,
   withQuestions,
   type GateInput,
-} from './logic'
+} from './upgrade-logic'
 
 const base: GateInput = {
   text: 'please summarise the attached design document for me',

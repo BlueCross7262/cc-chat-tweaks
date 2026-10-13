@@ -1,4 +1,4 @@
-import type { FlagKey } from './settings'
+import { isFeatureKey, type FlagKey } from './settings'
 
 export type FlagReport = {
   key: FlagKey
@@ -13,6 +13,10 @@ export type DoctorInput = {
     pending: boolean
     failed: number
     changes: number
+  }
+  upgrade: {
+    phase: string
+    minLen: number
   }
   env: {
     surface: string
@@ -47,7 +51,7 @@ export const checksOf = (input: DoctorInput): string[] => {
     )
   }
 
-  if (!input.flags.some(report => report.value)) {
+  if (!input.flags.some(report => report.value && isFeatureKey(report.key))) {
     checks.push(
       '[info] Every feature is off, so the mod draws nothing. Set a use-* switch to true under ccChatTweaks.chat in settings.json to turn it on.',
     )
@@ -62,7 +66,7 @@ export const checksOf = (input: DoctorInput): string[] => {
 
 export const formatReport = (input: DoctorInput): string => {
   const width = Math.max(...input.flags.map(report => report.key.length))
-  const { runs, env } = input
+  const { runs, upgrade, env } = input
 
   return [
     'cc-chat-tweaks doctor',
@@ -72,6 +76,9 @@ export const formatReport = (input: DoctorInput): string => {
     '',
     'tool-call folding',
     `  runs tracked: ${runs.tracked}, pending: ${runs.pending ? 'yes' : 'no'}, failed calls: ${runs.failed}, change records: ${runs.changes}`,
+    '',
+    'prompt upgrade',
+    `  phase: ${upgrade.phase}, threshold: ${upgrade.minLen} characters`,
     '',
     'environment',
     `  surface: ${env.surface}`,

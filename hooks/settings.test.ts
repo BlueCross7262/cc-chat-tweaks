@@ -4,9 +4,11 @@ import { describeFlags, flagsOf, isFlagOn, withMissingDefaults } from './setting
 
 const set = (key: string, value: unknown) => ({ ccChatTweaks: { chat: { [key]: value } } })
 
-test('every switch is off when no source sets it', () => {
+test('every feature switch is off and the option is on when no source sets it', () => {
   expect(isFlagOn([], 'use-tool-fold')).toBe(false)
   expect(isFlagOn([], 'use-edit-summary')).toBe(false)
+  expect(isFlagOn([], 'use-prompt-upgrade')).toBe(false)
+  expect(isFlagOn([], 'use-questions')).toBe(true)
   expect(isFlagOn([{}, { ccChatTweaks: {} }, { ccChatTweaks: { chat: {} } }], 'use-tool-fold')).toBe(false)
 })
 
@@ -32,9 +34,11 @@ test('ignores a malformed namespace', () => {
 })
 
 test('reads every flag at once', () => {
-  expect(flagsOf([set('use-edit-summary', true)])).toEqual({
+  expect(flagsOf([set('use-edit-summary', true), set('use-prompt-upgrade', true)])).toEqual({
     'use-tool-fold': false,
     'use-edit-summary': true,
+    'use-prompt-upgrade': true,
+    'use-questions': true,
   })
 })
 
@@ -53,11 +57,11 @@ test('adds only the missing switches with their default and keeps everything els
   const existing = { theme: 'dark', ccChatTweaks: { chat: { 'use-tool-fold': true }, other: 1 } }
   const { settings, added } = withMissingDefaults(existing)
 
-  expect(added).toEqual(['use-edit-summary'])
+  expect(added).toEqual(['use-edit-summary', 'use-prompt-upgrade', 'use-questions'])
   expect(settings).toEqual({
     theme: 'dark',
     ccChatTweaks: {
-      chat: { 'use-tool-fold': true, 'use-edit-summary': false },
+      chat: { 'use-tool-fold': true, 'use-edit-summary': false, 'use-prompt-upgrade': false, 'use-questions': true },
       other: 1,
     },
   })
@@ -65,15 +69,21 @@ test('adds only the missing switches with their default and keeps everything els
 })
 
 test('builds the whole section for an empty or malformed file', () => {
-  expect(withMissingDefaults({}).added).toHaveLength(2)
-  expect(withMissingDefaults(null).added).toHaveLength(2)
+  expect(withMissingDefaults({}).added).toHaveLength(4)
+  expect(withMissingDefaults(null).added).toHaveLength(4)
   expect(withMissingDefaults({ ccChatTweaks: 'x' }).settings).toEqual({
-    ccChatTweaks: { chat: { 'use-tool-fold': false, 'use-edit-summary': false } },
+    ccChatTweaks: {
+      chat: { 'use-tool-fold': false, 'use-edit-summary': false, 'use-prompt-upgrade': false, 'use-questions': true },
+    },
   })
 })
 
 test('reports nothing to add when every switch is present', () => {
-  const full = { ccChatTweaks: { chat: { 'use-tool-fold': true, 'use-edit-summary': false } } }
+  const full = {
+    ccChatTweaks: {
+      chat: { 'use-tool-fold': true, 'use-edit-summary': false, 'use-prompt-upgrade': false, 'use-questions': true },
+    },
+  }
 
   expect(withMissingDefaults(full).added).toEqual([])
 })

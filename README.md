@@ -1,6 +1,6 @@
 # cc-chat-tweaks
 
-Chat display tweaks for Claude Code. Each tweak is a mod feature with its own `use-*` switch in your settings.
+Chat tweaks for Claude Code. Each tweak is a mod feature with its own `use-*` switch in your settings.
 
 ## Install
 
@@ -12,19 +12,23 @@ Answer `y` to add the marketplace, then pick a scope.
 
 ## Settings
 
-Every feature is off until you turn it on. Switches live under `ccChatTweaks.chat` in any settings file (`settings.json`, `settings.local.json`, project or user). A boolean in a higher-precedence source wins. A key that is absent uses its default, `false`.
+Every feature is off until you turn it on. Switches live under `ccChatTweaks.chat` in any settings file (`settings.json`, `settings.local.json`, project or user). A boolean in a higher-precedence source wins. A key that is absent uses its default.
 
 | Key | Default | Feature |
 |---|---|---|
 | `use-tool-fold` | `false` | Fold consecutive tool calls into one line. |
 | `use-edit-summary` | `false` | Draw `Edit` and `Write` calls as one summary line. |
+| `use-prompt-upgrade` | `false` | Ask clarifying questions about your prompt and rewrite it before it is sent. |
+| `use-questions` | `true` | Option of `use-prompt-upgrade`. When `false`, the prompt is rewritten without questions. |
 
 ```json
 {
   "ccChatTweaks": {
     "chat": {
       "use-tool-fold": true,
-      "use-edit-summary": false
+      "use-edit-summary": false,
+      "use-prompt-upgrade": false,
+      "use-questions": true
     }
   }
 }
@@ -36,9 +40,9 @@ Every feature is off until you turn it on. Switches live under `ccChatTweaks.cha
 /tweaks-doctor
 ```
 
-First it writes every switch your user `settings.json` lacks, with its default, `false`, so you can see and flip them. It never changes a value that is already there. It leaves a file that is not plain JSON alone and says so.
+First it writes every switch your user `settings.json` lacks, with its default, so you can see and flip them. It never changes a value that is already there. It leaves a file that is not plain JSON alone and says so.
 
-Then it prints each switch with its value and the source it came from, the fold counters, the environment and a list of checks.
+Then it prints each switch with its value and the source it came from, the fold counters, the prompt upgrade phase and threshold, the environment and a list of checks.
 
 ## Features
 
@@ -70,6 +74,19 @@ An `Edit` or `Write` call that is not folded draws as one line. The diff body is
 ● Write(notes.md) +12
 ```
 
+### `use-prompt-upgrade`
+
+A prompt you type at the prompt box and send is held back, and a pane opens with four steps: your prompt, questions, rewrite, review.
+
+- Haiku asks up to three questions with 3 to 5 options each. You pick an option, type your own answer, or skip.
+- Haiku rewrites the prompt as prose and keeps pasted material as it is, wrapped in `<input>` tags.
+- In the review you can ask for a change to the draft, undo it, edit the draft in the prompt box, send the draft, send the original, or cancel.
+- Each upgraded prompt costs up to three Haiku calls on your plan or API key.
+- Prompts typed while a turn runs, prompts with attachments, slash commands and short prompts pass through unchanged. So does every prompt when the pane cannot be placed or Haiku does not answer.
+- `/prompt-upgrade status | threshold <n> | reset | probe on|off|show|clear` shows and tunes the feature.
+
+Details, controls and limits: [docs/prompt-upgrade.md](docs/prompt-upgrade.md). Proof-of-concept results: [docs/prompt-upgrade-poc-results.md](docs/prompt-upgrade-poc-results.md).
+
 ## Develop
 
 ```
@@ -82,7 +99,10 @@ The sources are TypeScript loaded as is, with no build step.
 
 | File | Role |
 |---|---|
-| `hooks/register.tsx` | The hooks module: the features and the doctor command. `$` cannot cross an import, so every function that uses it lives here. |
+| `hooks/register.tsx` | The hooks module: the tool-call features and the doctor command. It calls `registerUpgrade(on)`. `$` cannot cross an import, so every function that uses it lives in this file or in `hooks/upgrade.tsx`. |
+| `hooks/upgrade.tsx` | The prompt upgrade hooks, pane and command. |
+| `hooks/upgrade-logic.ts` | Pure gate, flow and parsing logic for the prompt upgrade. |
+| `hooks/upgrade-prompts.ts` | The Haiku system prompts for the prompt upgrade. |
 | `hooks/settings.ts` | The `use-*` switches, their defaults, their lookup across settings sources and the missing-switch merge. |
 | `hooks/doctor.ts` | Pure report building for `/tweaks-doctor`. |
 | `hooks/runs.ts` | Pure run bookkeeping: boundaries, pending state, change totals. |

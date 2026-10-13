@@ -1,11 +1,12 @@
-# prompt-upgrade
+# Prompt Upgrade (`use-prompt-upgrade`)
 
-Intercepts a prompt you submit, asks Haiku for up to three clarifying questions, rewrites the prompt as prose, and sends it after you review it.
+A feature of cc-chat-tweaks.
+It intercepts a prompt you submit, asks Haiku for up to three clarifying questions, rewrites the prompt as prose, and sends it after you review it.
 
 ## Security notice
 
 - A mod runs with your user permissions and has no sandbox.
-- This mod sees every prompt you submit while it is loaded.
+- While `use-prompt-upgrade` is `true`, the mod sees every prompt you submit.
 - Each upgraded prompt costs up to three Haiku calls on your plan or API key.
 - The mod sends prompt text to Haiku only through `$.model.complete`.
 - The mod makes no other network call and does not use `$.http`.
@@ -14,18 +15,16 @@ Intercepts a prompt you submit, asks Haiku for up to three clarifying questions,
 
 ## Install
 
-```
-claude --plugin-dir <path to this folder>
-```
-
+Prompt Upgrade ships inside cc-chat-tweaks. See the install line in the main README.
 Run `/reload-plugins` after you edit a file.
 
 ## Settings
 
-The mod is off until you turn it on.
-Switches live under `promptUpgrade.chat` in any settings file (`settings.json`, `settings.local.json`, project or user).
+The feature is off until you turn it on.
+Switches live under `ccChatTweaks.chat` in any settings file (`settings.json`, `settings.local.json`, project or user), next to the other `use-*` switches.
 A boolean in a higher-precedence source wins.
 A key that is absent uses its default.
+`/tweaks-doctor` writes the missing keys with their defaults.
 
 | Key | Default | Feature |
 |---|---|---|
@@ -34,7 +33,7 @@ A key that is absent uses its default.
 
 ```json
 {
-  "promptUpgrade": {
+  "ccChatTweaks": {
     "chat": {
       "use-prompt-upgrade": true,
       "use-questions": true
@@ -52,7 +51,7 @@ Settings changes apply to the next prompt you submit.
 | `/prompt-upgrade status` | Shows each switch with its value and source, the threshold and the current phase. |
 | `/prompt-upgrade threshold <n>` | Sets the shortest prompt that is intercepted, in characters. The default is 10. The value lives in `$.store`. |
 | `/prompt-upgrade reset` | Closes the pane and puts the original prompt back in the prompt box. |
-| `/prompt-upgrade probe on \| off \| show \| clear` | Records a PoC sample per submit. See `docs/poc-results.md`. |
+| `/prompt-upgrade probe on \| off \| show \| clear` | Records a PoC sample per submit. See `prompt-upgrade-poc-results.md`. |
 
 ## Flow
 
@@ -106,11 +105,13 @@ Every failure path ends with your original prompt: a Haiku error or timeout show
   - The mod does not detect such prompts. Use `Send original`.
 - The revise field is one line.
 
-## Develop
+## Source
 
-```
-claude plugin validate <path to this folder>
-claude plugin test <path to this folder>
-```
+| File | Role |
+|---|---|
+| `hooks/upgrade.tsx` | The feature's hooks, pane and `/prompt-upgrade` command. `register.tsx` calls `registerUpgrade(on)`. |
+| `hooks/upgrade-logic.ts` | Pure gate, flow and parsing logic. |
+| `hooks/upgrade-prompts.ts` | The Haiku system prompts and call limits. |
 
-Type-check with `tsc -p <path to this folder>` once the engine has laid `.claude-plugin/types`.
+`session.start` has one hook for the whole module, so `register.tsx` registers the `/prompt-upgrade` command there.
+A flow left open by a reload is closed at the first prompt after the reload, and a toast carries the full text of the earlier prompt.

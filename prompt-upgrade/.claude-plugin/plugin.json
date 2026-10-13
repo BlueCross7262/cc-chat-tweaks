@@ -1,6 +1,0 @@
-{
-  "name": "prompt-upgrade",
-  "version": "0.1.0",
-  "description": "Intercepts a submitted prompt, asks Haiku for up to three clarifying questions, rewrites it as prose, and resubmits it after review.",
-  "types": "./types/index.d.ts"
-}

@@ -8,6 +8,7 @@ const input = (patch: Partial<DoctorInput> = {}): DoctorInput => ({
     { key: 'use-edit-summary', value: false, from: 'default' },
   ],
   runs: { tracked: 3, pending: false, failed: 0, changes: 5 },
+  upgrade: { phase: 'idle', minLen: 10 },
   env: { surface: 'terminal', version: '2.1.0' },
   ...patch,
 })
@@ -17,6 +18,23 @@ test('prints each switch with its value and where it came from', () => {
 
   expect(text).toContain('use-tool-fold     on   (user)')
   expect(text).toContain('use-edit-summary  off  (default)')
+})
+
+test('prints the prompt upgrade phase and threshold', () => {
+  const text = formatReport(input({ upgrade: { phase: 'review', minLen: 25 } }))
+
+  expect(text).toContain('phase: review, threshold: 25 characters')
+})
+
+test('the questions option alone does not count as a feature being on', () => {
+  const onlyOption = input({
+    flags: [
+      { key: 'use-tool-fold', value: false, from: 'default' },
+      { key: 'use-questions', value: true, from: 'default' },
+    ],
+  })
+
+  expect(checksOf(onlyOption).some(check => check.includes('Every feature is off'))).toBe(true)
 })
 
 test('prints the fold counters and the environment', () => {
