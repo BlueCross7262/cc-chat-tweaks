@@ -112,6 +112,7 @@ export type Header = {
   count: number
   isPending: boolean
   calls: Call[]
+  failed: number
   added: number
   removed: number
 }
@@ -244,7 +245,7 @@ export const viewOf = (stored: RunState, ids: readonly string[]): RowView => {
     return SHOW_ROW
   }
 
-  const folded = run.calls.filter(call => !state.failed.includes(call.id))
+  const folded = run.calls
 
   if (folded.length < FOLD_MIN_CALLS) {
     return SHOW_ROW
@@ -252,22 +253,26 @@ export const viewOf = (stored: RunState, ids: readonly string[]): RowView => {
 
   const firstId = folded[0]?.id
   const isPending = !run.isClosed || run.calls.some(call => !state.done.includes(call.id))
-  const foldedIds = folded.map(call => call.id)
+  const succeededIds = folded.map(call => call.id).filter(id => !state.failed.includes(id))
   const totals = state.changes
-    .filter(change => foldedIds.includes(change.id))
+    .filter(change => succeededIds.includes(change.id))
     .reduce(
       (sum, change) => ({ added: sum.added + change.added, removed: sum.removed + change.removed }),
       { added: 0, removed: 0 },
     )
   const header: Header | null =
     firstId !== undefined && ids.includes(firstId)
-      ? { run, count: folded.length, isPending, calls: folded, ...totals }
+      ? {
+          run,
+          count: folded.length,
+          isPending,
+          calls: folded,
+          failed: folded.length - succeededIds.length,
+          ...totals,
+        }
       : null
 
-  return {
-    header,
-    showRow: ids.some(id => state.failed.includes(id)),
-  }
+  return { header, showRow: false }
 }
 
 export const labelOf = (name: string): string => {

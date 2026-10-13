@@ -124,13 +124,15 @@ test('a lone call folds into a header of its own', () => {
   expect(view.header && headerText(view.header)).toBe('Calling 1 time Edit')
 })
 
-test('a lone failed call keeps its ordinary row', () => {
+test('a lone failed call folds into a header that counts the failure', () => {
   const state = applyRow(feed([response(use('a'))]), {
     door: 'tool-result',
     content: [{ type: 'tool_result', tool_use_id: 'a', is_error: true }],
   })
+  const view = viewOf(state, ['a'])
 
-  expect(viewOf(state, ['a'])).toEqual({ header: null, showRow: true })
+  expect(view.showRow).toBe(false)
+  expect(view.header).toMatchObject({ count: 1, failed: 1 })
 })
 
 const rowOf = (id: string, over: Partial<RowProps> = {}): RowProps => ({
@@ -165,15 +167,31 @@ test('a call that is in no run stays an ordinary row', () => {
   expect(viewOf(EMPTY_RUN_STATE, ['x'])).toEqual({ header: null, showRow: true })
 })
 
-test('a failed call keeps its row and the header moves to the first call that did not fail', () => {
+test('a failed call folds into the group and is counted in the header', () => {
   const state = applyRow(feed([response(use('a'), use('b'), use('c'))]), {
+    door: 'tool-result',
+    content: [{ type: 'tool_result', tool_use_id: 'b', is_error: true }],
+  })
+
+  expect(viewOf(state, ['a']).header).toMatchObject({ count: 3, failed: 1 })
+  expect(viewOf(state, ['a']).showRow).toBe(false)
+  expect(viewOf(state, ['b'])).toEqual({ header: null, showRow: false })
+  expect(viewOf(state, ['c'])).toEqual({ header: null, showRow: false })
+})
+
+test('the header stays on the first call when that call failed', () => {
+  const state = applyRow(feed([response(use('a'), use('b'))]), {
     door: 'tool-result',
     content: [{ type: 'tool_result', tool_use_id: 'a', is_error: true }],
   })
 
-  expect(viewOf(state, ['a'])).toEqual({ header: null, showRow: true })
-  expect(viewOf(state, ['b']).header?.count).toBe(2)
-  expect(viewOf(state, ['c'])).toEqual({ header: null, showRow: false })
+  expect(viewOf(state, ['a']).header).toMatchObject({ count: 2, failed: 1 })
+  expect(viewOf(state, ['a']).showRow).toBe(false)
+  expect(viewOf(state, ['b']).header).toBe(null)
+})
+
+test('a header without failures counts none', () => {
+  expect(viewOf(feed([response(use('a'), use('b'))]), ['a']).header?.failed).toBe(0)
 })
 
 test('a group holds the header when it holds the first folded call', () => {
@@ -326,7 +344,7 @@ test('a failed call does not add to the header totals', () => {
     content: [{ type: 'tool_result', tool_use_id: 'a', is_error: true }],
   })
 
-  expect(viewOf(state, ['b']).header).toMatchObject({ added: 2, removed: 4 })
+  expect(viewOf(state, ['a']).header).toMatchObject({ added: 2, removed: 4, failed: 1 })
 })
 
 test('a failed result also counts as done', () => {

@@ -45,6 +45,7 @@ import {
 
 const DOCTOR_COMMAND = 'tweaks-doctor'
 const ROW_MARK = '● '
+const FAILED_COLOR = 'rgb(255,153,0)'
 const BLINK_MS = 600
 
 const expandedAtom = atom({ plugin: 'cc-chat-tweaks', key: 'expanded' } as const, [])
@@ -283,12 +284,17 @@ const withHeader = (
   const hasChanges = header.added > 0 || header.removed > 0
 
   return (
-    <Box key={`run-box-${stamp}-${header.added}-${header.removed}`} flexDirection="column" marginTop={1}>
+    <Box
+      key={`run-box-${stamp}-${header.added}-${header.removed}-${header.failed}`}
+      flexDirection="column"
+      marginTop={1}
+    >
       <Box>
-        <Text color={header.isPending ? 'suggestion' : 'success'}>
+        <Text color={header.isPending ? 'suggestion' : header.failed > 0 ? FAILED_COLOR : 'success'}>
           {isDotOn ? ROW_MARK : '  '}
         </Text>
         <Text>{headerText(header)}</Text>
+        {header.failed > 0 ? <Text color={FAILED_COLOR}> {header.failed} failed</Text> : null}
         {hasChanges ? <Text> ...</Text> : null}
         {header.added > 0 ? <Text color="green"> +{header.added}</Text> : null}
         {header.removed > 0 ? <Text color="red"> -{header.removed}</Text> : null}

@@ -62,7 +62,7 @@ Consecutive tool calls with no assistant message between them fold into one line
 - Tool names sort with capital letters first, then lowercase, each from a to z. The line shows the 4 most used tools and ends with `…` when there are more.
 - `Calling` with a blinking blue `●` while a call has no result yet. `Called` with a green `●` once every call has finished. The colours follow your theme.
 - The `+N -M` total counts the lines changed by `Edit`, `Write` and Serena's `replace_content`, `insert_after_symbol`, `insert_before_symbol` and `replace_symbol_body`. `Edit` and `Write` read the exact diff. The Serena figures come from the call arguments and are approximate: `replace_symbol_body` counts added lines only.
-- Every run folds, even a single call: `● Called 1 time Edit ... +3 -1`. A failed call keeps its own row, so an error never hides behind the summary.
+- Every run folds, even a single call: `● Called 1 time Edit ... +3 -1`. A failed call folds in too: its row and error text are hidden, and the header adds an orange `N failed` count.
 - A call row is not drawn while the model is still writing the call. The folded line appears when the call is stored. A call that is in no run, such as one made by a subagent, stays hidden until it has a result.
 - Calls made by subagents are not folded.
 - `AskUserQuestion` and `Skill` are never folded. Each keeps its own row and ends the run before it.
