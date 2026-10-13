@@ -31,7 +31,7 @@ A key that is absent uses its default.
 |---|---|---|
 | `use-prompt-upgrade` | `false` | Intercept your prompts and upgrade them. |
 | `use-questions` | `true` | Ask Haiku for clarifying questions. When `false`, the mod rewrites the prompt at once. |
-| `use-silent-upgrade` | `true` | Option of `use-prompt-upgrade`. A prompt that starts or ends with the trigger is upgraded without the pane. |
+| `use-silent-upgrade` | `true` | Option of `use-prompt-upgrade`. A prompt that starts or ends with the trigger is upgraded without the pane, and the draft is put in the prompt box without being sent. |
 | `silent-trigger` | `+++` | The trigger text. 1 to 32 characters after trimming. A blank or non-text value uses the default. |
 | `min-length` | `10` | Shortest prompt that is intercepted, in characters. A whole number from 1 to 10000. It beats the value set by `/prompt-upgrade threshold`. |
 
@@ -94,11 +94,13 @@ Press Tab to move to a button, or click it.
 Put the trigger (`+++` by default) at the start or the end of a prompt to skip the pane.
 
 - The trigger is removed. Repeated triggers at an edge go too. A trigger in the middle stays.
-- Haiku rewrites the prompt once, with no questions, and the mod sends the result.
-- The pane is not opened, so there is no review. Use the normal path when you want to check the draft.
-- If Haiku fails, the prompt goes out as you wrote it, without the trigger, and a toast says so.
+- Haiku rewrites the prompt once, with no questions, and the mod puts the result in the prompt box. It does not send it.
+- You read the draft in the prompt box, edit it if you want, and press Enter yourself.
+- The pane is not opened, so there is no review pane. Use the normal path when you want to revise the draft with Haiku.
+- The next prompt you submit within 5 minutes passes through once, so the draft goes out without a second upgrade.
+- If Haiku fails, the prompt box gets the prompt as you wrote it, without the trigger, and a toast says so.
+- If you typed something else in the prompt box meanwhile, the mod leaves the box alone and puts the draft on your clipboard. A toast says so.
 - If something unexpected fails after the prompt was taken, the text without the trigger is put back in the prompt box.
-- The mod clears the prompt box when it sends, but only if the box still holds what you typed. Text you typed meanwhile stays.
 - A prompt you send while the silent upgrade is still running passes through as it is, trigger included.
 - The `min-length` check and the terminal-surface check do not apply to a silent upgrade.
 - A trigger on its own, a prompt with an attachment, and a prompt that starts with `/` (after the trigger) pass through with the trigger text in them.

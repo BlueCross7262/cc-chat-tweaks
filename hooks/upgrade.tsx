@@ -203,18 +203,7 @@ const cancel = async ($: EngineInterface): Promise<void> => {
   if (f.phase !== 'idle' && f.original !== '') await restoreText($, f.original)
 }
 
-const isBoxHolding = async ($: EngineInterface, expected: string): Promise<boolean> => {
-  try {
-    const box = await $.prompt.read()
-    const current = box.text.trim()
-
-    return current !== '' && current === expected.trim()
-  } catch {
-    return false
-  }
-}
-
-const finish = async ($: EngineInterface, text: string, clearOnlyIf?: string): Promise<void> => {
+const finish = async ($: EngineInterface, text: string): Promise<void> => {
   const t = text.trim()
   if (t === '') {
     await cancel($)
@@ -222,9 +211,7 @@ const finish = async ($: EngineInterface, text: string, clearOnlyIf?: string): P
   }
   await setFlow($, f => ({ ...reset(f), pending: t }))
   await $.ui.close({ id: PANE }).catch(() => undefined)
-  if (clearOnlyIf === undefined || (await isBoxHolding($, clearOnlyIf))) {
-    await $.prompt.fill({ text: '' }).catch(() => undefined)
-  }
+  await $.prompt.fill({ text: '' }).catch(() => undefined)
   // UNVERIFIED: the asUser resubmit reaches prompt.submit with text equal to the trimmed pending value
   $.prompt.submit({ text: t, asUser: true }).catch(() => restoreText($, t))
 }
@@ -240,13 +227,45 @@ const recoverSilent = async ($: EngineInterface, id: number): Promise<void> => {
   }
 }
 
+const isBoxFree = async ($: EngineInterface, typed: string): Promise<boolean> => {
+  try {
+    const current = (await $.prompt.read()).text.trim()
+
+    return current === '' || current === typed.trim()
+  } catch {
+    return true
+  }
+}
+
+const fillDraft = async ($: EngineInterface, draft: string): Promise<void> => {
+  const now = await $.clock.now()
+  await setFlow($, cur => ({ ...reset(cur), skipUntil: now + SKIP_TTL_MS }))
+  await restoreText($, draft)
+}
+
+const parkDraft = async ($: EngineInterface, draft: string): Promise<void> => {
+  await setFlow($, reset)
+  let isCopied = false
+  try {
+    isCopied = (await $.ui.copy({ text: draft })).isCopied
+  } catch {
+    isCopied = false
+  }
+  $.ui.toast(
+    isCopied
+      ? 'Prompt Upgrade left the prompt box alone because you typed in it. The upgraded prompt is on your clipboard.'
+      : `Prompt Upgrade left the prompt box alone because you typed in it. Upgraded prompt: ${draft}`,
+  )
+}
+
 const runSilent = async ($: EngineInterface, id: number, typed: string): Promise<void> => {
   try {
     await startRewrite($, id)
     const f = await getFlow($)
     if (isStale(f, id) || f.phase !== 'review') return
     if (f.notice !== '') $.ui.toast(f.notice)
-    await finish($, f.draft, typed)
+    if (await isBoxFree($, typed)) await fillDraft($, f.draft)
+    else await parkDraft($, f.draft)
   } catch {
     await recoverSilent($, id)
   }

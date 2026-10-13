@@ -278,7 +278,7 @@ test('use-questions false skips the question step', async ($, on) => {
 
 const TRIGGERED = '+++ ' + LONG
 
-test('a trailing or leading trigger upgrades silently: no pane, no questions, no trigger sent to Haiku', async ($, on) => {
+test('a trailing or leading trigger upgrades silently: no pane, no questions, no trigger sent to Haiku, nothing sent', async ($, on) => {
   const s = world($, on, { answers: ['Silently upgraded prompt.'], box: TRIGGERED })
   const result = await submit($, TRIGGERED)
   await settle(s)
@@ -287,24 +287,36 @@ test('a trailing or leading trigger upgrades silently: no pane, no questions, no
   expect(s.models).toHaveLength(1)
   expect(s.prompts[0]).toContain(LONG)
   expect(s.prompts[0]).not.toContain('+++')
-  expect(s.entered).toEqual(['Silently upgraded prompt.'])
-  expect(s.filled).toEqual([''])
+  expect(s.filled).toEqual(['Silently upgraded prompt.'])
+  expect(s.entered).toEqual([])
 })
 
-test('a silent run whose Haiku call fails sends the original without the trigger and says so', async ($, on) => {
+test('the draft a silent run puts in the prompt box passes the next submit once', async ($, on) => {
+  const s = world($, on, { answers: ['Silently upgraded prompt.', JSON.stringify({ questions: [] })], box: TRIGGERED })
+  await submit($, TRIGGERED)
+  await settle(s)
+  const edited = await submit($, 'Silently upgraded prompt, then changed by hand.')
+  expect(edited).toMatchObject({ text: 'Silently upgraded prompt, then changed by hand.' })
+  expect(await submit($, LONG)).toMatchObject({ drop: expect.any(String) })
+})
+
+test('a silent run whose Haiku call fails puts the original without the trigger in the prompt box and says so', async ($, on) => {
   const s = world($, on, { answers: [null], box: TRIGGERED })
   await submit($, TRIGGERED)
   await settle(s)
-  expect(s.entered).toEqual([LONG])
+  expect(s.filled).toEqual([LONG])
+  expect(s.entered).toEqual([])
   expect(s.toasts.join(' ')).toMatch(/did not answer/)
 })
 
-test('a silent run does not wipe what the person typed meanwhile', async ($, on) => {
+test('a silent run does not overwrite what the person typed meanwhile and puts the draft on the clipboard', async ($, on) => {
   const s = world($, on, { answers: ['Silently upgraded prompt.'], box: 'something typed later' })
   await submit($, TRIGGERED)
   await settle(s)
-  expect(s.entered).toEqual(['Silently upgraded prompt.'])
   expect(s.filled).toEqual([])
+  expect(s.entered).toEqual([])
+  expect(s.copied).toEqual(['Silently upgraded prompt.'])
+  expect(s.toasts.join(' ')).toMatch(/clipboard/)
 })
 
 test('a prompt submitted while a silent run is working passes through untouched', async ($, on) => {
