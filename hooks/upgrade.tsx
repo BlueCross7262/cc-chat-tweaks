@@ -217,7 +217,7 @@ const recoverAfterReload = async ($: EngineInterface): Promise<void> => {
 
 type PaneInput = RenderInputOf<'Pane', Exclude<RenderSurface, 'mobile'>>
 
-const SKIP = '__skip'
+const ACCENT = 'claude'
 const STEPS = ['Your prompt', 'Questions', 'Rewrite', 'Review']
 const ORIGINAL_CLIP = 240
 const DRAFT_CLIP = 9000
@@ -230,21 +230,50 @@ const stepOf = (phase: Phase): number => {
 }
 
 const renderPane = ($: EngineInterface, e: PaneInput, flow: Flow) => {
-  const { Box, Text, Button, Input, Select, Markdown } = $.ui.resolve(e)
+  const { Box, Text, Button, Input, Markdown } = $.ui.resolve(e)
   const current = stepOf(flow.phase)
 
   const stepper = (
-    <Box flexWrap="wrap">
-      {STEPS.map((name, i) => (
-        <Text bold={i === current} dimColor={i !== current}>
-          {i === 0 ? '' : ' > '}
-          {i + 1} {name}
+    <Box justifyContent="space-between">
+      <Box flexWrap="wrap">
+        {STEPS.map((name, i) => (
+          <Box>
+            {i > 0 ? <Text dimColor>{' ── '}</Text> : null}
+            {i < current ? (
+              <Text color="success">{'✓ '}</Text>
+            ) : i === current ? (
+              <Text color={ACCENT}>{'● '}</Text>
+            ) : (
+              <Text dimColor>{'○ '}</Text>
+            )}
+            {i === current ? (
+              <Text bold color={ACCENT}>
+                {name}
+              </Text>
+            ) : (
+              <Text dimColor={i > current}>{name}</Text>
+            )}
+          </Box>
+        ))}
+      </Box>
+      {flow.phase === 'questions' ? (
+        <Text dimColor>
+          {answeredCount(flow)} of {flow.questions.length} answered
         </Text>
-      ))}
+      ) : null}
     </Box>
   )
 
-  const cancelButton = <Button label="Cancel" hotkey="c" onPress={() => cancel($)} />
+  const section = (title: string, hint: string) => (
+    <Box justifyContent="space-between" marginTop={1}>
+      <Text bold dimColor>
+        {title}
+      </Text>
+      <Text dimColor>{hint}</Text>
+    </Box>
+  )
+
+  const cancelButton = <Button label="Cancel" hotkey="c" dimColor role="dismiss" onPress={() => cancel($)} />
 
   if (flow.phase === 'idle') {
     return (
@@ -257,7 +286,12 @@ const renderPane = ($: EngineInterface, e: PaneInput, flow: Flow) => {
   const header = (
     <Box flexDirection="column">
       {stepper}
-      <Text dimColor>{clip(flow.original, ORIGINAL_CLIP)}</Text>
+      <Box flexDirection="column" borderStyle="round" borderColor="subtle" paddingX={1} marginTop={1}>
+        <Text bold dimColor>
+          YOUR PROMPT
+        </Text>
+        <Text>{clip(flow.original, ORIGINAL_CLIP)}</Text>
+      </Box>
     </Box>
   )
 
@@ -265,8 +299,13 @@ const renderPane = ($: EngineInterface, e: PaneInput, flow: Flow) => {
     return (
       <Box flexDirection="column">
         {header}
-        <Text>{flow.phase === 'askLoading' ? 'Asking Haiku for questions...' : 'Haiku is writing the prompt...'}</Text>
-        {cancelButton}
+        <Box marginTop={1}>
+          <Text color={ACCENT}>{'● '}</Text>
+          <Text dimColor>
+            {flow.phase === 'askLoading' ? 'Asking Haiku for questions...' : 'Haiku is writing the prompt...'}
+          </Text>
+        </Box>
+        <Box marginTop={1}>{cancelButton}</Box>
       </Box>
     )
   }
@@ -275,36 +314,44 @@ const renderPane = ($: EngineInterface, e: PaneInput, flow: Flow) => {
     return (
       <Box flexDirection="column">
         {header}
+        {section('A FEW QUICK QUESTIONS', 'pick one each, or skip')}
         {flow.questions.map((q, i) => {
           const given = flow.answers[String(i)]
           const isListed = given !== undefined && q.options.includes(given)
 
           return (
-            <Box flexDirection="column">
-              <Text bold>
-                {i + 1}. {q.q}
-              </Text>
-              <Select
-                key={`q${i}`}
-                options={[...q.options.map(value => ({ value })), { value: SKIP, label: 'Skip' }]}
-                value={isListed ? given : SKIP}
-                onSelect={value => pick($, i, value === SKIP ? '' : value)}
-              />
-              <Input
-                key={`other${i}`}
-                label="Other"
-                placeholder="type your own answer"
-                value={given !== undefined && !isListed ? given : ''}
-                submitLabel="answer"
-                onSubmit={value => pick($, i, value)}
-              />
+            <Box flexDirection="column" marginTop={1}>
+              <Box>
+                <Text bold color="inverseText" backgroundColor={ACCENT}>
+                  {` ${i + 1} `}
+                </Text>
+                <Text bold> {q.q}</Text>
+              </Box>
+              <Box flexWrap="wrap" gap={1} marginLeft={4}>
+                {q.options.map((value, j) => (
+                  <Button
+                    key={`q${i}o${j}`}
+                    label={value}
+                    variant={given === value ? 'primary' : 'secondary'}
+                    onPress={() => pick($, i, value)}
+                  />
+                ))}
+                <Button key={`q${i}skip`} label="Skip" dimColor onPress={() => pick($, i, '')} />
+              </Box>
+              <Box marginLeft={4}>
+                <Input
+                  key={`other${i}`}
+                  label="Other (type it)"
+                  placeholder="your own answer"
+                  value={given !== undefined && !isListed ? given : ''}
+                  submitLabel="answer"
+                  onSubmit={value => pick($, i, value)}
+                />
+              </Box>
             </Box>
           )
         })}
-        <Text dimColor>
-          {answeredCount(flow)} of {flow.questions.length} answered
-        </Text>
-        <Box flexWrap="wrap">
+        <Box flexWrap="wrap" gap={1} marginTop={1}>
           <Button label="Skip the rest, upgrade now" hotkey="u" variant="primary" onPress={() => upgradeNow($)} />
           {cancelButton}
         </Box>
@@ -315,19 +362,30 @@ const renderPane = ($: EngineInterface, e: PaneInput, flow: Flow) => {
   return (
     <Box flexDirection="column">
       {stepper}
-      <Markdown text={clip(flow.draft, DRAFT_CLIP)} />
-      {flow.notice !== '' && <Text bold>{flow.notice}</Text>}
-      <Input
-        key="revise"
-        label="Revise"
-        placeholder="what should change?"
-        submitLabel="revise"
-        onSubmit={value => revise($, value)}
-      />
-      <Box flexWrap="wrap">
+      {section('YOUR UPGRADED PROMPT', 'revise it, then send')}
+      <Box flexDirection="column" borderStyle="round" borderColor="success" paddingX={1}>
+        <Markdown text={clip(flow.draft, DRAFT_CLIP)} />
+      </Box>
+      {flow.notice !== '' ? (
+        <Box marginTop={1}>
+          <Text bold color="warning">
+            {flow.notice}
+          </Text>
+        </Box>
+      ) : null}
+      <Box marginTop={1}>
+        <Input
+          key="revise"
+          label="Revise"
+          placeholder="what should change?"
+          submitLabel="revise"
+          onSubmit={value => revise($, value)}
+        />
+      </Box>
+      <Box flexWrap="wrap" gap={1} marginTop={1}>
         {/* UNVERIFIED: hotkeys fire while the revise Input holds the focus */}
         <Button label="Send this prompt" hotkey="s" variant="primary" onPress={() => finishDraft($)} />
-        {flow.prevDraft !== '' && <Button label="Undo revision" hotkey="u" onPress={() => undoRevision($)} />}
+        {flow.prevDraft !== '' ? <Button label="Undo revision" hotkey="u" onPress={() => undoRevision($)} /> : null}
         <Button label="Edit in prompt box" hotkey="e" onPress={() => editInPrompt($)} />
         <Button label="Send original" hotkey="o" onPress={() => finishOriginal($)} />
         {cancelButton}

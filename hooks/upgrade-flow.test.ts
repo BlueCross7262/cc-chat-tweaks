@@ -88,7 +88,7 @@ test('a long composer prompt is dropped, upgraded and resubmitted once', async (
   expect(s.entered).toEqual([])
 
   const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'Pane', props: {} as never, requestId: PANE })
-  await $.ui.select({ plugin: PLUGIN, key: 'q0', value: 'bullets', requestId: PANE })
+  await $.ui.press({ plugin: PLUGIN, key: 'q0o1', requestId: PANE })
   expect((await ui.find({ type: 'Markdown' }))?.text).toContain('Summarise the design document as bullets.')
 
   await $.ui.press({ plugin: PLUGIN, key: 'Send this prompt', requestId: PANE })
