@@ -163,6 +163,10 @@ test('strips the prompt and draft wrapper tags from a Haiku answer and keeps inp
   expect(unwrapDraft('  <draft>\nDo the work.\n</draft>  ')).toBe('Do the work.')
   expect(unwrapDraft('<prompt>Read <input>a < b</input> now.')).toBe('Read <input>a < b</input> now.')
   expect(unwrapDraft('Plain text.')).toBe('Plain text.')
+  expect(unwrapDraft('Do <prompt>the</prompt> work.<context>x</context>')).toBe('Do the work.x')
+  expect(unwrapDraft('<draft>Read <input><prompt>a</prompt></input> now.</draft>')).toBe(
+    'Read <input><prompt>a</prompt></input> now.',
+  )
 })
 
 test('formats Haiku time in ms below a second and in seconds above', () => {
@@ -267,7 +271,7 @@ test('context is limited to the last turns and a total size', () => {
 
 test('the ask and rewrite inputs carry the context only when there is one', () => {
   const plain = begin(EMPTY_FLOW, 'make it shorter')
-  expect(askInput(plain)).toBe('make it shorter')
+  expect(askInput(plain)).toBe('<prompt>make it shorter</prompt>')
   expect(rewriteInput(plain)).not.toContain('<context>')
   const withCtx = begin(EMPTY_FLOW, 'make it shorter', 'user: draft the memo')
   expect(askInput(withCtx)).toBe('<context>user: draft the memo</context><prompt>make it shorter</prompt>')

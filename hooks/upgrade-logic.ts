@@ -183,8 +183,10 @@ export const begin = (flow: Flow, original: string, context = ''): Flow => ({
   context,
 })
 
-export const askInput = (flow: Flow): string =>
-  !flow.context ? flow.original : `<context>${flow.context}</context><prompt>${flow.original}</prompt>`
+export const askInput = (flow: Flow): string => {
+  const context = !flow.context ? '' : `<context>${flow.context}</context>`
+  return `${context}<prompt>${flow.original}</prompt>`
+}
 
 export const reset = (flow: Flow): Flow => ({
   ...EMPTY_FLOW,
@@ -245,11 +247,14 @@ export const rewriteInput = (flow: Flow): string => {
   return `${context}<prompt>${flow.original}</prompt><answers>${lines.join('\n\n')}</answers>`
 }
 
+const WRAPPER_TAG = /<\/?(?:prompt|draft|answers|request|context)>/g
+
 export const unwrapDraft = (raw: string): string =>
   raw
     .trim()
-    .replace(/^<(?:prompt|draft|answers|request|context)>\s*/, '')
-    .replace(/\s*<\/(?:prompt|draft|answers|request|context)>$/, '')
+    .split(/(<input>[\s\S]*?<\/input>)/)
+    .map((part, i) => (i % 2 === 1 ? part : part.replace(WRAPPER_TAG, '')))
+    .join('')
     .trim()
 
 export const reviseInput = (draft: string, request: string): string =>
