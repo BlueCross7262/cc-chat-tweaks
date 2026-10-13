@@ -1,5 +1,12 @@
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, PromptSubmitInput, Register, RenderInputOf, RenderSurface } from 'claude-code'
+import type {
+  EngineInterface,
+  ModelEffort,
+  PromptSubmitInput,
+  Register,
+  RenderInputOf,
+  RenderSurface,
+} from 'claude-code'
 
 import type { Flow, Phase } from '../types'
 import {
@@ -24,6 +31,8 @@ import {
   undo,
   withDraft,
   withQuestions,
+  withTook,
+  tookText,
 } from './upgrade-logic'
 import { CALLS, Q_SYSTEM, R_SYSTEM, REVISE_SYSTEM } from './upgrade-prompts'
 import { describeFlags, flagsOf, SETTINGS_SOURCES, type Flags } from './settings'
@@ -35,7 +44,9 @@ const flowAtom = atom({ plugin: 'cc-chat-tweaks', key: 'flow' } as const, EMPTY_
 const FAILED_NOTICE = 'Haiku did not answer. Showing the original prompt.'
 const REVISE_FAILED_NOTICE = 'Haiku did not answer. The draft is unchanged.'
 
-type Call = { model: string; maxTokens: number; timeoutMs: number }
+type Call = { model: string; effort: ModelEffort; maxTokens: number; timeoutMs: number }
+
+type Timed = { text: string | null; ms: number }
 
 const getFlow = ($: EngineInterface): Promise<Flow> => read($, flowAtom)
 
@@ -53,11 +64,14 @@ const callHaiku = async (
   call: Call,
   system: string,
   prompt: string,
-): Promise<string | null> => {
+): Promise<Timed> => {
+  const startedAt = await $.clock.now()
+  let text: string | null = null
   try {
-    return normalizeCompletion(
+    text = normalizeCompletion(
       await $.model.complete({
         model: call.model,
+        effort: call.effort,
         system,
         prompt,
         maxTokens: call.maxTokens,
@@ -65,8 +79,10 @@ const callHaiku = async (
       }),
     )
   } catch {
-    return null
+    text = null
   }
+
+  return { text, ms: Math.max(0, (await $.clock.now()) - startedAt) }
 }
 
 const restoreText = async ($: EngineInterface, text: string): Promise<void> => {
@@ -103,8 +119,11 @@ const startAsk = async ($: EngineInterface, id: number, useQuestions: boolean): 
   try {
     const f = await getFlow($)
     if (isStale(f, id)) return
-    const questions = useQuestions ? parseQuestions(await callHaiku($, CALLS.ask, Q_SYSTEM, f.original)) : []
-    const next = await setIf($, id, cur => withQuestions(cur, questions))
+    const asked = useQuestions ? await callHaiku($, CALLS.ask, Q_SYSTEM, f.original) : null
+    const questions = parseQuestions(asked?.text ?? null)
+    const next = await setIf($, id, cur =>
+      withQuestions(asked?.text ? withTook(cur, 'ask', asked.ms) : cur, questions),
+    )
     if (isStale(next, id)) return
     if (questions.length === 0) await startRewrite($, id)
   } catch {
@@ -116,9 +135,11 @@ const startRewrite = async ($: EngineInterface, id: number): Promise<void> => {
   try {
     const f = await setIf($, id, cur => toPhase(cur, 'rewriteLoading'))
     if (isStale(f, id)) return
-    const raw = await callHaiku($, CALLS.rewrite, R_SYSTEM, rewriteInput(f))
+    const done = await callHaiku($, CALLS.rewrite, R_SYSTEM, rewriteInput(f))
     await setIf($, id, cur =>
-      raw === null ? withDraft(cur, cur.original, FAILED_NOTICE) : withDraft(cur, raw.trim()),
+      done.text === null
+        ? withDraft(cur, cur.original, FAILED_NOTICE)
+        : withTook(withDraft(cur, done.text.trim()), 'rewrite', done.ms),
     )
   } catch {
     await toOriginal($, id, FAILED_NOTICE)
@@ -142,11 +163,11 @@ const revise = async ($: EngineInterface, request: string): Promise<void> => {
   const id = f.runId
   await setIf($, id, cur => ({ ...cur, phase: 'rewriteLoading', notice: '' }))
   try {
-    const raw = await callHaiku($, CALLS.revise, REVISE_SYSTEM, reviseInput(f.draft, req))
+    const done = await callHaiku($, CALLS.revise, REVISE_SYSTEM, reviseInput(f.draft, req))
     await setIf($, id, cur =>
-      raw === null
+      done.text === null
         ? { ...cur, phase: 'review', notice: REVISE_FAILED_NOTICE }
-        : { ...revised(cur, raw.trim()), phase: 'review', notice: '' },
+        : withTook({ ...revised(cur, done.text.trim()), phase: 'review', notice: '' }, 'revise', done.ms),
     )
   } catch {
     await setIf($, id, cur => ({ ...cur, phase: 'review', notice: REVISE_FAILED_NOTICE }))
@@ -327,11 +348,11 @@ const renderPane = ($: EngineInterface, e: PaneInput, flow: Flow) => {
                 </Text>
                 <Text bold> {q.q}</Text>
               </Box>
-              <Box flexWrap="wrap" gap={1} marginLeft={4}>
+              <Box flexWrap="wrap" columnGap={1} marginLeft={4}>
                 {q.options.map((value, j) => (
                   <Button
                     key={`q${i}o${j}`}
-                    label={value}
+                    label={j === q.recommended ? `${value} (권장)` : value}
                     variant={given === value ? 'primary' : 'secondary'}
                     onPress={() => pick($, i, value)}
                   />
@@ -351,7 +372,12 @@ const renderPane = ($: EngineInterface, e: PaneInput, flow: Flow) => {
             </Box>
           )
         })}
-        <Box flexWrap="wrap" gap={1} marginTop={1}>
+        {tookText(flow) !== '' ? (
+          <Box marginTop={1}>
+            <Text dimColor>{tookText(flow)}</Text>
+          </Box>
+        ) : null}
+        <Box flexWrap="wrap" columnGap={1} marginTop={1}>
           <Button label="Skip the rest, upgrade now" hotkey="u" variant="primary" onPress={() => upgradeNow($)} />
           {cancelButton}
         </Box>
@@ -366,6 +392,7 @@ const renderPane = ($: EngineInterface, e: PaneInput, flow: Flow) => {
       <Box flexDirection="column" borderStyle="round" borderColor="success" paddingX={1}>
         <Markdown text={clip(flow.draft, DRAFT_CLIP)} />
       </Box>
+      {tookText(flow) !== '' ? <Text dimColor>{tookText(flow)}</Text> : null}
       {flow.notice !== '' ? (
         <Box marginTop={1}>
           <Text bold color="warning">
@@ -382,7 +409,7 @@ const renderPane = ($: EngineInterface, e: PaneInput, flow: Flow) => {
           onSubmit={value => revise($, value)}
         />
       </Box>
-      <Box flexWrap="wrap" gap={1} marginTop={1}>
+      <Box flexWrap="wrap" columnGap={1} marginTop={1}>
         {/* UNVERIFIED: hotkeys fire while the revise Input holds the focus */}
         <Button label="Send this prompt" hotkey="s" variant="primary" onPress={() => finishDraft($)} />
         {flow.prevDraft !== '' ? <Button label="Undo revision" hotkey="u" onPress={() => undoRevision($)} /> : null}

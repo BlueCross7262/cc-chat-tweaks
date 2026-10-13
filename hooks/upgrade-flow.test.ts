@@ -11,6 +11,7 @@ type Setup = {
   filled: string[]
   closed: string[]
   models: string[]
+  efforts: string[]
   logs: string[]
   copied: string[]
   toasts: string[]
@@ -22,7 +23,7 @@ const world = (
   on: On,
   options: { isFilled?: boolean; isCopied?: boolean; isPlaced?: boolean; answers?: Array<string | null>; enabled?: boolean; useQuestions?: boolean } = {},
 ): Setup => {
-  const s: Setup = { entered: [], filled: [], closed: [], models: [], logs: [], copied: [], toasts: [], clock: undefined }
+  const s: Setup = { entered: [], filled: [], closed: [], models: [], efforts: [], logs: [], copied: [], toasts: [], clock: undefined }
   const answers = [...(options.answers ?? [])]
   s.clock = mock.clock(on, { now: 1000 })
   on('ui.toast', (_$, e) => {
@@ -48,6 +49,7 @@ const world = (
   })
   on('model.complete', (_$, e) => {
     s.models.push((e as { system?: string }).system?.slice(0, 6) ?? '')
+    s.efforts.push((e as { effort?: string }).effort ?? 'none')
     const text = answers.shift()
     return {
       value: text === null || text === undefined
@@ -103,6 +105,7 @@ test('no questions goes straight to the rewrite and Send original sends the orig
   const s = world($, on, { answers: [JSON.stringify({ questions: [] }), 'A rewritten prompt.'] })
   await submit($, LONG)
   await settle(s)
+  expect(s.efforts).toEqual(['low', 'low'])
   const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'Pane', props: {} as never, requestId: PANE })
   expect((await ui.find({ type: 'Markdown' }))?.text).toContain('A rewritten prompt.')
   await $.ui.press({ plugin: PLUGIN, key: 'Send original', requestId: PANE })

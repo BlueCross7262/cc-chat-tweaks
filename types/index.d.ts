@@ -8,7 +8,7 @@ export type RunState = { runs: Run[]; failed: string[]; done: string[]; changes:
 
 export type Phase = 'idle' | 'askLoading' | 'questions' | 'rewriteLoading' | 'review'
 
-export type Question = { q: string; options: string[] }
+export type Question = { q: string; options: string[]; recommended?: number }
 
 export type Flow = {
   phase: Phase
@@ -21,6 +21,7 @@ export type Flow = {
   pending: string | null
   runId: number
   notice: string
+  took: { ask: number; rewrite: number; revise: number }
 }
 
 declare module 'claude-code' {

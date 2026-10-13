@@ -16,6 +16,25 @@ export const EMPTY_FLOW: Flow = {
   pending: null,
   runId: 0,
   notice: '',
+  took: { ask: 0, rewrite: 0, revise: 0 },
+}
+
+export const formatMs = (ms: number): string =>
+  ms < 1000 ? `${Math.round(ms)}ms` : `${(ms / 1000).toFixed(1)}s`
+
+export const withTook = (flow: Flow, key: keyof Flow['took'], ms: number): Flow => ({
+  ...flow,
+  took: { ...flow.took, [key]: ms },
+})
+
+export const tookText = (flow: Flow): string => {
+  const parts = [
+    flow.took.ask > 0 ? `questions ${formatMs(flow.took.ask)}` : '',
+    flow.took.rewrite > 0 ? `rewrite ${formatMs(flow.took.rewrite)}` : '',
+    flow.took.revise > 0 ? `last revision ${formatMs(flow.took.revise)}` : '',
+  ].filter(part => part !== '')
+
+  return parts.length === 0 ? '' : `Haiku took ${parts.join(' · ')}`
 }
 
 export type GateInput = {
@@ -69,15 +88,19 @@ export const stripFence = (raw: string): string => {
 
 const asQuestion = (x: unknown): Question | null => {
   if (typeof x !== 'object' || x === null) return null
-  const o = x as { q?: unknown; options?: unknown }
+  const o = x as { q?: unknown; options?: unknown; recommended?: unknown }
   if (typeof o.q !== 'string' || o.q.trim() === '') return null
   if (!Array.isArray(o.options)) return null
-  const options = o.options
-    .filter((v): v is string => typeof v === 'string' && v.trim() !== '')
-    .map(v => v.trim())
-    .slice(0, MAX_OPTIONS)
+  const wanted = typeof o.recommended === 'number' && Number.isInteger(o.recommended) ? o.recommended : -1
+  const options: string[] = []
+  let recommended: number | undefined
+  o.options.forEach((v: unknown, i: number) => {
+    if (typeof v !== 'string' || v.trim() === '' || options.length >= MAX_OPTIONS) return
+    if (i === wanted) recommended = options.length
+    options.push(v.trim())
+  })
   if (options.length < 2) return null
-  return { q: o.q.trim(), options }
+  return recommended === undefined ? { q: o.q.trim(), options } : { q: o.q.trim(), options, recommended }
 }
 
 export const parseQuestions = (raw: string | null): Question[] => {

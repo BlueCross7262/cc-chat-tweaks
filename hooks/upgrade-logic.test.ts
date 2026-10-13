@@ -11,8 +11,11 @@ import {
   MIN_LEN,
   normalizeCompletion,
   parseMinLen,
+  formatMs,
   parseQuestions,
   reset,
+  tookText,
+  withTook,
   revised,
   rewriteInput,
   stripFence,
@@ -117,6 +120,30 @@ test('parses questions, caps them at three and options at five', () => {
   const qs = parseQuestions('```json\n' + raw + '\n```')
   expect(qs.length).toBe(3)
   expect(qs[0]?.options.length).toBe(5)
+})
+
+test('keeps the recommended position and moves it with the options that survive', () => {
+  const raw = JSON.stringify({
+    questions: [
+      { q: 'one', options: ['a', 'b', 'c'], recommended: 1 },
+      { q: 'two', options: ['', 'x', 'y'], recommended: 2 },
+      { q: 'three', options: ['p', 'q'], recommended: 5 },
+      { q: 'four', options: ['m', 'n'] },
+    ],
+  })
+  const qs = parseQuestions(raw)
+  expect(qs[0]?.recommended).toBe(1)
+  expect(qs[1]?.options).toEqual(['x', 'y'])
+  expect(qs[1]?.recommended).toBe(1)
+  expect(qs[2] && 'recommended' in qs[2]).toBe(false)
+})
+
+test('formats Haiku time in ms below a second and in seconds above', () => {
+  expect(formatMs(840)).toBe('840ms')
+  expect(formatMs(2140)).toBe('2.1s')
+  expect(tookText(EMPTY_FLOW)).toBe('')
+  const flow = withTook(withTook(EMPTY_FLOW, 'ask', 2140), 'rewrite', 840)
+  expect(tookText(flow)).toBe('Haiku took questions 2.1s · rewrite 840ms')
 })
 
 test('drops malformed questions and returns none on bad input', () => {
