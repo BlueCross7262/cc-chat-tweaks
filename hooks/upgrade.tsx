@@ -30,9 +30,12 @@ import {
   toPhase,
   undo,
   withDraft,
+  hasRecommended,
   withQuestions,
+  withRecommended,
   withTook,
   tookText,
+  unwrapDraft,
 } from './upgrade-logic'
 import { CALLS, Q_SYSTEM, R_SYSTEM, REVISE_SYSTEM } from './upgrade-prompts'
 import { describeFlags, flagsOf, SETTINGS_SOURCES, type Flags } from './settings'
@@ -139,7 +142,7 @@ const startRewrite = async ($: EngineInterface, id: number): Promise<void> => {
     await setIf($, id, cur =>
       done.text === null
         ? withDraft(cur, cur.original, FAILED_NOTICE)
-        : withTook(withDraft(cur, done.text.trim()), 'rewrite', done.ms),
+        : withTook(withDraft(cur, unwrapDraft(done.text)), 'rewrite', done.ms),
     )
   } catch {
     await toOriginal($, id, FAILED_NOTICE)
@@ -156,6 +159,11 @@ const upgradeNow = async ($: EngineInterface): Promise<void> => {
   if (f.phase === 'questions') await startRewrite($, f.runId)
 }
 
+const upgradeWithRecommended = async ($: EngineInterface): Promise<void> => {
+  const f = await setFlow($, cur => (cur.phase === 'questions' ? withRecommended(cur) : cur))
+  if (f.phase === 'questions') await startRewrite($, f.runId)
+}
+
 const revise = async ($: EngineInterface, request: string): Promise<void> => {
   const req = request.trim()
   const f = await getFlow($)
@@ -167,7 +175,7 @@ const revise = async ($: EngineInterface, request: string): Promise<void> => {
     await setIf($, id, cur =>
       done.text === null
         ? { ...cur, phase: 'review', notice: REVISE_FAILED_NOTICE }
-        : withTook({ ...revised(cur, done.text.trim()), phase: 'review', notice: '' }, 'revise', done.ms),
+        : withTook({ ...revised(cur, unwrapDraft(done.text)), phase: 'review', notice: '' }, 'revise', done.ms),
     )
   } catch {
     await setIf($, id, cur => ({ ...cur, phase: 'review', notice: REVISE_FAILED_NOTICE }))
@@ -239,6 +247,7 @@ const recoverAfterReload = async ($: EngineInterface): Promise<void> => {
 type PaneInput = RenderInputOf<'Pane', Exclude<RenderSurface, 'mobile'>>
 
 const ACCENT = 'claude'
+const RECOMMENDED = 'success'
 const STEPS = ['Your prompt', 'Questions', 'Rewrite', 'Review']
 const ORIGINAL_CLIP = 240
 const DRAFT_CLIP = 9000
@@ -348,15 +357,21 @@ const renderPane = ($: EngineInterface, e: PaneInput, flow: Flow) => {
                 </Text>
                 <Text bold> {q.q}</Text>
               </Box>
-              <Box flexWrap="wrap" columnGap={1} marginLeft={4}>
-                {q.options.map((value, j) => (
-                  <Button
-                    key={`q${i}o${j}`}
-                    label={j === q.recommended ? `${value} (권장)` : value}
-                    variant={given === value ? 'primary' : 'secondary'}
-                    onPress={() => pick($, i, value)}
-                  />
-                ))}
+              <Box flexDirection="column" alignItems="flex-start" marginLeft={4}>
+                {q.options.map((value, j) => {
+                  const isRecommended = j === q.recommended
+                  const text = isRecommended ? `${value} (권장)` : value
+
+                  return (
+                    <Button
+                      key={`q${i}o${j}`}
+                      variant={given === value ? 'primary' : 'secondary'}
+                      onPress={() => pick($, i, value)}
+                    >
+                      {isRecommended ? <Text color={RECOMMENDED}>{text}</Text> : text}
+                    </Button>
+                  )
+                })}
                 <Button key={`q${i}skip`} label="Skip" dimColor onPress={() => pick($, i, '')} />
               </Box>
               <Box marginLeft={4}>
@@ -378,7 +393,15 @@ const renderPane = ($: EngineInterface, e: PaneInput, flow: Flow) => {
           </Box>
         ) : null}
         <Box flexWrap="wrap" columnGap={1} marginTop={1}>
-          <Button label="Skip the rest, upgrade now" hotkey="u" variant="primary" onPress={() => upgradeNow($)} />
+          {hasRecommended(flow) ? (
+            <Button
+              label="Use recommended and upgrade"
+              hotkey="r"
+              variant="primary"
+              onPress={() => upgradeWithRecommended($)}
+            />
+          ) : null}
+          <Button label="Skip the rest, upgrade now" hotkey="u" onPress={() => upgradeNow($)} />
           {cancelButton}
         </Box>
       </Box>

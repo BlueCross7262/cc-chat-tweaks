@@ -12,27 +12,31 @@ Answer `y` to add the marketplace, then pick a scope.
 
 ## Settings
 
-Every feature is off until you turn it on. Switches live under `ccChatTweaks.chat` in any settings file (`settings.json`, `settings.local.json`, project or user). A boolean in a higher-precedence source wins. A key that is absent uses its default.
+Every feature is off until you turn it on. Switches live under `ccChatTweaks` in any settings file (`settings.json`, `settings.local.json`, project or user). The tool-call tweaks sit in the `chat` group and the prompt upgrade in the `prompt` group. A boolean in a higher-precedence source wins. A key that is absent uses its default.
 
-| Key | Default | Feature |
-|---|---|---|
-| `use-tool-fold` | `false` | Fold consecutive tool calls into one line. |
-| `use-edit-summary` | `false` | Draw `Edit` and `Write` calls as one summary line. |
-| `use-prompt-upgrade` | `false` | Ask clarifying questions about your prompt and rewrite it before it is sent. |
-| `use-questions` | `true` | Option of `use-prompt-upgrade`. When `false`, the prompt is rewritten without questions. |
+| Group | Key | Default | Feature |
+|---|---|---|---|
+| `chat` | `use-tool-fold` | `false` | Fold consecutive tool calls into one line. |
+| `chat` | `use-edit-summary` | `false` | Draw `Edit` and `Write` calls as one summary line. |
+| `prompt` | `use-prompt-upgrade` | `false` | Ask clarifying questions about your prompt and rewrite it before it is sent. |
+| `prompt` | `use-questions` | `true` | Option of `use-prompt-upgrade`. When `false`, the prompt is rewritten without questions. |
 
 ```json
 {
   "ccChatTweaks": {
     "chat": {
       "use-tool-fold": true,
-      "use-edit-summary": false,
+      "use-edit-summary": false
+    },
+    "prompt": {
       "use-prompt-upgrade": false,
       "use-questions": true
     }
   }
 }
 ```
+
+The prompt switches are not read from the `chat` group. A `use-prompt-upgrade` or `use-questions` left there from an earlier version has no effect.
 
 ## Doctor
 

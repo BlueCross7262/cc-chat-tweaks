@@ -21,7 +21,8 @@ Run `/reload-plugins` after you edit a file.
 ## Settings
 
 The feature is off until you turn it on.
-Switches live under `ccChatTweaks.chat` in any settings file (`settings.json`, `settings.local.json`, project or user), next to the other `use-*` switches.
+Switches live under `ccChatTweaks.prompt` in any settings file (`settings.json`, `settings.local.json`, project or user). The tool-call tweaks use the `ccChatTweaks.chat` group.
+The two keys are not read from `ccChatTweaks.chat`.
 A boolean in a higher-precedence source wins.
 A key that is absent uses its default.
 `/tweaks-doctor` writes the missing keys with their defaults.
@@ -34,7 +35,7 @@ A key that is absent uses its default.
 ```json
 {
   "ccChatTweaks": {
-    "chat": {
+    "prompt": {
       "use-prompt-upgrade": true,
       "use-questions": true
     }

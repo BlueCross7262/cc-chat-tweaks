@@ -1,5 +1,4 @@
 export const SETTINGS_NAMESPACE = 'ccChatTweaks'
-export const SETTINGS_GROUP = 'chat'
 export const SETTINGS_SOURCES = ['policy', 'flag', 'local', 'project', 'user'] as const
 
 export const FLAG_DEFAULTS = {
@@ -11,6 +10,15 @@ export const FLAG_DEFAULTS = {
 
 export type FlagKey = keyof typeof FLAG_DEFAULTS
 
+export const FLAG_GROUPS: Record<FlagKey, string> = {
+  'use-tool-fold': 'chat',
+  'use-edit-summary': 'chat',
+  'use-prompt-upgrade': 'prompt',
+  'use-questions': 'prompt',
+}
+
+export const GROUPS: readonly string[] = [...new Set(Object.values(FLAG_GROUPS))]
+
 export const OPTION_KEYS: readonly FlagKey[] = ['use-questions']
 
 export const isFeatureKey = (key: FlagKey): boolean => !OPTION_KEYS.includes(key)
@@ -20,11 +28,16 @@ export type Flags = Record<FlagKey, boolean>
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
+const groupOf = (source: unknown, key: FlagKey): Record<string, unknown> | undefined => {
+  const namespace = isRecord(source) ? source[SETTINGS_NAMESPACE] : undefined
+  const group = isRecord(namespace) ? namespace[FLAG_GROUPS[key]] : undefined
+
+  return isRecord(group) ? group : undefined
+}
+
 export const isFlagOn = (sources: readonly unknown[], key: FlagKey): boolean => {
   for (const source of sources) {
-    const namespace = isRecord(source) ? source[SETTINGS_NAMESPACE] : undefined
-    const group = isRecord(namespace) ? namespace[SETTINGS_GROUP] : undefined
-    const value = isRecord(group) ? group[key] : undefined
+    const value = groupOf(source, key)?.[key]
 
     if (typeof value === 'boolean') return value
   }
@@ -57,27 +70,32 @@ export const withMissingDefaults = (
   const namespace: Record<string, unknown> = isRecord(root[SETTINGS_NAMESPACE])
     ? { ...(root[SETTINGS_NAMESPACE] as Record<string, unknown>) }
     : {}
-  const group: Record<string, unknown> = isRecord(namespace[SETTINGS_GROUP])
-    ? { ...(namespace[SETTINGS_GROUP] as Record<string, unknown>) }
-    : {}
-  const added = flagKeys.filter(key => group[key] === undefined)
+  const groups: Record<string, Record<string, unknown>> = {}
+  const added: FlagKey[] = []
 
-  for (const key of added) {
-    group[key] = FLAG_DEFAULTS[key]
+  for (const name of GROUPS) {
+    groups[name] = isRecord(namespace[name]) ? { ...(namespace[name] as Record<string, unknown>) } : {}
   }
 
-  namespace[SETTINGS_GROUP] = group
+  for (const key of flagKeys) {
+    const group = groups[FLAG_GROUPS[key]] as Record<string, unknown>
+
+    if (group[key] === undefined) {
+      group[key] = FLAG_DEFAULTS[key]
+      added.push(key)
+    }
+  }
+
+  for (const name of GROUPS) {
+    namespace[name] = groups[name]
+  }
+
   root[SETTINGS_NAMESPACE] = namespace
 
   return { settings: root, added }
 }
 
-const hasFlag = (source: unknown, key: FlagKey): boolean => {
-  const namespace = isRecord(source) ? source[SETTINGS_NAMESPACE] : undefined
-  const group = isRecord(namespace) ? namespace[SETTINGS_GROUP] : undefined
-
-  return isRecord(group) && typeof group[key] === 'boolean'
-}
+const hasFlag = (source: unknown, key: FlagKey): boolean => typeof groupOf(source, key)?.[key] === 'boolean'
 
 export const flagsOf = (sources: readonly unknown[]): Flags => ({
   'use-tool-fold': isFlagOn(sources, 'use-tool-fold'),

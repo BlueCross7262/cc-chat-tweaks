@@ -1,8 +1,8 @@
 import { expect, test } from 'claude-code/testing'
 
-import { describeFlags, flagsOf, isFlagOn, withMissingDefaults } from './settings'
+import { describeFlags, FLAG_GROUPS, flagsOf, isFlagOn, withMissingDefaults, type FlagKey } from './settings'
 
-const set = (key: string, value: unknown) => ({ ccChatTweaks: { chat: { [key]: value } } })
+const set = (key: FlagKey, value: unknown) => ({ ccChatTweaks: { [FLAG_GROUPS[key]]: { [key]: value } } })
 
 test('every feature switch is off and the option is on when no source sets it', () => {
   expect(isFlagOn([], 'use-tool-fold')).toBe(false)
@@ -10,6 +10,14 @@ test('every feature switch is off and the option is on when no source sets it', 
   expect(isFlagOn([], 'use-prompt-upgrade')).toBe(false)
   expect(isFlagOn([], 'use-questions')).toBe(true)
   expect(isFlagOn([{}, { ccChatTweaks: {} }, { ccChatTweaks: { chat: {} } }], 'use-tool-fold')).toBe(false)
+})
+
+test('the prompt switches live under ccChatTweaks.prompt and are not read from ccChatTweaks.chat', () => {
+  expect(FLAG_GROUPS['use-prompt-upgrade']).toBe('prompt')
+  expect(FLAG_GROUPS['use-questions']).toBe('prompt')
+  expect(isFlagOn([{ ccChatTweaks: { prompt: { 'use-prompt-upgrade': true } } }], 'use-prompt-upgrade')).toBe(true)
+  expect(isFlagOn([{ ccChatTweaks: { chat: { 'use-prompt-upgrade': true } } }], 'use-prompt-upgrade')).toBe(false)
+  expect(isFlagOn([{ ccChatTweaks: { chat: { 'use-questions': false } } }], 'use-questions')).toBe(true)
 })
 
 test('a boolean in a source overrides the default in both directions', () => {
@@ -61,7 +69,8 @@ test('adds only the missing switches with their default and keeps everything els
   expect(settings).toEqual({
     theme: 'dark',
     ccChatTweaks: {
-      chat: { 'use-tool-fold': true, 'use-edit-summary': false, 'use-prompt-upgrade': false, 'use-questions': true },
+      chat: { 'use-tool-fold': true, 'use-edit-summary': false },
+      prompt: { 'use-prompt-upgrade': false, 'use-questions': true },
       other: 1,
     },
   })
@@ -73,7 +82,8 @@ test('builds the whole section for an empty or malformed file', () => {
   expect(withMissingDefaults(null).added).toHaveLength(4)
   expect(withMissingDefaults({ ccChatTweaks: 'x' }).settings).toEqual({
     ccChatTweaks: {
-      chat: { 'use-tool-fold': false, 'use-edit-summary': false, 'use-prompt-upgrade': false, 'use-questions': true },
+      chat: { 'use-tool-fold': false, 'use-edit-summary': false },
+      prompt: { 'use-prompt-upgrade': false, 'use-questions': true },
     },
   })
 })
@@ -81,7 +91,8 @@ test('builds the whole section for an empty or malformed file', () => {
 test('reports nothing to add when every switch is present', () => {
   const full = {
     ccChatTweaks: {
-      chat: { 'use-tool-fold': true, 'use-edit-summary': false, 'use-prompt-upgrade': false, 'use-questions': true },
+      chat: { 'use-tool-fold': true, 'use-edit-summary': false },
+      prompt: { 'use-prompt-upgrade': false, 'use-questions': true },
     },
   }
 

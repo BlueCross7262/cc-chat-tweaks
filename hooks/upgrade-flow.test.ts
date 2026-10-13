@@ -32,7 +32,7 @@ const world = (
   })
   const group = { 'use-prompt-upgrade': options.enabled ?? true, 'use-questions': options.useQuestions ?? true }
   mock.store(on, {})
-  on('settings.read', (_$, e) => ({ value: (e as { source?: string }).source === 'user' ? { ccChatTweaks: { chat: group } } : {} }) as never)
+  on('settings.read', (_$, e) => ({ value: (e as { source?: string }).source === 'user' ? { ccChatTweaks: { prompt: group } } : {} }) as never)
   on('session.surfaces', () => ({ value: ['terminal'] }) as never)
   on('ui.open', () => ({ value: options.isPlaced === false ? { isPlaced: false, reason: 'narrow' } : { isPlaced: true } }) as never)
   on('ui.close', (_$, e) => {
@@ -168,6 +168,24 @@ test('Skip the rest upgrades without answers', async ($, on) => {
   const ui = await mountPane($)
   await $.ui.press({ plugin: PLUGIN, key: 'Skip the rest, upgrade now', requestId: PANE })
   expect((await ui.find({ type: 'Markdown' }))?.text).toContain('Upgraded without answers.')
+})
+
+test('a draft that Haiku wraps in prompt tags is shown without them', async ($, on) => {
+  const s = world($, on, { answers: [JSON.stringify({ questions: [] }), '<prompt>Clean draft.</prompt>'] })
+  await submit($, LONG)
+  await settle(s)
+  const ui = await mountPane($)
+  expect((await ui.find({ type: 'Markdown' }))?.text).toBe('Clean draft.')
+})
+
+test('Use recommended and upgrade answers the open questions and rewrites', async ($, on) => {
+  const withPick = JSON.stringify({ questions: [{ q: 'Which?', options: ['a', 'b'], recommended: 1 }] })
+  const s = world($, on, { answers: [withPick, 'Upgraded with the recommended answer.'] })
+  await submit($, LONG)
+  await settle(s)
+  const ui = await mountPane($)
+  await $.ui.press({ plugin: PLUGIN, key: 'Use recommended and upgrade', requestId: PANE })
+  expect((await ui.find({ type: 'Markdown' }))?.text).toContain('Upgraded with the recommended answer.')
 })
 
 test('a revision replaces the draft and Undo brings the previous one back', async ($, on) => {

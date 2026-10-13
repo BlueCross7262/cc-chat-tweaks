@@ -100,7 +100,10 @@ const asQuestion = (x: unknown): Question | null => {
     options.push(v.trim())
   })
   if (options.length < 2) return null
-  return recommended === undefined ? { q: o.q.trim(), options } : { q: o.q.trim(), options, recommended }
+  if (recommended === undefined) return { q: o.q.trim(), options }
+  const [first] = options.splice(recommended, 1)
+  options.unshift(first as string)
+  return { q: o.q.trim(), options, recommended: 0 }
 }
 
 export const parseQuestions = (raw: string | null): Question[] => {
@@ -164,6 +167,19 @@ export const answer = (flow: Flow, index: number, value: string): Flow => {
   return { ...flow, answers }
 }
 
+export const hasRecommended = (flow: Flow): boolean => flow.questions.some(q => q.recommended !== undefined)
+
+export const withRecommended = (flow: Flow): Flow => {
+  const answers = { ...flow.answers }
+  flow.questions.forEach((q, i) => {
+    const key = String(i)
+    const pick = q.recommended === undefined ? undefined : q.options[q.recommended]
+    if (answers[key] === undefined && pick !== undefined) answers[key] = pick
+  })
+
+  return { ...flow, answers }
+}
+
 export const answeredCount = (flow: Flow): number => Object.keys(flow.answers).length
 
 export const parseMinLen = (value: unknown): number =>
@@ -184,6 +200,13 @@ export const rewriteInput = (flow: Flow): string => {
     .filter((l): l is string => l !== null)
   return `<prompt>${flow.original}</prompt><answers>${lines.join('\n\n')}</answers>`
 }
+
+export const unwrapDraft = (raw: string): string =>
+  raw
+    .trim()
+    .replace(/^<(?:prompt|draft|answers|request)>\s*/, '')
+    .replace(/\s*<\/(?:prompt|draft|answers|request)>$/, '')
+    .trim()
 
 export const reviseInput = (draft: string, request: string): string =>
   `<draft>${draft}</draft><request>${request}</request>`

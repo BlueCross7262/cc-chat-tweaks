@@ -12,6 +12,7 @@ import {
   normalizeCompletion,
   parseMinLen,
   formatMs,
+  hasRecommended,
   parseQuestions,
   reset,
   tookText,
@@ -20,8 +21,10 @@ import {
   rewriteInput,
   stripFence,
   undo,
+  unwrapDraft,
   withDraft,
   withQuestions,
+  withRecommended,
   type GateInput,
 } from './upgrade-logic'
 
@@ -122,7 +125,7 @@ test('parses questions, caps them at three and options at five', () => {
   expect(qs[0]?.options.length).toBe(5)
 })
 
-test('keeps the recommended position and moves it with the options that survive', () => {
+test('moves the recommended option to the front, counting only the options that survive', () => {
   const raw = JSON.stringify({
     questions: [
       { q: 'one', options: ['a', 'b', 'c'], recommended: 1 },
@@ -132,10 +135,30 @@ test('keeps the recommended position and moves it with the options that survive'
     ],
   })
   const qs = parseQuestions(raw)
-  expect(qs[0]?.recommended).toBe(1)
-  expect(qs[1]?.options).toEqual(['x', 'y'])
-  expect(qs[1]?.recommended).toBe(1)
+  expect(qs[0]?.options).toEqual(['b', 'a', 'c'])
+  expect(qs[0]?.recommended).toBe(0)
+  expect(qs[1]?.options).toEqual(['y', 'x'])
+  expect(qs[1]?.recommended).toBe(0)
   expect(qs[2] && 'recommended' in qs[2]).toBe(false)
+})
+
+test('recommended answers fill only the questions that are still open', () => {
+  const asked = withQuestions(EMPTY_FLOW, [
+    { q: 'one', options: ['a', 'b'], recommended: 0 },
+    { q: 'two', options: ['c', 'd'], recommended: 0 },
+    { q: 'three', options: ['e', 'f'] },
+  ])
+  expect(hasRecommended(asked)).toBe(true)
+  expect(hasRecommended(withQuestions(EMPTY_FLOW, [{ q: 'x', options: ['a', 'b'] }]))).toBe(false)
+  const picked = withRecommended(answer(asked, 1, 'd'))
+  expect(picked.answers).toEqual({ '0': 'a', '1': 'd' })
+})
+
+test('strips the prompt and draft wrapper tags from a Haiku answer and keeps input tags', () => {
+  expect(unwrapDraft('<prompt>Do the work.</prompt>')).toBe('Do the work.')
+  expect(unwrapDraft('  <draft>\nDo the work.\n</draft>  ')).toBe('Do the work.')
+  expect(unwrapDraft('<prompt>Read <input>a < b</input> now.')).toBe('Read <input>a < b</input> now.')
+  expect(unwrapDraft('Plain text.')).toBe('Plain text.')
 })
 
 test('formats Haiku time in ms below a second and in seconds above', () => {
