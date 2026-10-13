@@ -3,8 +3,11 @@ import { expect, test } from 'claude-code/testing'
 import {
   allAnswered,
   answer,
+  askInput,
   begin,
+  buildContext,
   decideGate,
+  parseTrigger,
   EMPTY_FLOW,
   clip,
   isStale,
@@ -36,6 +39,7 @@ const base: GateInput = {
   surfaces: ['terminal'],
   isEnabled: true,
   minLen: MIN_LEN,
+  silentTrigger: '',
   now: 1000,
   flow: EMPTY_FLOW,
 }
@@ -236,4 +240,70 @@ test('revise keeps one level of undo', () => {
   f = undo(f)
   expect(f.draft).toBe('draft one')
   expect(undo(f).draft).toBe('draft one')
+})
+
+test('context keeps the newest text turns, clipped, oldest dropped first', () => {
+  const turns = [
+    { role: 'user' as const, text: 'old question' },
+    { role: 'assistant' as const, text: '' },
+    { role: 'assistant' as const, text: 'x'.repeat(2000) },
+    { role: 'user' as const, text: 'newest' },
+  ]
+  const ctx = buildContext(turns)
+  expect(ctx).toContain('user: newest')
+  expect(ctx).toContain('assistant: ' + 'x'.repeat(100))
+  expect(ctx).not.toContain('x'.repeat(1000))
+  expect(buildContext([])).toBe('')
+  expect(buildContext([{ role: 'user', text: '   ' }])).toBe('')
+})
+
+test('context is limited to the last turns and a total size', () => {
+  const many = Array.from({ length: 30 }, (_, i) => ({ role: 'user' as const, text: `turn-${i} ${'y'.repeat(400)}` }))
+  const ctx = buildContext(many)
+  expect(ctx).toContain('turn-29')
+  expect(ctx).not.toContain('turn-0 ')
+  expect(ctx.length).toBeLessThanOrEqual(3200)
+})
+
+test('the ask and rewrite inputs carry the context only when there is one', () => {
+  const plain = begin(EMPTY_FLOW, 'make it shorter')
+  expect(askInput(plain)).toBe('make it shorter')
+  expect(rewriteInput(plain)).not.toContain('<context>')
+  const withCtx = begin(EMPTY_FLOW, 'make it shorter', 'user: draft the memo')
+  expect(askInput(withCtx)).toBe('<context>user: draft the memo</context><prompt>make it shorter</prompt>')
+  expect(rewriteInput(withCtx)).toContain('<context>user: draft the memo</context>')
+  expect(reset(withCtx).context).toBe('')
+})
+
+test('parseTrigger strips the trigger from the start, the end or both and repeats', () => {
+  expect(parseTrigger('+++ hello', '+++')).toBe('hello')
+  expect(parseTrigger('hello +++', '+++')).toBe('hello')
+  expect(parseTrigger('+++ hello +++', '+++')).toBe('hello')
+  expect(parseTrigger('+++hello', '+++')).toBe('hello')
+  expect(parseTrigger('+++ +++ hello', '+++')).toBe('hello')
+  expect(parseTrigger('+++', '+++')).toBe('')
+  expect(parseTrigger('++++++', '+++')).toBe('')
+  expect(parseTrigger('a +++ b', '+++')).toBeNull()
+  expect(parseTrigger('+++ hello', '')).toBeNull()
+})
+
+test('a trigger intercepts silently with the stripped text and skips the short and terminal checks', () => {
+  const silent = { silentTrigger: '+++', minLen: 100, surfaces: [] as string[] }
+  expect(gate({ ...silent, text: '+++ summarise it' })).toEqual({ intercept: true, silent: true, text: 'summarise it' })
+  expect(gate({ ...silent, text: 'summarise it +++' })).toEqual({ intercept: true, silent: true, text: 'summarise it' })
+  expect(gate({ ...silent, text: '+++' })).toMatchObject({ intercept: false, reason: 'trigger-only' })
+  expect(gate({ ...silent, text: '+++ /compact now' })).toMatchObject({ intercept: false, reason: 'slash' })
+  expect(gate({ ...silent, text: '+++ hi', hasAttachments: true })).toMatchObject({ intercept: false, reason: 'attachments' })
+  expect(gate({ ...silent, text: '+++ hi', isEnabled: false })).toMatchObject({ intercept: false, reason: 'disabled' })
+  expect(gate({ ...silent, text: '+++ hi', flow: { ...EMPTY_FLOW, phase: 'rewriteLoading' } })).toMatchObject({ intercept: false, reason: 'busy' })
+})
+
+test('an empty trigger keeps the ordinary gate and a long prompt still takes the pane path', () => {
+  expect(gate({ silentTrigger: '', text: '+++ ' + base.text })).toEqual({ intercept: true })
+  expect(gate({ silentTrigger: '+++' })).toEqual({ intercept: true })
+})
+
+test('a resubmitted rewrite that ends with the trigger is not intercepted again', () => {
+  const flow = { ...EMPTY_FLOW, pending: 'done +++' }
+  expect(gate({ silentTrigger: '+++', text: 'done +++', flow })).toMatchObject({ intercept: false, reason: 'resubmit' })
 })

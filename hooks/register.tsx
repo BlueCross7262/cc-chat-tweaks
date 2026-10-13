@@ -36,8 +36,9 @@ import { COMMAND as UPGRADE_COMMAND, COMMAND_HELP, KEY_MIN_LEN, registerUpgrade 
 import { EMPTY_FLOW, parseMinLen } from './upgrade-logic'
 import {
   describeFlags,
-  FLAG_DEFAULTS,
+  defaultOf,
   flagsOf,
+  minLengthOf,
   SETTINGS_SOURCES,
   withMissingDefaults,
   type Flags,
@@ -241,7 +242,7 @@ const applyDefaults = async ($: EngineInterface): Promise<string> => {
     return `Nothing written: ${messageOf(error)}`
   }
 
-  return `Added to ${path}: ${added.map(key => `${key}=${String(FLAG_DEFAULTS[key])}`).join(', ')}.`
+  return `Added to ${path}: ${added.map(key => `${key}=${String(defaultOf(key))}`).join(', ')}.`
 }
 
 const collectDoctorInput = async ($: EngineInterface): Promise<DoctorInput> => {
@@ -252,7 +253,8 @@ const collectDoctorInput = async ($: EngineInterface): Promise<DoctorInput> => {
   const surface = await $.session.surface().then(String, () => 'unknown')
   const version = await $.session.version().then(versionText, () => 'unknown')
   const flow = await read($, flowAtom)
-  const minLen = parseMinLen(await $.store.get(KEY_MIN_LEN))
+  const minLen =
+    minLengthOf(named.map(([, settings]) => settings)) ?? parseMinLen(await $.store.get(KEY_MIN_LEN))
 
   return {
     flags: describeFlags(named),

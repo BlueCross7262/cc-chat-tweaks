@@ -46,6 +46,13 @@ test('Skill joins no run and closes the open one', () => {
   expect(viewOf(state, ['s'])).toEqual({ header: null, showRow: true })
 })
 
+test('Agent joins no run and closes the open one', () => {
+  const state = feed([response(use('a'), use('g', 'Agent'), use('b'))])
+
+  expect(state.runs.map(run => run.calls.map(call => call.id))).toEqual([['a'], ['b']])
+  expect(viewOf(state, ['g'])).toEqual({ header: null, showRow: true })
+})
+
 test('AskUserQuestion alone leaves the runs untouched', () => {
   const state = feed([response(use('q', 'AskUserQuestion'))])
 
@@ -158,9 +165,10 @@ test('a row with a result, an error or an interrupt is not hidden', () => {
   expect(isStreamingRow(EMPTY_RUN_STATE, rowOf('a', { isInterrupted: true }))).toBe(false)
 })
 
-test('AskUserQuestion and Skill rows are never hidden', () => {
+test('AskUserQuestion, Skill and Agent rows are never hidden', () => {
   expect(isStreamingRow(EMPTY_RUN_STATE, rowOf('q', { tool: 'AskUserQuestion' }))).toBe(false)
   expect(isStreamingRow(EMPTY_RUN_STATE, rowOf('s', { tool: 'Skill' }))).toBe(false)
+  expect(isStreamingRow(EMPTY_RUN_STATE, rowOf('g', { tool: 'Agent' }))).toBe(false)
 })
 
 test('a call that is in no run stays an ordinary row', () => {

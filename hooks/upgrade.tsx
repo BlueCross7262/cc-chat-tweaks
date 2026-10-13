@@ -13,7 +13,9 @@ import {
   allAnswered,
   answer,
   answeredCount,
+  askInput,
   begin,
+  buildContext,
   clip,
   decideGate,
   EMPTY_FLOW,
@@ -38,7 +40,15 @@ import {
   unwrapDraft,
 } from './upgrade-logic'
 import { CALLS, Q_SYSTEM, R_SYSTEM, REVISE_SYSTEM } from './upgrade-prompts'
-import { describeFlags, flagsOf, SETTINGS_SOURCES, type Flags } from './settings'
+import {
+  DEFAULT_SILENT_TRIGGER,
+  describeFlags,
+  flagsOf,
+  minLengthOf,
+  SETTINGS_SOURCES,
+  silentTriggerOf,
+  type Flags,
+} from './settings'
 
 const PANE = 'prompt-upgrade'
 
@@ -122,7 +132,7 @@ const startAsk = async ($: EngineInterface, id: number, useQuestions: boolean): 
   try {
     const f = await getFlow($)
     if (isStale(f, id)) return
-    const asked = useQuestions ? await callHaiku($, CALLS.ask, Q_SYSTEM, f.original) : null
+    const asked = useQuestions ? await callHaiku($, CALLS.ask, Q_SYSTEM, askInput(f)) : null
     const questions = parseQuestions(asked?.text ?? null)
     const next = await setIf($, id, cur =>
       withQuestions(asked?.text ? withTook(cur, 'ask', asked.ms) : cur, questions),
@@ -189,20 +199,57 @@ const undoRevision = async ($: EngineInterface): Promise<void> => {
 const cancel = async ($: EngineInterface): Promise<void> => {
   const f = await getFlow($)
   await setFlow($, reset)
-  await $.ui.close({ id: PANE })
+  await $.ui.close({ id: PANE }).catch(() => undefined)
   if (f.phase !== 'idle' && f.original !== '') await restoreText($, f.original)
 }
 
-const finish = async ($: EngineInterface, text: string): Promise<void> => {
+const isBoxHolding = async ($: EngineInterface, expected: string): Promise<boolean> => {
+  try {
+    const box = await $.prompt.read()
+    const current = box.text.trim()
+
+    return current !== '' && current === expected.trim()
+  } catch {
+    return false
+  }
+}
+
+const finish = async ($: EngineInterface, text: string, clearOnlyIf?: string): Promise<void> => {
   const t = text.trim()
   if (t === '') {
     await cancel($)
     return
   }
   await setFlow($, f => ({ ...reset(f), pending: t }))
-  await $.ui.close({ id: PANE })
+  await $.ui.close({ id: PANE }).catch(() => undefined)
+  if (clearOnlyIf === undefined || (await isBoxHolding($, clearOnlyIf))) {
+    await $.prompt.fill({ text: '' }).catch(() => undefined)
+  }
   // UNVERIFIED: the asUser resubmit reaches prompt.submit with text equal to the trimmed pending value
   $.prompt.submit({ text: t, asUser: true }).catch(() => restoreText($, t))
+}
+
+const recoverSilent = async ($: EngineInterface, id: number): Promise<void> => {
+  try {
+    const f = await getFlow($)
+    if (isStale(f, id)) return
+    await setFlow($, reset)
+    if (f.original !== '') await restoreText($, f.original)
+  } catch {
+    return
+  }
+}
+
+const runSilent = async ($: EngineInterface, id: number, typed: string): Promise<void> => {
+  try {
+    await startRewrite($, id)
+    const f = await getFlow($)
+    if (isStale(f, id) || f.phase !== 'review') return
+    if (f.notice !== '') $.ui.toast(f.notice)
+    await finish($, f.draft, typed)
+  } catch {
+    await recoverSilent($, id)
+  }
 }
 
 const finishDraft = async ($: EngineInterface): Promise<void> => {
@@ -303,7 +350,7 @@ const renderPane = ($: EngineInterface, e: PaneInput, flow: Flow) => {
     </Box>
   )
 
-  const cancelButton = <Button label="Cancel" hotkey="c" dimColor role="dismiss" onPress={() => cancel($)} />
+  const cancelButton = <Button label="취소" hotkey="c" dimColor role="dismiss" onPress={() => cancel($)} />
 
   if (flow.phase === 'idle') {
     return (
@@ -365,6 +412,7 @@ const renderPane = ($: EngineInterface, e: PaneInput, flow: Flow) => {
                   return (
                     <Button
                       key={`q${i}o${j}`}
+                      autoFocus={i === 0 && j === 0 ? true : undefined}
                       variant={given === value ? 'primary' : 'secondary'}
                       onPress={() => pick($, i, value)}
                     >
@@ -372,12 +420,12 @@ const renderPane = ($: EngineInterface, e: PaneInput, flow: Flow) => {
                     </Button>
                   )
                 })}
-                <Button key={`q${i}skip`} label="Skip" dimColor onPress={() => pick($, i, '')} />
+                <Button key={`q${i}skip`} label="건너뛰기" dimColor onPress={() => pick($, i, '')} />
               </Box>
               <Box marginLeft={4}>
                 <Input
                   key={`other${i}`}
-                  label="Other (type it)"
+                  label="기타 (직접 입력)"
                   placeholder="your own answer"
                   value={given !== undefined && !isListed ? given : ''}
                   submitLabel="answer"
@@ -395,13 +443,13 @@ const renderPane = ($: EngineInterface, e: PaneInput, flow: Flow) => {
         <Box flexWrap="wrap" columnGap={1} marginTop={1}>
           {hasRecommended(flow) ? (
             <Button
-              label="Use recommended and upgrade"
+              label="권장안으로 업그레이드"
               hotkey="r"
               variant="primary"
               onPress={() => upgradeWithRecommended($)}
             />
           ) : null}
-          <Button label="Skip the rest, upgrade now" hotkey="u" onPress={() => upgradeNow($)} />
+          <Button label="나머지 건너뛰고 업그레이드" hotkey="u" onPress={() => upgradeNow($)} />
           {cancelButton}
         </Box>
       </Box>
@@ -426,7 +474,7 @@ const renderPane = ($: EngineInterface, e: PaneInput, flow: Flow) => {
       <Box marginTop={1}>
         <Input
           key="revise"
-          label="Revise"
+          label="수정"
           placeholder="what should change?"
           submitLabel="revise"
           onSubmit={value => revise($, value)}
@@ -434,10 +482,10 @@ const renderPane = ($: EngineInterface, e: PaneInput, flow: Flow) => {
       </Box>
       <Box flexWrap="wrap" columnGap={1} marginTop={1}>
         {/* UNVERIFIED: hotkeys fire while the revise Input holds the focus */}
-        <Button label="Send this prompt" hotkey="s" variant="primary" onPress={() => finishDraft($)} />
-        {flow.prevDraft !== '' ? <Button label="Undo revision" hotkey="u" onPress={() => undoRevision($)} /> : null}
-        <Button label="Edit in prompt box" hotkey="e" onPress={() => editInPrompt($)} />
-        <Button label="Send original" hotkey="o" onPress={() => finishOriginal($)} />
+        <Button label="이 프롬프트 보내기" hotkey="s" variant="primary" onPress={() => finishDraft($)} />
+        {flow.prevDraft !== '' ? <Button label="수정 되돌리기" hotkey="u" onPress={() => undoRevision($)} /> : null}
+        <Button label="입력창에서 편집" hotkey="e" onPress={() => editInPrompt($)} />
+        <Button label="원문 그대로 보내기" hotkey="o" onPress={() => finishOriginal($)} />
         {cancelButton}
       </Box>
     </Box>
@@ -498,12 +546,15 @@ const readFlags = async ($: EngineInterface): Promise<Flags> =>
   flagsOf((await readSources($)).map(([, settings]) => settings))
 
 const settingsOf = async ($: EngineInterface) => {
-  const flags = await readFlags($)
+  const sources = (await readSources($)).map(([, settings]) => settings)
+  const flags = flagsOf(sources)
 
   return {
     isEnabled: flags['use-prompt-upgrade'],
     useQuestions: flags['use-questions'],
-    minLen: parseMinLen(await $.store.get(KEY_MIN_LEN)),
+    minLen: minLengthOf(sources) ?? parseMinLen(await $.store.get(KEY_MIN_LEN)),
+    silentTrigger:
+      flags['use-prompt-upgrade'] && flags['use-silent-upgrade'] ? (silentTriggerOf(sources) ?? DEFAULT_SILENT_TRIGGER) : '',
   }
 }
 
@@ -517,8 +568,18 @@ const abandon = async ($: EngineInterface, cause?: unknown): Promise<void> => {
   }
 }
 
+const readContext = async ($: EngineInterface): Promise<string> => {
+  try {
+    const messages = await $.session.messages()
+
+    return Array.isArray(messages) ? buildContext(messages) : ''
+  } catch {
+    return ''
+  }
+}
+
 const interceptOrPass = async ($: EngineInterface, e: PromptSubmitInput) => {
-  const { isEnabled, useQuestions, minLen } = await settingsOf($)
+  const { isEnabled, useQuestions, minLen, silentTrigger } = await settingsOf($)
   const flow = await getFlow($)
   const gate = decideGate({
     text: e.text,
@@ -528,11 +589,19 @@ const interceptOrPass = async ($: EngineInterface, e: PromptSubmitInput) => {
     surfaces: isEnabled ? await $.session.surfaces() : [],
     isEnabled,
     minLen,
+    silentTrigger,
     now: await $.clock.now(),
     flow,
   })
   if (gate.intercept) {
-    const started = await setFlow($, f => begin(f, e.text))
+    const context = await readContext($)
+    const text = 'silent' in gate ? gate.text : e.text
+    const started = await setFlow($, f => begin(f, text, context))
+    if ('silent' in gate) {
+      runSilent($, started.runId, e.text).catch(() => undefined)
+
+      return { drop: DROP_REASON }
+    }
     // UNVERIFIED: a pane opened from inside prompt.submit is placed at any terminal width
     const opened = await $.ui.open({ id: PANE, title: 'Prompt Upgrade', focus: true, closeOnEscape: true, rows: PANE_ROWS })
     if (!opened.isPlaced) {
@@ -623,6 +692,10 @@ export const registerUpgrade = (on: Parameters<Register>[0]): void => {
       const n = Number(sub)
       if (parseMinLen(n) !== n) return { text: 'Give a whole number from 1 to 10000.' }
       await $.store.set(KEY_MIN_LEN, n)
+      const fixed = minLengthOf((await readSources($)).map(([, settings]) => settings))
+      if (fixed !== undefined) {
+        return { text: `Threshold ${n} characters saved, but ccChatTweaks.prompt.min-length (${fixed}) in settings takes precedence.` }
+      }
       return { text: `Threshold ${n} characters.` }
     }
     if (word === 'reset') {

@@ -21,6 +21,7 @@ export type Flow = {
   pending: string | null
   runId: number
   notice: string
+  context: string
   took: { ask: number; rewrite: number; revise: number }
 }
 

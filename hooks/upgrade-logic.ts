@@ -16,7 +16,29 @@ export const EMPTY_FLOW: Flow = {
   pending: null,
   runId: 0,
   notice: '',
+  context: '',
   took: { ask: 0, rewrite: 0, revise: 0 },
+}
+
+const CONTEXT_TURNS = 6
+const CONTEXT_TURN_CLIP = 500
+const CONTEXT_TOTAL = 3000
+
+export const buildContext = (turns: readonly { role: string; text: string }[]): string => {
+  const lines = turns
+    .map(t => ({ role: t.role, text: t.text.trim() }))
+    .filter(t => t.text !== '')
+    .slice(-CONTEXT_TURNS)
+    .map(t => `${t.role}: ${clip(t.text, CONTEXT_TURN_CLIP)}`)
+  let total = 0
+  const kept: string[] = []
+  for (const line of lines.reverse()) {
+    if (total + line.length > CONTEXT_TOTAL && kept.length > 0) break
+    kept.unshift(line)
+    total += line.length + 1
+  }
+
+  return kept.join('\n')
 }
 
 export const formatMs = (ms: number): string =>
@@ -45,13 +67,25 @@ export type GateInput = {
   surfaces: readonly string[]
   isEnabled: boolean
   minLen: number
+  silentTrigger: string
   now: number
   flow: Flow
 }
 
 export type Gate =
   | { intercept: true }
+  | { intercept: true; silent: true; text: string }
   | { intercept: false; reason: string; clearPending?: true; clearSkip?: true }
+
+export const parseTrigger = (text: string, trigger: string): string | null => {
+  if (trigger === '') return null
+  let rest = text.trim()
+  if (!rest.startsWith(trigger) && !rest.endsWith(trigger)) return null
+  while (rest.startsWith(trigger)) rest = rest.slice(trigger.length).trimStart()
+  while (rest.endsWith(trigger)) rest = rest.slice(0, rest.length - trigger.length).trimEnd()
+
+  return rest.trim()
+}
 
 export const decideGate = (g: GateInput): Gate => {
   const text = g.text.trim()
@@ -74,7 +108,12 @@ const decideRest = (g: GateInput, text: string, clearSkip: boolean): Gate => {
   if (g.originKind !== 'composer') return pass('origin')
   if (g.hasTurnId) return pass('mid-turn')
   if (g.hasAttachments) return pass('attachments')
-  if (text.startsWith('/')) return pass('slash')
+  const stripped = parseTrigger(text, g.silentTrigger)
+  if ((stripped ?? text).startsWith('/')) return pass('slash')
+  if (stripped !== null) {
+    if (stripped === '') return pass('trigger-only')
+    return { intercept: true, silent: true, text: stripped }
+  }
   if (text.length < g.minLen) return pass('short')
   if (!g.surfaces.includes('terminal')) return pass('no-terminal')
   return { intercept: true }
@@ -134,14 +173,18 @@ export const normalizeCompletion = (r: unknown): string | null => {
 
 export const isStale = (flow: Flow, id: number): boolean => flow.runId !== id
 
-export const begin = (flow: Flow, original: string): Flow => ({
+export const begin = (flow: Flow, original: string, context = ''): Flow => ({
   ...EMPTY_FLOW,
   skipUntil: flow.skipUntil,
   pending: flow.pending,
   runId: flow.runId + 1,
   phase: 'askLoading',
   original,
+  context,
 })
+
+export const askInput = (flow: Flow): string =>
+  !flow.context ? flow.original : `<context>${flow.context}</context><prompt>${flow.original}</prompt>`
 
 export const reset = (flow: Flow): Flow => ({
   ...EMPTY_FLOW,
@@ -198,14 +241,15 @@ export const rewriteInput = (flow: Flow): string => {
       return a === undefined ? null : `Q: ${q.q}\nA: ${a}`
     })
     .filter((l): l is string => l !== null)
-  return `<prompt>${flow.original}</prompt><answers>${lines.join('\n\n')}</answers>`
+  const context = !flow.context ? '' : `<context>${flow.context}</context>`
+  return `${context}<prompt>${flow.original}</prompt><answers>${lines.join('\n\n')}</answers>`
 }
 
 export const unwrapDraft = (raw: string): string =>
   raw
     .trim()
-    .replace(/^<(?:prompt|draft|answers|request)>\s*/, '')
-    .replace(/\s*<\/(?:prompt|draft|answers|request)>$/, '')
+    .replace(/^<(?:prompt|draft|answers|request|context)>\s*/, '')
+    .replace(/\s*<\/(?:prompt|draft|answers|request|context)>$/, '')
     .trim()
 
 export const reviseInput = (draft: string, request: string): string =>

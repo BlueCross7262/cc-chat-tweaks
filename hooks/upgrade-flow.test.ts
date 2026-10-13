@@ -15,26 +15,29 @@ type Setup = {
   logs: string[]
   copied: string[]
   toasts: string[]
+  prompts: string[]
+  opens: number
   clock: ReturnType<typeof mock.clock> | undefined
 }
 
 const world = (
   $: Engine,
   on: On,
-  options: { isFilled?: boolean; isCopied?: boolean; isPlaced?: boolean; answers?: Array<string | null>; enabled?: boolean; useQuestions?: boolean } = {},
+  options: { isFilled?: boolean; isCopied?: boolean; isPlaced?: boolean; answers?: Array<string | null>; enabled?: boolean; useQuestions?: boolean; silent?: boolean; box?: string } = {},
 ): Setup => {
-  const s: Setup = { entered: [], filled: [], closed: [], models: [], efforts: [], logs: [], copied: [], toasts: [], clock: undefined }
+  const s: Setup = { entered: [], filled: [], closed: [], models: [], efforts: [], logs: [], copied: [], toasts: [], prompts: [], opens: 0, clock: undefined }
   const answers = [...(options.answers ?? [])]
   s.clock = mock.clock(on, { now: 1000 })
   on('ui.toast', (_$, e) => {
     s.toasts.push((e as { text: string }).text)
     return { value: undefined } as never
   })
-  const group = { 'use-prompt-upgrade': options.enabled ?? true, 'use-questions': options.useQuestions ?? true }
+  const group = { 'use-prompt-upgrade': options.enabled ?? true, 'use-questions': options.useQuestions ?? true, 'use-silent-upgrade': options.silent ?? true }
   mock.store(on, {})
   on('settings.read', (_$, e) => ({ value: (e as { source?: string }).source === 'user' ? { ccChatTweaks: { prompt: group } } : {} }) as never)
   on('session.surfaces', () => ({ value: ['terminal'] }) as never)
-  on('ui.open', () => ({ value: options.isPlaced === false ? { isPlaced: false, reason: 'narrow' } : { isPlaced: true } }) as never)
+  on('prompt.read', () => ({ value: { text: options.box ?? '', cursor: 0 } }) as never)
+  on('ui.open', () => (s.opens++, { value: options.isPlaced === false ? { isPlaced: false, reason: 'narrow' } : { isPlaced: true } }) as never)
   on('ui.close', (_$, e) => {
     s.closed.push((e as { id: string }).id)
     return { value: undefined } as never
@@ -49,6 +52,7 @@ const world = (
   })
   on('model.complete', (_$, e) => {
     s.models.push((e as { system?: string }).system?.slice(0, 6) ?? '')
+    s.prompts.push((e as { prompt?: string }).prompt ?? '')
     s.efforts.push((e as { effort?: string }).effort ?? 'none')
     const text = answers.shift()
     return {
@@ -93,8 +97,9 @@ test('a long composer prompt is dropped, upgraded and resubmitted once', async (
   await $.ui.press({ plugin: PLUGIN, key: 'q0o1', requestId: PANE })
   expect((await ui.find({ type: 'Markdown' }))?.text).toContain('Summarise the design document as bullets.')
 
-  await $.ui.press({ plugin: PLUGIN, key: 'Send this prompt', requestId: PANE })
+  await $.ui.press({ plugin: PLUGIN, key: '이 프롬프트 보내기', requestId: PANE })
   expect(s.entered).toEqual(['Summarise the design document as bullets.'])
+  expect(s.filled).toEqual([''])
   expect(s.closed).toContain(PANE)
 
   const again = await submit($, 'Summarise the design document as bullets.', { origin: { kind: 'plugin', name: PLUGIN, asUser: true } })
@@ -108,7 +113,7 @@ test('no questions goes straight to the rewrite and Send original sends the orig
   expect(s.efforts).toEqual(['low', 'low'])
   const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'Pane', props: {} as never, requestId: PANE })
   expect((await ui.find({ type: 'Markdown' }))?.text).toContain('A rewritten prompt.')
-  await $.ui.press({ plugin: PLUGIN, key: 'Send original', requestId: PANE })
+  await $.ui.press({ plugin: PLUGIN, key: '원문 그대로 보내기', requestId: PANE })
   expect(s.entered).toEqual([LONG])
 })
 
@@ -119,7 +124,7 @@ test('a Haiku failure falls back to the original prompt', async ($, on) => {
   const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'Pane', props: {} as never, requestId: PANE })
   expect((await ui.find({ type: 'Markdown' }))?.text).toBe(LONG)
   expect(await ui.find({ type: 'Text', text: /did not answer/ })).toBeDefined()
-  await $.ui.press({ plugin: PLUGIN, key: 'Send this prompt', requestId: PANE })
+  await $.ui.press({ plugin: PLUGIN, key: '이 프롬프트 보내기', requestId: PANE })
   expect(s.entered).toEqual([LONG])
 })
 
@@ -128,7 +133,7 @@ test('Cancel puts the original back in the prompt box and enters nothing', async
   await submit($, LONG)
   await settle(s)
   await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'Pane', props: {} as never, requestId: PANE })
-  await $.ui.press({ plugin: PLUGIN, key: 'Cancel', requestId: PANE })
+  await $.ui.press({ plugin: PLUGIN, key: '취소', requestId: PANE })
   expect(s.filled).toEqual([LONG])
   expect(s.entered).toEqual([])
 })
@@ -166,7 +171,7 @@ test('Skip the rest upgrades without answers', async ($, on) => {
   await submit($, LONG)
   await settle(s)
   const ui = await mountPane($)
-  await $.ui.press({ plugin: PLUGIN, key: 'Skip the rest, upgrade now', requestId: PANE })
+  await $.ui.press({ plugin: PLUGIN, key: '나머지 건너뛰고 업그레이드', requestId: PANE })
   expect((await ui.find({ type: 'Markdown' }))?.text).toContain('Upgraded without answers.')
 })
 
@@ -184,7 +189,7 @@ test('Use recommended and upgrade answers the open questions and rewrites', asyn
   await submit($, LONG)
   await settle(s)
   const ui = await mountPane($)
-  await $.ui.press({ plugin: PLUGIN, key: 'Use recommended and upgrade', requestId: PANE })
+  await $.ui.press({ plugin: PLUGIN, key: '권장안으로 업그레이드', requestId: PANE })
   expect((await ui.find({ type: 'Markdown' }))?.text).toContain('Upgraded with the recommended answer.')
 })
 
@@ -196,7 +201,7 @@ test('a revision replaces the draft and Undo brings the previous one back', asyn
   expect((await ui.find({ type: 'Markdown' }))?.text).toContain('First draft.')
   await $.ui.input({ plugin: PLUGIN, key: 'revise', text: 'make it shorter', requestId: PANE })
   expect((await ui.find({ type: 'Markdown' }))?.text).toContain('Second draft.')
-  await $.ui.press({ plugin: PLUGIN, key: 'Undo revision', requestId: PANE })
+  await $.ui.press({ plugin: PLUGIN, key: '수정 되돌리기', requestId: PANE })
   expect((await ui.find({ type: 'Markdown' }))?.text).toContain('First draft.')
 })
 
@@ -215,7 +220,7 @@ test('Edit in prompt box fills the draft and lets the next submit through once',
   await submit($, LONG)
   await settle(s)
   await mountPane($)
-  await $.ui.press({ plugin: PLUGIN, key: 'Edit in prompt box', requestId: PANE })
+  await $.ui.press({ plugin: PLUGIN, key: '입력창에서 편집', requestId: PANE })
   expect(s.filled).toEqual(['Draft to edit.'])
   const edited = await submit($, 'Draft to edit, then changed by hand.')
   expect(edited).toMatchObject({ text: 'Draft to edit, then changed by hand.' })
@@ -227,7 +232,7 @@ test('a Haiku answer that arrives after Cancel is ignored', async ($, on) => {
   const s = world($, on, { answers: [QUESTION, 'Late draft.'] })
   await submit($, LONG)
   await mountPane($)
-  await $.ui.press({ plugin: PLUGIN, key: 'Cancel', requestId: PANE }).catch(() => undefined)
+  await $.ui.press({ plugin: PLUGIN, key: '취소', requestId: PANE }).catch(() => undefined)
   await settle(s)
   expect(s.entered).toEqual([])
 })
@@ -248,7 +253,7 @@ test('when the prompt box cannot be refilled the full text goes to the clipboard
   await submit($, LONG_TEXT)
   await settle(s)
   await mountPane($)
-  await $.ui.press({ plugin: PLUGIN, key: 'Cancel', requestId: PANE })
+  await $.ui.press({ plugin: PLUGIN, key: '취소', requestId: PANE })
   expect(s.copied).toEqual([LONG_TEXT])
   expect(s.toasts.join('')).not.toContain('...')
 })
@@ -258,7 +263,7 @@ test('when neither refill nor clipboard works the toast carries the whole text',
   await submit($, LONG_TEXT)
   await settle(s)
   await mountPane($)
-  await $.ui.press({ plugin: PLUGIN, key: 'Cancel', requestId: PANE })
+  await $.ui.press({ plugin: PLUGIN, key: '취소', requestId: PANE })
   expect(s.toasts.some(text => text.includes(LONG_TEXT))).toBe(true)
 })
 
@@ -269,4 +274,51 @@ test('use-questions false skips the question step', async ($, on) => {
   const ui = await mountPane($)
   expect((await ui.find({ type: 'Markdown' }))?.text).toContain('Straight to the rewrite.')
   expect(s.models.length).toBe(1)
+})
+
+const TRIGGERED = '+++ ' + LONG
+
+test('a trailing or leading trigger upgrades silently: no pane, no questions, no trigger sent to Haiku', async ($, on) => {
+  const s = world($, on, { answers: ['Silently upgraded prompt.'], box: TRIGGERED })
+  const result = await submit($, TRIGGERED)
+  await settle(s)
+  expect(result).toMatchObject({ drop: expect.any(String) })
+  expect(s.opens).toBe(0)
+  expect(s.models).toHaveLength(1)
+  expect(s.prompts[0]).toContain(LONG)
+  expect(s.prompts[0]).not.toContain('+++')
+  expect(s.entered).toEqual(['Silently upgraded prompt.'])
+  expect(s.filled).toEqual([''])
+})
+
+test('a silent run whose Haiku call fails sends the original without the trigger and says so', async ($, on) => {
+  const s = world($, on, { answers: [null], box: TRIGGERED })
+  await submit($, TRIGGERED)
+  await settle(s)
+  expect(s.entered).toEqual([LONG])
+  expect(s.toasts.join(' ')).toMatch(/did not answer/)
+})
+
+test('a silent run does not wipe what the person typed meanwhile', async ($, on) => {
+  const s = world($, on, { answers: ['Silently upgraded prompt.'], box: 'something typed later' })
+  await submit($, TRIGGERED)
+  await settle(s)
+  expect(s.entered).toEqual(['Silently upgraded prompt.'])
+  expect(s.filled).toEqual([])
+})
+
+test('a prompt submitted while a silent run is working passes through untouched', async ($, on) => {
+  const s = world($, on, { answers: ['Silently upgraded prompt.'], box: TRIGGERED })
+  await submit($, TRIGGERED)
+  const second = await submit($, '+++ another long prompt typed meanwhile')
+  await settle(s)
+  expect(second).toMatchObject({ text: '+++ another long prompt typed meanwhile' })
+})
+
+test('with use-silent-upgrade off the trigger is ordinary text and the pane path runs', async ($, on) => {
+  const s = world($, on, { silent: false, answers: [QUESTION] })
+  const result = await submit($, TRIGGERED)
+  await settle(s)
+  expect(result).toMatchObject({ drop: expect.any(String) })
+  expect(s.opens).toBe(1)
 })

@@ -20,6 +20,9 @@ Every feature is off until you turn it on. Switches live under `ccChatTweaks` in
 | `chat` | `use-edit-summary` | `false` | Draw `Edit` and `Write` calls as one summary line. |
 | `prompt` | `use-prompt-upgrade` | `false` | Ask clarifying questions about your prompt and rewrite it before it is sent. |
 | `prompt` | `use-questions` | `true` | Option of `use-prompt-upgrade`. When `false`, the prompt is rewritten without questions. |
+| `prompt` | `use-silent-upgrade` | `true` | Option of `use-prompt-upgrade`. A prompt that starts or ends with the trigger is upgraded without the pane. |
+| `prompt` | `silent-trigger` | `+++` | The trigger text for the silent upgrade. |
+| `prompt` | `min-length` | `10` | Shortest prompt that is upgraded, in characters. |
 
 ```json
 {
@@ -65,7 +68,7 @@ Consecutive tool calls with no assistant message between them fold into one line
 - Every run folds, even a single call: `● Called 1 time Edit ... +3 -1`. A failed call folds in too: its row and error text are hidden, and the header adds an orange `N failed` count.
 - A call row is not drawn while the model is still writing the call. The folded line appears when the call is stored. A call that is in no run, such as one made by a subagent, stays hidden until it has a result.
 - Calls made by subagents are not folded.
-- `AskUserQuestion` and `Skill` are never folded. Each keeps its own row and ends the run before it.
+- `AskUserQuestion`, `Skill` and `Agent` are never folded. Each keeps its own row and ends the run before it.
 - Rows inside a folded line cannot be opened from the line. Use the full transcript (`ctrl+o`).
 - Clicking a folded line for `Grep`, MCP tools and other calls the engine groups can still select the row (a blank line below, an inverted background). The engine draws that, and a plugin cannot turn it off.
 

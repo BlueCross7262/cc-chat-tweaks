@@ -3,7 +3,7 @@ import { countOutput, type EditOutput } from './edit-counts'
 
 export const FOLD_MIN_CALLS = 1
 
-const UNFOLDED_TOOLS = ['AskUserQuestion', 'Skill']
+const UNFOLDED_TOOLS = ['AskUserQuestion', 'Skill', 'Agent']
 const MAX_RUNS = 60
 const MAX_IDS = 400
 const TALLY_SHOWN = 4
