@@ -93,6 +93,8 @@ export const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const
 export const MIN_LENGTH_KEY = 'min-length'
 export const SILENT_TRIGGERS_KEY = 'silent-triggers'
 export const MAX_SILENT_TRIGGERS = 10
+export const DEFAULT_SILENT_OFF_TRIGGERS: readonly string[] = ['---']
+export const SILENT_OFF_TRIGGERS_KEY = 'silent-off-triggers'
 export const MODEL_KEY = 'model'
 export const EFFORT_KEY = 'effort'
 export const UNFOLDED_TOOLS_KEY = 'unfolded-tools'
@@ -102,6 +104,7 @@ export const MAX_UNFOLDED_TOOLS = 50
 const EXTRA_DEFAULTS = {
   [MIN_LENGTH_KEY]: DEFAULT_MIN_LENGTH,
   [SILENT_TRIGGERS_KEY]: DEFAULT_SILENT_TRIGGERS,
+  [SILENT_OFF_TRIGGERS_KEY]: DEFAULT_SILENT_OFF_TRIGGERS,
   [MODEL_KEY]: DEFAULT_MODEL,
   [EFFORT_KEY]: DEFAULT_EFFORT,
   [UNFOLDED_TOOLS_KEY]: DEFAULT_UNFOLDED_TOOLS,
@@ -110,6 +113,7 @@ const EXTRA_DEFAULTS = {
 const EXTRA_PATHS: Record<keyof typeof EXTRA_DEFAULTS, readonly string[]> = {
   [MIN_LENGTH_KEY]: PROMPT_UPGRADE_PATH,
   [SILENT_TRIGGERS_KEY]: PROMPT_UPGRADE_PATH,
+  [SILENT_OFF_TRIGGERS_KEY]: PROMPT_UPGRADE_PATH,
   [MODEL_KEY]: PROMPT_UPGRADE_PATH,
   [EFFORT_KEY]: PROMPT_UPGRADE_PATH,
   [UNFOLDED_TOOLS_KEY]: TOOL_FOLD_PATH,
@@ -201,11 +205,12 @@ export const minLengthOf = (sources: readonly unknown[]): number | undefined => 
   return undefined
 }
 
-export const silentTriggersOf = (sources: readonly unknown[]): string[] | undefined => {
+const triggersOf = (sources: readonly unknown[], key: string, isEmptyAllowed: boolean): string[] | undefined => {
   for (const source of sources) {
-    const value = upgradeValueOf(source, SILENT_TRIGGERS_KEY)
+    const value = upgradeValueOf(source, key)
 
     if (!Array.isArray(value)) continue
+    if (isEmptyAllowed && value.length === 0) return []
     const triggers = [
       ...new Set(
         value
@@ -220,6 +225,12 @@ export const silentTriggersOf = (sources: readonly unknown[]): string[] | undefi
 
   return undefined
 }
+
+export const silentTriggersOf = (sources: readonly unknown[]): string[] | undefined =>
+  triggersOf(sources, SILENT_TRIGGERS_KEY, false)
+
+export const silentOffTriggersOf = (sources: readonly unknown[]): string[] | undefined =>
+  triggersOf(sources, SILENT_OFF_TRIGGERS_KEY, true)
 
 export type Effort = (typeof EFFORTS)[number]
 
@@ -269,6 +280,7 @@ export type ExtraReport = { key: ExtraKey; value: number | string | string[]; fr
 const extraReader = (key: ExtraKey): ((sources: readonly unknown[]) => number | string | string[] | undefined) => {
   if (key === MIN_LENGTH_KEY) return minLengthOf
   if (key === SILENT_TRIGGERS_KEY) return silentTriggersOf
+  if (key === SILENT_OFF_TRIGGERS_KEY) return silentOffTriggersOf
   if (key === MODEL_KEY) return modelOf
   if (key === UNFOLDED_TOOLS_KEY) return unfoldedToolsOf
 

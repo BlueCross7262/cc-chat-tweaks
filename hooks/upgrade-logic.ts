@@ -83,6 +83,7 @@ export type GateInput = {
   isEnabled: boolean
   minLen: number
   silentTriggers: readonly string[]
+  offTriggers: readonly string[]
   isSilent: boolean
   skipTrigger: boolean
   now: number
@@ -92,6 +93,7 @@ export type GateInput = {
 export type Gate =
   | { intercept: true }
   | { intercept: true; silent: true; text: string }
+  | { intercept: true; off: true; text: string }
   | { intercept: false; reason: string; clearPending?: true; clearSkip?: true }
 
 export const parseTrigger = (text: string, triggers: readonly string[]): string | null => {
@@ -124,7 +126,7 @@ export const decideGate = (g: GateInput): Gate => {
   if (g.flow.pending !== null && text === g.flow.pending) {
     return { intercept: false, reason: 'resubmit', clearPending: true }
   }
-  const hasTrigger = parseTrigger(text, g.silentTriggers) !== null
+  const hasTrigger = parseTrigger(text, [...g.silentTriggers, ...g.offTriggers]) !== null
   const filled = g.flow.filled ?? ''
   if (!hasTrigger && filled !== '' && squash(text) === filled) {
     return { intercept: false, reason: 'unchanged-draft', clearSkip: true }
@@ -148,7 +150,13 @@ const decideRest = (g: GateInput, text: string, clearSkip: boolean): Gate => {
   if (g.hasTurnId) return pass('mid-turn')
   if (g.hasAttachments) return pass('attachments')
   const stripped = parseTrigger(text, g.silentTriggers)
-  if ((stripped ?? text).startsWith('/')) return pass('slash')
+  const isOff = parseTrigger(text, g.offTriggers) !== null
+  const cleaned = isOff ? parseTrigger(text, [...g.offTriggers, ...g.silentTriggers]) : stripped
+  if ((cleaned ?? text).startsWith('/')) return pass('slash')
+  if (isOff) {
+    if (cleaned === null || cleaned === '') return pass('trigger-only')
+    return { intercept: true, off: true, text: cleaned }
+  }
   if (stripped !== null) {
     if (stripped === '') return pass('trigger-only')
     return { intercept: true, silent: true, text: stripped }

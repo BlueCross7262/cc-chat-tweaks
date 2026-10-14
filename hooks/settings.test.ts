@@ -12,6 +12,7 @@ import {
   minLengthOf,
   modelOf,
   propOf,
+  silentOffTriggersOf,
   silentTriggersOf,
   unfoldedToolsOf,
   withMissingDefaults,
@@ -48,6 +49,18 @@ test('silent-triggers is the first array with a valid entry, each entry a trimme
   expect(silentTriggersOf([triggers(5)])).toBeUndefined()
   expect(silentTriggersOf([triggers([]), triggers(['##'])])).toEqual(['##'])
   expect(silentTriggersOf([up({ 'silent-trigger': '+++' })])).toBeUndefined()
+})
+
+test('silent-off-triggers follows the same entry rules, and an empty array turns the opt-out off', () => {
+  const off = (value: unknown) => up({ 'silent-off-triggers': value })
+
+  expect(silentOffTriggersOf([])).toBeUndefined()
+  expect(silentOffTriggersOf([off(['  ~~  ', '---'])])).toEqual(['~~', '---'])
+  expect(silentOffTriggersOf([off([])])).toEqual([])
+  expect(silentOffTriggersOf([off([]), off(['~~'])])).toEqual([])
+  expect(silentOffTriggersOf([off(['  ', 5])])).toBeUndefined()
+  expect(silentOffTriggersOf([off('---')])).toBeUndefined()
+  expect(silentOffTriggersOf([triggers(['+++'])])).toBeUndefined()
 })
 
 test('silent-triggers keeps at most 10 entries', () => {
@@ -175,7 +188,7 @@ test('adds only the missing switches with their default and keeps everything els
   }
   const { settings, added } = withMissingDefaults(existing)
 
-  expect(added).toEqual(['use-edit-summary', 'use-prompt-upgrade', 'use-questions', 'use-silent-upgrade', 'skip-silent-trigger', 'min-length', 'silent-triggers', 'model', 'effort', 'unfolded-tools'])
+  expect(added).toEqual(['use-edit-summary', 'use-prompt-upgrade', 'use-questions', 'use-silent-upgrade', 'skip-silent-trigger', 'min-length', 'silent-triggers', 'silent-off-triggers', 'model', 'effort', 'unfolded-tools'])
   expect(settings).toEqual({
     theme: 'dark',
     ccChatTweaks: {
@@ -192,6 +205,7 @@ test('adds only the missing switches with their default and keeps everything els
           'skip-silent-trigger': true,
           'min-length': 10,
           'silent-triggers': ['+++'],
+          'silent-off-triggers': ['---'],
           model: 'sonnet',
           effort: 'low',
         },
@@ -204,8 +218,8 @@ test('adds only the missing switches with their default and keeps everything els
 })
 
 test('builds the whole section for an empty or malformed file', () => {
-  expect(withMissingDefaults({}).added).toHaveLength(11)
-  expect(withMissingDefaults(null).added).toHaveLength(11)
+  expect(withMissingDefaults({}).added).toHaveLength(12)
+  expect(withMissingDefaults(null).added).toHaveLength(12)
   expect(withMissingDefaults({ ccChatTweaks: 'x' }).settings).toEqual({
     ccChatTweaks: {
       chat: {
@@ -220,6 +234,7 @@ test('builds the whole section for an empty or malformed file', () => {
           'skip-silent-trigger': true,
           'min-length': 10,
           'silent-triggers': ['+++'],
+          'silent-off-triggers': ['---'],
           model: 'sonnet',
           effort: 'low',
         },
@@ -262,6 +277,7 @@ test('describes every extra key with its value and the source it came from', () 
   expect(report).toEqual([
     { key: 'min-length', value: 40, from: 'user' },
     { key: 'silent-triggers', value: ['>>'], from: 'local' },
+    { key: 'silent-off-triggers', value: ['---'], from: 'default' },
     { key: 'model', value: 'sonnet', from: 'local' },
     { key: 'effort', value: 'high', from: 'user' },
     { key: 'unfolded-tools', value: ['AskUserQuestion', 'Skill', 'Agent'], from: 'default' },
@@ -269,6 +285,7 @@ test('describes every extra key with its value and the source it came from', () 
   expect(describeExtras([['user', {}]])).toEqual([
     { key: 'min-length', value: 10, from: 'default' },
     { key: 'silent-triggers', value: ['+++'], from: 'default' },
+    { key: 'silent-off-triggers', value: ['---'], from: 'default' },
     { key: 'model', value: 'sonnet', from: 'default' },
     { key: 'effort', value: 'low', from: 'default' },
     { key: 'unfolded-tools', value: ['AskUserQuestion', 'Skill', 'Agent'], from: 'default' },
@@ -314,6 +331,7 @@ test('reports nothing to add when every switch is present', () => {
           'skip-silent-trigger': true,
           'min-length': 25,
           'silent-triggers': ['##', '>>'],
+          'silent-off-triggers': [],
           model: 'sonnet',
           effort: 'high',
         },

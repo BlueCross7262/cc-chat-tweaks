@@ -43,6 +43,7 @@ import {
 } from './upgrade-logic'
 import { CALLS, Q_SYSTEM, R_SYSTEM, REVISE_SYSTEM } from './upgrade-prompts'
 import {
+  DEFAULT_SILENT_OFF_TRIGGERS,
   DEFAULT_SILENT_TRIGGERS,
   describeFlags,
   effortOf,
@@ -51,6 +52,7 @@ import {
   minLengthOf,
   modelOf,
   SETTINGS_SOURCES,
+  silentOffTriggersOf,
   silentTriggersOf,
   type Flags,
 } from './settings'
@@ -261,6 +263,15 @@ const finish = async ($: EngineInterface, text: string): Promise<void> => {
   // UNVERIFIED: the asUser resubmit reaches prompt.submit with text equal to the trimmed pending value
   $.prompt.submit({ text: t, asUser: true }).catch(() => restoreText($, t))
   if (!isCleared) await clearBox($)
+}
+
+const sendAsIs = async ($: EngineInterface, text: string): Promise<void> => {
+  try {
+    await $.clock.sleep(BOX_SETTLE_MS).catch(() => undefined)
+    await finish($, text)
+  } catch {
+    await restoreText($, text)
+  }
 }
 
 const recoverSilent = async ($: EngineInterface, id: number): Promise<void> => {
@@ -584,6 +595,7 @@ const KEY_LOG = 'probe-log'
 const LOG_LIMIT = 30
 const PANE_ROWS = 20
 const DROP_REASON = 'Prompt Upgrade is working on your prompt.'
+const OFF_DROP_REASON = 'Prompt Upgrade is off for this prompt and sends it as it is.'
 
 type Sample = {
   at: number
@@ -640,6 +652,8 @@ const settingsOf = async ($: EngineInterface) => {
     minLen: minLengthOf(sources) ?? parseMinLen(await $.store.get(KEY_MIN_LEN)),
     silentTriggers:
       flags['use-prompt-upgrade'] && flags['use-silent-upgrade'] ? (silentTriggersOf(sources) ?? DEFAULT_SILENT_TRIGGERS) : [],
+    offTriggers:
+      flags['use-prompt-upgrade'] && flags['use-silent-upgrade'] ? (silentOffTriggersOf(sources) ?? DEFAULT_SILENT_OFF_TRIGGERS) : [],
   }
 }
 
@@ -664,7 +678,7 @@ const readContext = async ($: EngineInterface): Promise<string> => {
 }
 
 const interceptOrPass = async ($: EngineInterface, e: PromptSubmitInput) => {
-  const { isEnabled, useQuestions, isSilent, skipTrigger, minLen, silentTriggers } = await settingsOf($)
+  const { isEnabled, useQuestions, isSilent, skipTrigger, minLen, silentTriggers, offTriggers } = await settingsOf($)
   const flow = await getFlow($)
   const gate = decideGate({
     text: e.text,
@@ -675,11 +689,17 @@ const interceptOrPass = async ($: EngineInterface, e: PromptSubmitInput) => {
     isEnabled,
     minLen,
     silentTriggers,
+    offTriggers,
     isSilent,
     skipTrigger,
     now: await $.clock.now(),
     flow,
   })
+  if (gate.intercept && 'off' in gate) {
+    sendAsIs($, gate.text).catch(() => undefined)
+
+    return { drop: OFF_DROP_REASON }
+  }
   if (gate.intercept) {
     const context = await readContext($)
     const text = 'silent' in gate ? gate.text : e.text

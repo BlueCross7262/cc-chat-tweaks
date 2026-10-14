@@ -42,6 +42,7 @@ const base: GateInput = {
   isEnabled: true,
   minLen: MIN_LEN,
   silentTriggers: [],
+  offTriggers: [],
   isSilent: false,
   skipTrigger: false,
   now: 1000,
@@ -450,4 +451,30 @@ test('the call log is cut so the whole row stays within the limit', () => {
 
   expect(callLog(call, 1900, 'abcdefghij', head.length + 3 + 6)).toBe(`${head} · abc...`)
   expect(callLog(call, 1900, 'abcdef', head.length + 3 + 6)).toBe(`${head} · abcdef`)
+})
+
+const off = { isSilent: true, skipTrigger: true, silentTriggers: ['+++'], offTriggers: ['---'] }
+
+test('the off trigger at either end sends the prompt as it is, without the trigger', () => {
+  expect(gate({ ...off, text: `${base.text} ---` })).toEqual({ intercept: true, off: true, text: base.text })
+  expect(gate({ ...off, text: `--- ${base.text}` })).toEqual({ intercept: true, off: true, text: base.text })
+})
+
+test('the off trigger wins over the silent trigger and removes both', () => {
+  expect(gate({ ...off, text: `+++ ${base.text} ---` })).toEqual({ intercept: true, off: true, text: base.text })
+})
+
+test('the off trigger applies to a short prompt and beats an open manual-edit pass', () => {
+  expect(gate({ ...off, minLen: 1000, text: `${base.text} ---` })).toMatchObject({ off: true })
+  expect(gate({ ...off, now: 1000, flow: { ...EMPTY_FLOW, skipUntil: 5000 }, text: `${base.text} ---` })).toMatchObject({ off: true })
+})
+
+test('the off trigger on its own, with a slash command or with an attachment passes', () => {
+  expect(gate({ ...off, text: '---' })).toMatchObject({ intercept: false, reason: 'trigger-only' })
+  expect(gate({ ...off, text: '--- /clear' })).toMatchObject({ intercept: false, reason: 'slash' })
+  expect(gate({ ...off, hasAttachments: true, text: `${base.text} ---` })).toMatchObject({ intercept: false, reason: 'attachments' })
+})
+
+test('with no off trigger the text is ordinary', () => {
+  expect(gate({ ...off, offTriggers: [], skipTrigger: false, text: `${base.text} ---` })).toMatchObject({ intercept: false, reason: 'no-trigger' })
 })

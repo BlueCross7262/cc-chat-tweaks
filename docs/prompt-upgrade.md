@@ -39,6 +39,7 @@ A key that is absent uses its default.
 | `use-silent-upgrade` | `true` | Option of `use`. When `true`, the pane never opens, and only a prompt with the trigger is upgraded. The recommended answers to the questions are applied when `use-questions` is `true`, and the draft is put in the prompt box without being sent. When `false`, the pane runs for every prompt and the trigger is ordinary text. |
 | `skip-silent-trigger` | `true` | Option of `use-silent-upgrade`. When `true`, the trigger check is skipped and every prompt of `min-length` or more is upgraded without the pane. It has no effect while `use-silent-upgrade` is `false`. |
 | `silent-triggers` | `["+++"]` | The trigger texts, as an array of strings. Any one of them at the start or the end of a prompt is a trigger. Each entry is 1 to 32 characters after trimming. An entry that is blank or not text is dropped, a repeated entry counts once, and only the first 10 entries are used. An array with no valid entry uses the default. The old key `silent-trigger` is not read. |
+| `silent-off-triggers` | `["---"]` | Option of `use-silent-upgrade`. The texts that turn the silent upgrade off for one prompt, as an array of strings. Any one of them at the start or the end of a prompt is a trigger. The entry rules are those of `silent-triggers`, except that an empty array `[]` is valid and turns the opt-out off. It has no effect while `use-silent-upgrade` is `false`. |
 | `min-length` | `10` | Shortest prompt that is intercepted, in characters. A whole number from 1 to 10000. It beats the value set by `/prompt-upgrade threshold`. |
 | `model` | `sonnet` | The model of the question, rewrite and revise calls. An alias or a full model id, 1 to 100 characters after trimming. A blank or non-text value uses the default. |
 | `effort` | `low` | The effort of the same calls: `low`, `medium`, `high`, `xhigh` or `max`. Any other value uses the default. |
@@ -53,6 +54,7 @@ A key that is absent uses its default.
         "use-silent-upgrade": true,
         "skip-silent-trigger": true,
         "silent-triggers": ["+++"],
+        "silent-off-triggers": ["---"],
         "min-length": 40,
         "model": "sonnet",
         "effort": "low"
@@ -117,6 +119,13 @@ The trigger (`+++` by default) at the start or the end of a prompt is what start
 - A prompt with the trigger skips the `min-length` check.
 - While `skip-silent-trigger` is `true`, the trigger check is skipped. Every prompt of `min-length` or more is upgraded without the pane, whether it has the trigger or not. A prompt with the trigger still has the trigger removed and still skips the `min-length` check.
 - `skip-silent-trigger` has no effect while `use-silent-upgrade` is `false`.
+- An off trigger (`---` by default) at the start or the end of a prompt turns the silent upgrade off for that prompt only. Nothing is upgraded and no model call is made.
+  - The off trigger is removed and the rest is sent as it is. Repeated triggers at an edge go too.
+  - It works with `skip-silent-trigger` `true` too, which is its main use.
+  - It skips the `min-length` check and beats an open manual-edit pass.
+  - If the prompt has both an off trigger and a trigger, the off trigger wins and both are removed.
+  - An off trigger on its own and a prompt that starts with `/` (after the triggers) pass through with the text in them. So does a prompt with an attachment.
+  - The prompt is sent as a plugin prompt, so `@file` mentions are not expanded again.
 
 - The trigger is removed. Repeated triggers at an edge go too. A trigger in the middle stays.
 - With `use-questions` `true`, Haiku first writes the questions, and the mod answers each one with its recommended option. A question with no recommended option stays unanswered. Nothing is shown and you are not asked. This costs one more Haiku call.

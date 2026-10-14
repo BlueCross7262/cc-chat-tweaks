@@ -293,6 +293,24 @@ test('use-questions false skips the question step', async ($, on) => {
 
 const TRIGGERED = '+++ ' + LONG
 
+test('the off trigger sends the prompt as it is without a model call, even when every prompt is upgraded', async ($, on) => {
+  const s = world($, on, { silent: true, extra: { 'skip-silent-trigger': true }, answers: ['Never used.'] })
+  const result = await submit($, `${LONG} ---`)
+  await settle(s)
+  expect(result).toMatchObject({ drop: expect.any(String) })
+  expect(s.opens).toBe(0)
+  expect(s.models).toHaveLength(0)
+  expect(s.entered).toEqual([LONG])
+})
+
+test('the off trigger is ordinary text while the silent upgrade is off', async ($, on) => {
+  const s = world($, on, { silent: false, answers: [JSON.stringify({ questions: [] }), 'Draft.'] })
+  await submit($, `${LONG} ---`)
+  await settle(s)
+  expect(s.opens).toBe(1)
+  expect(s.entered).toEqual([])
+})
+
 test('a trailing or leading trigger upgrades silently: no pane, no questions, no trigger sent to Haiku, nothing sent', async ($, on) => {
   const s = world($, on, { silent: true, useQuestions: false, answers: ['Silently upgraded prompt.'], box: TRIGGERED })
   const result = await submit($, TRIGGERED)
