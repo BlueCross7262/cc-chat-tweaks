@@ -8,6 +8,7 @@ import {
   closeRunOnTurnEnd,
   diffCounts,
   EMPTY_RUN_STATE,
+  hasMoreNames,
   headerText,
   isStreamingRow,
   labelOf,
@@ -270,6 +271,21 @@ test('keeps the most used tools, cuts the list and sorts the names', () => {
   }))
 
   expect(namesOf(calls)).toBe('Bash, Edit, Grep, Read, …')
+})
+
+test('the header knows when the name list is already cut, so the changes need no ellipsis of their own', () => {
+  const callsOf = (names: string[]) => names.map((name, index) => ({ id: String(index), name }))
+  const many = callsOf(['Read', 'Read', 'Edit', 'Bash', 'Grep', 'Glob', 'Write'])
+  const few = callsOf(['Read', 'Read', 'Edit', 'Bash'])
+  const four = callsOf(['Read', 'Edit', 'Bash', 'Grep'])
+
+  expect(hasMoreNames(many)).toBe(true)
+  expect(hasMoreNames(few)).toBe(false)
+  expect(hasMoreNames(four)).toBe(false)
+  expect(hasMoreNames([])).toBe(false)
+  expect(namesOf(many).endsWith('…')).toBe(hasMoreNames(many))
+  expect(namesOf(few).endsWith('…')).toBe(hasMoreNames(few))
+  expect(namesOf(four).endsWith('…')).toBe(hasMoreNames(four))
 })
 
 test('sorts capitalised names first, then lowercase names, each a to z', () => {

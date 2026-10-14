@@ -303,6 +303,8 @@ const entriesOf = (calls: readonly Call[]): [string, number][] => {
   return [...counts.entries()].sort((left, right) => right[1] - left[1])
 }
 
+export const hasMoreNames = (calls: readonly Call[]): boolean => entriesOf(calls).length > TALLY_SHOWN
+
 export const namesOf = (calls: readonly Call[]): string => {
   const entries = entriesOf(calls)
   const shown = entries
@@ -310,7 +312,7 @@ export const namesOf = (calls: readonly Call[]): string => {
     .map(([label]) => label)
     .sort((left, right) => (left < right ? -1 : left > right ? 1 : 0))
 
-  const names = entries.length > TALLY_SHOWN ? `${shown.join(', ')}, …` : shown.join(', ')
+  const names = hasMoreNames(calls) ? `${shown.join(', ')}, …` : shown.join(', ')
 
   return names.replace(/[,\s]+$/, '')
 }
