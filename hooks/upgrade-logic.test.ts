@@ -18,6 +18,7 @@ import {
   hasRecommended,
   parseQuestions,
   reset,
+  squash,
   tookText,
   callLine,
   originalLines,
@@ -121,6 +122,47 @@ test('a prompt with the trigger is upgraded again while a manual-edit pass is op
     reason: 'manual-edit',
     clearSkip: true,
   })
+})
+
+test('squash drops every kind of white space and keeps the characters', () => {
+  expect(squash(' a b\tc\n\nd\r\ne　f g ')).toBe('abcdefg')
+  expect(squash('')).toBe('')
+  expect(squash(' \n ')).toBe('')
+})
+
+test('a prompt that holds the same characters as the filled draft passes whatever the white space, with no time limit, and clears the pass', () => {
+  const draft = 'Fix the login bug.\nShow the cause.'
+  const flow = { ...EMPTY_FLOW, skipUntil: 5000, filled: squash(draft) }
+  const on = { isSilent: true, skipTrigger: true, silentTriggers: ['+++'], flow }
+
+  for (const text of [draft, 'Fix the login bug. Show the cause.', '  Fix the login bug.\n\n\nShow  the cause.  \n', 'Fixthe loginbug.Showthe cause.']) {
+    expect(gate({ ...on, now: 4000, text })).toEqual({ intercept: false, reason: 'unchanged-draft', clearSkip: true })
+    expect(gate({ ...on, now: 999999, text })).toEqual({ intercept: false, reason: 'unchanged-draft', clearSkip: true })
+  }
+})
+
+test('an edited draft passes only inside the time limit and a prompt after the time limit is upgraded', () => {
+  const flow = { ...EMPTY_FLOW, skipUntil: 5000, filled: squash('Fix the login bug.') }
+  const on = { isSilent: true, skipTrigger: true, silentTriggers: ['+++'], flow }
+  const edited = 'Fix the login bug in the form.'
+
+  expect(gate({ ...on, now: 4000, text: edited })).toEqual({ intercept: false, reason: 'manual-edit', clearSkip: true })
+  expect(gate({ ...on, now: 6000, text: edited.padEnd(40, ' x') })).toMatchObject({ intercept: true, silent: true })
+})
+
+test('the trigger on an unchanged draft upgrades it again', () => {
+  const flow = { ...EMPTY_FLOW, skipUntil: 5000, filled: squash('Fix the login bug.') }
+  const on = { isSilent: true, skipTrigger: true, silentTriggers: ['+++'], flow, now: 999999 }
+
+  expect(gate({ ...on, text: 'Fix the login bug. +++' })).toEqual({ intercept: true, silent: true, text: 'Fix the login bug.' })
+})
+
+test('an empty filled value passes nothing, and begin and reset keep it', () => {
+  expect(gate({ flow: { ...EMPTY_FLOW, filled: '' }, text: base.text })).toEqual({ intercept: true })
+  const flow = { ...EMPTY_FLOW, filled: 'abc', skipUntil: 9 }
+
+  expect(begin(flow, 'x').filled).toBe('abc')
+  expect(reset(flow).filled).toBe('abc')
 })
 
 test('an expired manual-edit pass is cleared even when the prompt passes for another reason', () => {

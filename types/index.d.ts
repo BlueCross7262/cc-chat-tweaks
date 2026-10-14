@@ -18,6 +18,7 @@ export type Flow = {
   draft: string
   prevDraft: string
   skipUntil: number
+  filled: string
   pending: string | null
   runId: number
   notice: string

@@ -13,6 +13,7 @@ export const EMPTY_FLOW: Flow = {
   draft: '',
   prevDraft: '',
   skipUntil: 0,
+  filled: '',
   pending: null,
   runId: 0,
   notice: '',
@@ -114,13 +115,20 @@ export const parseTrigger = (text: string, triggers: readonly string[]): string 
   return isFound ? rest.trim() : null
 }
 
+export const squash = (text: string): string => text.replace(/\s+/g, '')
+
 export const decideGate = (g: GateInput): Gate => {
   const text = g.text.trim()
   if (g.flow.pending !== null && text === g.flow.pending) {
     return { intercept: false, reason: 'resubmit', clearPending: true }
   }
+  const hasTrigger = parseTrigger(text, g.silentTriggers) !== null
+  const filled = g.flow.filled ?? ''
+  if (!hasTrigger && filled !== '' && squash(text) === filled) {
+    return { intercept: false, reason: 'unchanged-draft', clearSkip: true }
+  }
   if (g.flow.skipUntil > 0) {
-    if (g.now < g.flow.skipUntil && parseTrigger(text, g.silentTriggers) === null) {
+    if (g.now < g.flow.skipUntil && !hasTrigger) {
       return { intercept: false, reason: 'manual-edit', clearSkip: true }
     }
     return decideRest(g, text, true)
@@ -207,6 +215,7 @@ export const isStale = (flow: Flow, id: number): boolean => flow.runId !== id
 export const begin = (flow: Flow, original: string, context = ''): Flow => ({
   ...EMPTY_FLOW,
   skipUntil: flow.skipUntil,
+  filled: flow.filled ?? '',
   pending: flow.pending,
   runId: flow.runId + 1,
   phase: 'askLoading',
@@ -222,6 +231,7 @@ export const askInput = (flow: Flow): string => {
 export const reset = (flow: Flow): Flow => ({
   ...EMPTY_FLOW,
   skipUntil: flow.skipUntil,
+  filled: flow.filled ?? '',
   pending: flow.pending,
   runId: flow.runId + 1,
 })

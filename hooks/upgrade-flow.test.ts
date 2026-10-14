@@ -312,6 +312,37 @@ test('the draft a silent run puts in the prompt box passes the next submit once'
   expect(await submit($, TRIGGERED)).toMatchObject({ drop: expect.any(String) })
 })
 
+const AFTER_PASS = 5 * 60 * 1000 + 1000
+
+test('the filled draft passes whatever its white space, even after the time limit, and the pass is spent', async ($, on) => {
+  const s = world($, on, { silent: true, useQuestions: false, answers: ['Silently upgraded prompt.\nSecond sentence.', 'Another draft.'], box: TRIGGERED })
+  await submit($, TRIGGERED)
+  await settle(s)
+  expect(s.filled).toEqual(['Silently upgraded prompt.\nSecond sentence.'])
+  await s.clock?.advance(AFTER_PASS)
+  const same = await submit($, '  Silently   upgraded prompt. Second\nsentence.  ')
+  expect(same).toMatchObject({ text: '  Silently   upgraded prompt. Second\nsentence.  ' })
+  expect(s.models).toHaveLength(1)
+  expect(await submit($, TRIGGERED)).toMatchObject({ drop: expect.any(String) })
+})
+
+test('an edited draft is upgraded again once the time limit is over', async ($, on) => {
+  const s = world($, on, {
+    silent: true,
+    useQuestions: false,
+    extra: { 'skip-silent-trigger': true },
+    answers: ['Silently upgraded prompt.', 'Second draft.'],
+    box: TRIGGERED,
+  })
+  await submit($, TRIGGERED)
+  await settle(s)
+  await s.clock?.advance(AFTER_PASS)
+  const edited = await submit($, 'Silently upgraded prompt, then changed by hand after a long wait.')
+  await settle(s)
+  expect(edited).toMatchObject({ drop: expect.any(String) })
+  expect(s.models).toHaveLength(2)
+})
+
 test('the trigger typed after a silent draft upgrades the draft again instead of sending it', async ($, on) => {
   const s = world($, on, { silent: true, useQuestions: false, answers: ['First draft.', 'Second draft.'], box: TRIGGERED })
   await submit($, TRIGGERED)

@@ -97,7 +97,7 @@ Your prompt > Questions > Rewrite > Review
 | `수정` field | | Haiku changes only the draft, as you ask. |
 | `이 프롬프트 보내기` | `s` | Sends the draft and clears the prompt box. |
 | `수정 되돌리기` | `u` | Brings back the draft before the last revision. |
-| `입력창에서 편집` | `e` | Closes the pane and puts the draft in the prompt box. Your next submit passes once, for up to 5 minutes. |
+| `입력창에서 편집` | `e` | Closes the pane and puts the draft in the prompt box. Your next submit passes once: any time for the same characters as the draft, and within 5 minutes for anything else. |
 | `원문 그대로 보내기` | `o` | Sends the prompt you typed. |
 | `취소` | `c` | Closes the pane and puts the original back in the prompt box. |
 
@@ -125,14 +125,18 @@ The trigger (`+++` by default) at the start or the end of a prompt is what start
 - If the questions call fails, the rewrite goes on without answers.
 - You read the draft in the prompt box, edit it if you want, and press Enter yourself.
 - The pane is not opened, so there is no review pane. Use the normal path when you want to revise the draft with Haiku.
-- The next prompt you submit within 5 minutes passes through once, so the draft goes out without a second upgrade. A prompt with the trigger is upgraded again instead, and the pass stays open.
+- The mod remembers the characters of the draft it put in the prompt box, with every space, tab and line break dropped.
+- A prompt that holds the same characters passes through, however its spaces and line breaks differ, and however long you waited. So the draft goes out without a second upgrade, and the pass is spent.
+- A prompt that holds other characters is an edited draft or a new prompt, and the mod cannot tell which. Within 5 minutes it passes through once. After 5 minutes it is upgraded.
+- A prompt with the trigger is upgraded again instead, and the pass stays open.
+- Only the white space is ignored. A changed letter, digit or punctuation mark counts as an edit.
 - If Haiku fails, the prompt box gets the prompt as you wrote it, without the trigger, and a toast says so.
 - If you typed something else in the prompt box meanwhile, the mod leaves the box alone and puts the draft on your clipboard. A toast says so.
 - If something unexpected fails after the prompt was taken, the text without the trigger is put back in the prompt box.
 - A prompt you send while the silent upgrade is still running passes through as it is, trigger included.
 - The `min-length` check and the terminal-surface check do not apply to a prompt with the trigger. The terminal-surface check does not apply to any silent upgrade.
 - A trigger on its own, a prompt with an attachment, and a prompt that starts with `/` (after the trigger) pass through with the trigger text in them.
-- A prompt you type within 5 minutes after `입력창에서 편집` passes through once. A prompt with the trigger is not passed this way. It is upgraded again.
+- A prompt you type after `입력창에서 편집` or after a silent draft passes through once when it holds the same characters as the draft, or within 5 minutes when it holds other characters. A prompt with the trigger is not passed this way. It is upgraded again.
 - Not verified: what the prompt box and the up-arrow history hold after the mod takes the prompt. The original text, trigger included, is likely to be in the history.
 
 ## Usage log

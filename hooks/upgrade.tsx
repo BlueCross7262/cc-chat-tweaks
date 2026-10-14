@@ -28,6 +28,7 @@ import {
   parseQuestions,
   reset,
   revised,
+  squash,
   reviseInput,
   rewriteInput,
   SKIP_TTL_MS,
@@ -289,7 +290,7 @@ const isBoxFree = async ($: EngineInterface, typed: string): Promise<boolean> =>
 
 const fillDraft = async ($: EngineInterface, draft: string): Promise<void> => {
   const now = await $.clock.now()
-  await setFlow($, cur => ({ ...reset(cur), skipUntil: now + SKIP_TTL_MS }))
+  await setFlow($, cur => ({ ...reset(cur), skipUntil: now + SKIP_TTL_MS, filled: squash(draft) }))
   await restoreText($, draft)
 }
 
@@ -346,7 +347,7 @@ const editInPrompt = async ($: EngineInterface): Promise<void> => {
   const f = await getFlow($)
   if (f.phase !== 'review') return
   const now = await $.clock.now()
-  await setFlow($, cur => ({ ...reset(cur), skipUntil: now + SKIP_TTL_MS }))
+  await setFlow($, cur => ({ ...reset(cur), skipUntil: now + SKIP_TTL_MS, filled: squash(f.draft) }))
   await $.ui.close({ id: PANE })
   await restoreText($, f.draft)
 }
@@ -702,6 +703,7 @@ const interceptOrPass = async ($: EngineInterface, e: PromptSubmitInput) => {
       ...f,
       pending: gate.clearPending ? null : f.pending,
       skipUntil: gate.clearSkip ? 0 : f.skipUntil,
+      filled: gate.clearSkip ? '' : (f.filled ?? ''),
     }))
   }
 
