@@ -7,8 +7,9 @@ It intercepts a prompt you submit, asks Haiku for up to three clarifying questio
 
 - A mod runs with your user permissions and has no sandbox.
 - While `use` is `true`, the mod sees every prompt you submit.
-- Each upgraded prompt costs up to three Haiku calls on your plan or API key.
-- The mod sends prompt text to Haiku only through `$.model.complete`.
+- The prompt upgrade is on by default, so the mod sees your prompts until you set `use` to `false`.
+- Each upgraded prompt costs up to three model calls on your plan or API key. The default model is `sonnet`.
+- The mod sends prompt text to the model only through `$.model.complete`.
 - The mod makes no other network call and does not use `$.http`.
 - The mod stores no prompt text. The probe log keeps lengths and origin only.
 - Team and Enterprise policy can restrict mods.
@@ -20,7 +21,7 @@ Run `/reload-plugins` after you edit a file.
 
 ## Settings
 
-The feature is off until you turn it on.
+The feature is on by default. Set `use` to `false` to turn it off.
 Switches live under `ccChatTweaks.prompt.prompt-upgrade` in any settings file (`settings.json`, `settings.local.json`, project or user). The tool-call tweaks use the `ccChatTweaks.chat` group.
 Other prompt features can get their own group under `ccChatTweaks.prompt`.
 The prompt upgrade keys are read only from `ccChatTweaks.prompt.prompt-upgrade`.
@@ -33,13 +34,13 @@ A key that is absent uses its default.
 
 | Key | Default | Feature |
 |---|---|---|
-| `use` | `false` | Intercept your prompts and upgrade them. |
-| `use-questions` | `true` | Ask Haiku for clarifying questions. When `false`, the mod rewrites the prompt at once. |
+| `use` | `true` | Intercept your prompts and upgrade them. |
+| `use-questions` | `false` | Ask Haiku for clarifying questions. When `false`, the mod rewrites the prompt at once. |
 | `use-silent-upgrade` | `true` | Option of `use`. When `true`, the pane never opens, and only a prompt with the trigger is upgraded. The recommended answers to the questions are applied when `use-questions` is `true`, and the draft is put in the prompt box without being sent. When `false`, the pane runs for every prompt and the trigger is ordinary text. |
-| `skip-silent-trigger` | `false` | Option of `use-silent-upgrade`. When `true`, the trigger check is skipped and every prompt of `min-length` or more is upgraded without the pane. It has no effect while `use-silent-upgrade` is `false`. |
+| `skip-silent-trigger` | `true` | Option of `use-silent-upgrade`. When `true`, the trigger check is skipped and every prompt of `min-length` or more is upgraded without the pane. It has no effect while `use-silent-upgrade` is `false`. |
 | `silent-triggers` | `["+++"]` | The trigger texts, as an array of strings. Any one of them at the start or the end of a prompt is a trigger. Each entry is 1 to 32 characters after trimming. An entry that is blank or not text is dropped, a repeated entry counts once, and only the first 10 entries are used. An array with no valid entry uses the default. The old key `silent-trigger` is not read. |
 | `min-length` | `10` | Shortest prompt that is intercepted, in characters. A whole number from 1 to 10000. It beats the value set by `/prompt-upgrade threshold`. |
-| `model` | `haiku` | The model of the question, rewrite and revise calls. An alias or a full model id, 1 to 100 characters after trimming. A blank or non-text value uses the default. |
+| `model` | `sonnet` | The model of the question, rewrite and revise calls. An alias or a full model id, 1 to 100 characters after trimming. A blank or non-text value uses the default. |
 | `effort` | `low` | The effort of the same calls: `low`, `medium`, `high`, `xhigh` or `max`. Any other value uses the default. |
 
 ```json
@@ -48,12 +49,12 @@ A key that is absent uses its default.
     "prompt": {
       "prompt-upgrade": {
         "use": true,
-        "use-questions": true,
+        "use-questions": false,
         "use-silent-upgrade": true,
-        "skip-silent-trigger": false,
+        "skip-silent-trigger": true,
         "silent-triggers": ["+++"],
         "min-length": 40,
-        "model": "haiku",
+        "model": "sonnet",
         "effort": "low"
       }
     }
@@ -139,7 +140,7 @@ The trigger (`+++` by default) at the start or the end of a prompt is what start
 Each Haiku call writes two logs to the transcript with `$.ui.log`. The logs are not sent to the model, so they never enter the context.
 
 ```
-Prompt Upgrade rewrite: haiku low · 1.2s
+Prompt Upgrade rewrite: sonnet low · 1.2s
 Prompt Upgrade original:
 fix the login bug
 ```

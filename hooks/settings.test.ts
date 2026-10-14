@@ -72,15 +72,15 @@ test('effort is the first value among low, medium, high, xhigh and max', () => {
   expect(effortOf([prompt('effort', 'LOW'), prompt('effort', 3), prompt('effort', 'ultra'), prompt('effort', 'xhigh')])).toBe('xhigh')
 })
 
-test('every feature switch is off and the option is on when no source sets it', () => {
+test('the defaults when no source sets a key', () => {
   expect(isFlagOn([], 'use-tool-fold')).toBe(false)
   expect(isFlagOn([], 'use-edit-summary')).toBe(false)
-  expect(isFlagOn([], 'use-prompt-upgrade')).toBe(false)
-  expect(isFlagOn([], 'use-questions')).toBe(true)
+  expect(isFlagOn([], 'use-prompt-upgrade')).toBe(true)
+  expect(isFlagOn([], 'use-questions')).toBe(false)
   expect(isFlagOn([], 'use-silent-upgrade')).toBe(true)
-  expect(isFlagOn([], 'skip-silent-trigger')).toBe(false)
-  expect(isFlagOn([up({ 'skip-silent-trigger': true })], 'skip-silent-trigger')).toBe(true)
-  expect(isFlagOn([{ ccChatTweaks: { chat: { 'skip-silent-trigger': true } } }], 'skip-silent-trigger')).toBe(false)
+  expect(isFlagOn([], 'skip-silent-trigger')).toBe(true)
+  expect(isFlagOn([up({ 'skip-silent-trigger': false })], 'skip-silent-trigger')).toBe(false)
+  expect(isFlagOn([{ ccChatTweaks: { chat: { 'skip-silent-trigger': false } } }], 'skip-silent-trigger')).toBe(true)
   expect(isFlagOn([{}, { ccChatTweaks: {} }, { ccChatTweaks: { chat: {} } }], 'use-tool-fold')).toBe(false)
 })
 
@@ -93,16 +93,16 @@ test('the prompt upgrade keys live under ccChatTweaks.prompt.prompt-upgrade and 
   expect(propOf('use-edit-summary')).toBe('use-edit-summary')
   expect(FLAG_PATHS['use-edit-summary']).toEqual(['chat'])
   expect(propOf('use-prompt-upgrade')).toBe('use')
-  expect(isFlagOn([up({ use: true })], 'use-prompt-upgrade')).toBe(true)
-  expect(isFlagOn([up({ 'use-prompt-upgrade': true })], 'use-prompt-upgrade')).toBe(false)
-  expect(isFlagOn([{ ccChatTweaks: { prompt: { use: true } } }], 'use-prompt-upgrade')).toBe(false)
-  expect(isFlagOn([{ ccChatTweaks: { prompt: { 'use-prompt-upgrade': true } } }], 'use-prompt-upgrade')).toBe(false)
-  expect(isFlagOn([{ ccChatTweaks: { 'prompt-upgrade': { use: true } } }], 'use-prompt-upgrade')).toBe(false)
-  expect(isFlagOn([up({ use: 'yes' })], 'use-prompt-upgrade')).toBe(false)
+  expect(isFlagOn([up({ use: false })], 'use-prompt-upgrade')).toBe(false)
+  expect(isFlagOn([up({ 'use-prompt-upgrade': false })], 'use-prompt-upgrade')).toBe(true)
+  expect(isFlagOn([{ ccChatTweaks: { prompt: { use: false } } }], 'use-prompt-upgrade')).toBe(true)
+  expect(isFlagOn([{ ccChatTweaks: { prompt: { 'use-prompt-upgrade': false } } }], 'use-prompt-upgrade')).toBe(true)
+  expect(isFlagOn([{ ccChatTweaks: { 'prompt-upgrade': { use: false } } }], 'use-prompt-upgrade')).toBe(true)
+  expect(isFlagOn([up({ use: 'no' })], 'use-prompt-upgrade')).toBe(true)
   expect(minLengthOf([{ ccChatTweaks: { prompt: { 'min-length': 40 } } }])).toBeUndefined()
-  expect(modelOf([{ ccChatTweaks: { prompt: { model: 'sonnet' } } }])).toBeUndefined()
-  expect(isFlagOn([{ ccChatTweaks: { chat: { 'use-prompt-upgrade': true } } }], 'use-prompt-upgrade')).toBe(false)
-  expect(isFlagOn([{ ccChatTweaks: { chat: { 'use-questions': false } } }], 'use-questions')).toBe(true)
+  expect(modelOf([{ ccChatTweaks: { prompt: { model: 'opus' } } }])).toBeUndefined()
+  expect(isFlagOn([{ ccChatTweaks: { chat: { 'use-prompt-upgrade': false } } }], 'use-prompt-upgrade')).toBe(true)
+  expect(isFlagOn([{ ccChatTweaks: { chat: { 'use-questions': true } } }], 'use-questions')).toBe(false)
 })
 
 test('tool folding is switched by ccChatTweaks.chat.tool-fold.use and by nothing else', () => {
@@ -151,9 +151,9 @@ test('reads every flag at once', () => {
     'use-tool-fold': false,
     'use-edit-summary': true,
     'use-prompt-upgrade': true,
-    'use-questions': true,
+    'use-questions': false,
     'use-silent-upgrade': true,
-    'skip-silent-trigger': false,
+    'skip-silent-trigger': true,
   })
 })
 
@@ -186,13 +186,13 @@ test('adds only the missing switches with their default and keeps everything els
       prompt: {
         later: { 'a-future-key': 1 },
         'prompt-upgrade': {
-          use: false,
-          'use-questions': true,
+          use: true,
+          'use-questions': false,
           'use-silent-upgrade': true,
-          'skip-silent-trigger': false,
+          'skip-silent-trigger': true,
           'min-length': 10,
           'silent-triggers': ['+++'],
-          model: 'haiku',
+          model: 'sonnet',
           effort: 'low',
         },
       },
@@ -214,13 +214,13 @@ test('builds the whole section for an empty or malformed file', () => {
       },
       prompt: {
         'prompt-upgrade': {
-          use: false,
-          'use-questions': true,
+          use: true,
+          'use-questions': false,
           'use-silent-upgrade': true,
-          'skip-silent-trigger': false,
+          'skip-silent-trigger': true,
           'min-length': 10,
           'silent-triggers': ['+++'],
-          model: 'haiku',
+          model: 'sonnet',
           effort: 'low',
         },
       },
@@ -229,15 +229,17 @@ test('builds the whole section for an empty or malformed file', () => {
 })
 
 test('the old location is left alone and its keys are not read', () => {
-  const old = { ccChatTweaks: { prompt: { 'use-prompt-upgrade': true, model: 'sonnet' } } }
+  const old = { ccChatTweaks: { prompt: { 'use-prompt-upgrade': false, model: 'opus' } } }
   const { settings, added } = withMissingDefaults(old)
   const prompt = (settings.ccChatTweaks as { prompt: Record<string, unknown> }).prompt
 
   expect(added).toContain('use-prompt-upgrade')
-  expect(prompt['use-prompt-upgrade']).toBe(true)
-  expect(prompt.model).toBe('sonnet')
-  expect((prompt['prompt-upgrade'] as Record<string, unknown>).use).toBe(false)
-  expect(isFlagOn([settings], 'use-prompt-upgrade')).toBe(false)
+  expect(prompt['use-prompt-upgrade']).toBe(false)
+  expect(prompt.model).toBe('opus')
+  expect((prompt['prompt-upgrade'] as Record<string, unknown>).use).toBe(true)
+  expect((prompt['prompt-upgrade'] as Record<string, unknown>).model).toBe('sonnet')
+  expect(isFlagOn([settings], 'use-prompt-upgrade')).toBe(true)
+  expect(modelOf([settings])).toBe('sonnet')
 })
 
 test('the default trigger list written to a file is a copy, so editing it leaves the default alone', () => {
@@ -267,7 +269,7 @@ test('describes every extra key with its value and the source it came from', () 
   expect(describeExtras([['user', {}]])).toEqual([
     { key: 'min-length', value: 10, from: 'default' },
     { key: 'silent-triggers', value: ['+++'], from: 'default' },
-    { key: 'model', value: 'haiku', from: 'default' },
+    { key: 'model', value: 'sonnet', from: 'default' },
     { key: 'effort', value: 'low', from: 'default' },
     { key: 'unfolded-tools', value: ['AskUserQuestion', 'Skill', 'Agent'], from: 'default' },
   ])

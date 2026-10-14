@@ -36,7 +36,7 @@ const world = (
     s.toasts.push((e as { text: string }).text)
     return { value: undefined } as never
   })
-  const group = { use: options.enabled ?? true, 'use-questions': options.useQuestions ?? true, 'use-silent-upgrade': options.silent ?? false, ...options.extra }
+  const group = { use: options.enabled ?? true, 'use-questions': options.useQuestions ?? true, 'use-silent-upgrade': options.silent ?? false, 'skip-silent-trigger': false, ...options.extra }
   mock.store(on, {})
   on('settings.read', (_$, e) => ({ value: (e as { source?: string }).source === 'user' ? { ccChatTweaks: { prompt: { 'prompt-upgrade': group } } } : {} }) as never)
   on('session.surfaces', () => ({ value: ['terminal'] }) as never)
@@ -454,8 +454,8 @@ test('every Haiku call writes one log line with model and time, and nothing goes
   await $.ui.press({ plugin: PLUGIN, key: 'q0o1', requestId: PANE })
   const lines = s.logs.filter(line => USAGE_LINE.test(line))
   expect(lines).toHaveLength(2)
-  expect(lines[0]).toMatch(/^Prompt Upgrade questions: haiku low · \d+(ms|\.\ds)$/)
-  expect(lines[1]).toMatch(/^Prompt Upgrade rewrite: haiku low · /)
+  expect(lines[0]).toMatch(/^Prompt Upgrade questions: sonnet low · \d+(ms|\.\ds)$/)
+  expect(lines[1]).toMatch(/^Prompt Upgrade rewrite: sonnet low · /)
   expect(s.toasts).toEqual([])
   expect(s.entered).toEqual([])
 })
@@ -502,11 +502,11 @@ test('model and effort from the settings reach every call and its log line', asy
   expect(s.logs.filter(line => USAGE_LINE.test(line)).every(line => line.includes('sonnet high'))).toBe(true)
 })
 
-test('a model or effort that is not valid falls back to haiku and low', async ($, on) => {
+test('a model or effort that is not valid falls back to sonnet and low', async ($, on) => {
   const s = world($, on, { extra: { model: '  ', effort: 'ultra' }, answers: [JSON.stringify({ questions: [] }), 'Upgraded prompt.'] })
   await submit($, LONG)
   await settle(s)
-  expect(s.ids).toEqual(['haiku', 'haiku'])
+  expect(s.ids).toEqual(['sonnet', 'sonnet'])
   expect(s.efforts).toEqual(['low', 'low'])
 })
 

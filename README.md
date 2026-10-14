@@ -12,20 +12,20 @@ Answer `y` to add the marketplace, then pick a scope.
 
 ## Settings
 
-Every feature is off until you turn it on. Switches live under `ccChatTweaks` in any settings file (`settings.json`, `settings.local.json`, project or user). Tool folding sits in `ccChatTweaks.chat.tool-fold`, the Edit/Write summary in `ccChatTweaks.chat` and the prompt upgrade in `ccChatTweaks.prompt.prompt-upgrade`. A later prompt feature gets its own group under `ccChatTweaks.prompt`. A boolean in a higher-precedence source wins. A key that is absent uses its default.
+Tool folding and the Edit/Write summary are off until you turn them on. The prompt upgrade is on by default, and it needs no setting to run. Switches live under `ccChatTweaks` in any settings file (`settings.json`, `settings.local.json`, project or user). Tool folding sits in `ccChatTweaks.chat.tool-fold`, the Edit/Write summary in `ccChatTweaks.chat` and the prompt upgrade in `ccChatTweaks.prompt.prompt-upgrade`. A later prompt feature gets its own group under `ccChatTweaks.prompt`. A boolean in a higher-precedence source wins. A key that is absent uses its default.
 
 | Group | Key | Default | Feature |
 |---|---|---|---|
 | `chat.tool-fold` | `use` | `false` | Fold consecutive tool calls into one line. |
 | `chat.tool-fold` | `unfolded-tools` | `["AskUserQuestion", "Skill", "Agent"]` | Option of `use`. The tools that are never folded. Each keeps its own row and ends the run before it. |
 | `chat` | `use-edit-summary` | `false` | Draw `Edit` and `Write` calls as one summary line. |
-| `prompt.prompt-upgrade` | `use` | `false` | Ask clarifying questions about your prompt and rewrite it before it is sent. |
-| `prompt.prompt-upgrade` | `use-questions` | `true` | Option of `use`. When `false`, the prompt is rewritten without questions. |
+| `prompt.prompt-upgrade` | `use` | `true` | Ask clarifying questions about your prompt and rewrite it before it is sent. |
+| `prompt.prompt-upgrade` | `use-questions` | `false` | Option of `use`. When `false`, the prompt is rewritten without questions. |
 | `prompt.prompt-upgrade` | `use-silent-upgrade` | `true` | Option of `use`. When `true`, the pane never opens, and only a prompt with the trigger is upgraded. The recommended answers to the questions are applied when `use-questions` is `true`, and the draft is put in the prompt box without being sent. |
-| `prompt.prompt-upgrade` | `skip-silent-trigger` | `false` | Option of `use-silent-upgrade`. When `true`, the trigger check is skipped and every prompt of `min-length` or more is upgraded without the pane. |
+| `prompt.prompt-upgrade` | `skip-silent-trigger` | `true` | Option of `use-silent-upgrade`. When `true`, the trigger check is skipped and every prompt of `min-length` or more is upgraded without the pane. |
 | `prompt.prompt-upgrade` | `silent-triggers` | `["+++"]` | The trigger texts for the silent upgrade, as an array of strings. |
 | `prompt.prompt-upgrade` | `min-length` | `10` | Shortest prompt that is upgraded, in characters. |
-| `prompt.prompt-upgrade` | `model` | `haiku` | The model of every upgrade call. An alias or a full model id. |
+| `prompt.prompt-upgrade` | `model` | `sonnet` | The model of every upgrade call. An alias or a full model id. |
 | `prompt.prompt-upgrade` | `effort` | `low` | The effort of every upgrade call: `low`, `medium`, `high`, `xhigh` or `max`. |
 
 ```json
@@ -40,8 +40,8 @@ Every feature is off until you turn it on. Switches live under `ccChatTweaks` in
     },
     "prompt": {
       "prompt-upgrade": {
-        "use": false,
-        "use-questions": true
+        "use": true,
+        "use-questions": false
       }
     }
   }
@@ -105,7 +105,7 @@ A prompt you type at the prompt box and send is held back, and a pane opens with
 - Haiku asks up to three questions with 3 to 5 options each. You pick an option, type your own answer, or skip.
 - Haiku rewrites the prompt as prose with one sentence on each line and keeps pasted material as it is, wrapped in `<input>` tags.
 - In the review you can ask for a change to the draft, undo it, edit the draft in the prompt box, send the draft, send the original, or cancel.
-- Each upgraded prompt costs up to three Haiku calls on your plan or API key.
+- Each upgraded prompt costs up to three model calls on your plan or API key. The default model is `sonnet`.
 - Prompts typed while a turn runs, prompts with attachments, slash commands and short prompts pass through unchanged. So does every prompt when the pane cannot be placed or Haiku does not answer.
 - `/prompt-upgrade status | threshold <n> | reset | probe on|off|show|clear` shows and tunes the feature.
 

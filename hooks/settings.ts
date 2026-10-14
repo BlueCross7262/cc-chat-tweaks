@@ -4,10 +4,10 @@ export const SETTINGS_SOURCES = ['policy', 'flag', 'local', 'project', 'user'] a
 export const FLAG_DEFAULTS = {
   'use-tool-fold': false,
   'use-edit-summary': false,
-  'use-prompt-upgrade': false,
-  'use-questions': true,
+  'use-prompt-upgrade': true,
+  'use-questions': false,
   'use-silent-upgrade': true,
-  'skip-silent-trigger': false,
+  'skip-silent-trigger': true,
 } as const
 
 export type FlagKey = keyof typeof FLAG_DEFAULTS
@@ -87,7 +87,7 @@ export const describeFlags = (
 
 export const DEFAULT_MIN_LENGTH = 10
 export const DEFAULT_SILENT_TRIGGERS: readonly string[] = ['+++']
-export const DEFAULT_MODEL = 'haiku'
+export const DEFAULT_MODEL = 'sonnet'
 export const DEFAULT_EFFORT = 'low'
 export const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const
 export const MIN_LENGTH_KEY = 'min-length'
