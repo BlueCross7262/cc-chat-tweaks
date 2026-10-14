@@ -12,6 +12,7 @@ const input = (patch: Partial<DoctorInput> = {}): DoctorInput => ({
     { key: 'silent-triggers', value: ['+++'], from: 'default' },
     { key: 'model', value: 'haiku', from: 'default' },
     { key: 'effort', value: 'low', from: 'user' },
+    { key: 'unfolded-tools', value: ['AskUserQuestion', 'Skill', 'Agent'], from: 'default' },
   ],
   runs: { tracked: 3, pending: false, failed: 0, changes: 5 },
   upgrade: { phase: 'idle', minLen: 10 },
@@ -22,14 +23,15 @@ const input = (patch: Partial<DoctorInput> = {}): DoctorInput => ({
 test('prints each switch with its value and where it came from', () => {
   const text = formatReport(input())
 
-  expect(text).toContain('use-tool-fold     on   (user)')
-  expect(text).toContain('use-edit-summary  off  (default)')
+  expect(text).toMatch(/chat\.tool-fold\.use\s+on\s+\(user\)/)
+  expect(text).toMatch(/chat\.use-edit-summary\s+off\s+\(default\)/)
 })
 
 test('prints the value keys with their value and source under the switches', () => {
   const text = formatReport(input())
 
-  expect(text).toMatch(/min-length\s+10\s+\(default\)/)
+  expect(text).toMatch(/prompt\.prompt-upgrade\.min-length\s+10\s+\(default\)/)
+  expect(text).toMatch(/chat\.tool-fold\.unfolded-tools\s+\["AskUserQuestion","Skill","Agent"\]\s+\(default\)/)
   expect(text).toMatch(/silent-triggers\s+\["\+\+\+"\]\s+\(default\)/)
   expect(text).toMatch(/model\s+"haiku"\s+\(default\)/)
   expect(text).toMatch(/effort\s+"low"\s+\(user\)/)
@@ -76,7 +78,7 @@ test('reports no problem when everything is in place', () => {
 test('warns when folding is on and no run has been tracked', () => {
   const checks = checksOf(input({ runs: { tracked: 0, pending: false, failed: 0, changes: 0 } }))
 
-  expect(checks.some(check => check.startsWith('[warn] use-tool-fold is on'))).toBe(true)
+  expect(checks.some(check => check.startsWith('[warn] chat.tool-fold.use is on'))).toBe(true)
 })
 
 test('says the mod draws nothing when every switch is off', () => {

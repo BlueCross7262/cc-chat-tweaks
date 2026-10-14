@@ -47,6 +47,7 @@ import {
   describeFlags,
   effortOf,
   flagsOf,
+  labelOf,
   minLengthOf,
   modelOf,
   SETTINGS_SOURCES,
@@ -765,7 +766,7 @@ export const registerUpgrade = (on: Parameters<Register>[0]): void => {
       const used = await callWithSettings($, CALLS.rewrite)
       return {
         text: [
-          ...flags.map(f => `${f.key}: ${f.value} (${f.from})`),
+          ...flags.map(f => `${labelOf(f.key)}: ${f.value} (${f.from})`),
           `model ${used.model}; effort ${used.effort}.`,
           `threshold ${minLen} characters (default ${MIN_LEN}); phase ${flow.phase}; probe ${probe ? 'on' : 'off'}.`,
         ].join('\n'),

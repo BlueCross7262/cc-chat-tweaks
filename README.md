@@ -12,13 +12,13 @@ Answer `y` to add the marketplace, then pick a scope.
 
 ## Settings
 
-Every feature is off until you turn it on. Switches live under `ccChatTweaks` in any settings file (`settings.json`, `settings.local.json`, project or user). The tool-call tweaks sit in `ccChatTweaks.chat` and the prompt upgrade in `ccChatTweaks.prompt.prompt-upgrade`. A later prompt feature gets its own group under `ccChatTweaks.prompt`. A boolean in a higher-precedence source wins. A key that is absent uses its default.
+Every feature is off until you turn it on. Switches live under `ccChatTweaks` in any settings file (`settings.json`, `settings.local.json`, project or user). Tool folding sits in `ccChatTweaks.chat.tool-fold`, the Edit/Write summary in `ccChatTweaks.chat` and the prompt upgrade in `ccChatTweaks.prompt.prompt-upgrade`. A later prompt feature gets its own group under `ccChatTweaks.prompt`. A boolean in a higher-precedence source wins. A key that is absent uses its default.
 
 | Group | Key | Default | Feature |
 |---|---|---|---|
-| `chat` | `use-tool-fold` | `false` | Fold consecutive tool calls into one line. |
+| `chat.tool-fold` | `use` | `false` | Fold consecutive tool calls into one line. |
+| `chat.tool-fold` | `unfolded-tools` | `["AskUserQuestion", "Skill", "Agent"]` | Option of `use`. The tools that are never folded. Each keeps its own row and ends the run before it. |
 | `chat` | `use-edit-summary` | `false` | Draw `Edit` and `Write` calls as one summary line. |
-| `chat` | `unfolded-tools` | `["AskUserQuestion", "Skill", "Agent"]` | Option of `use-tool-fold`. The tools that are never folded. Each keeps its own row and ends the run before it. |
 | `prompt.prompt-upgrade` | `use-prompt-upgrade` | `false` | Ask clarifying questions about your prompt and rewrite it before it is sent. |
 | `prompt.prompt-upgrade` | `use-questions` | `true` | Option of `use-prompt-upgrade`. When `false`, the prompt is rewritten without questions. |
 | `prompt.prompt-upgrade` | `use-silent-upgrade` | `true` | Option of `use-prompt-upgrade`. When `true`, the pane never opens, and only a prompt with the trigger is upgraded. The recommended answers to the questions are applied when `use-questions` is `true`, and the draft is put in the prompt box without being sent. |
@@ -32,9 +32,11 @@ Every feature is off until you turn it on. Switches live under `ccChatTweaks` in
 {
   "ccChatTweaks": {
     "chat": {
-      "use-tool-fold": true,
-      "use-edit-summary": false,
-      "unfolded-tools": ["AskUserQuestion", "Skill", "Agent"]
+      "tool-fold": {
+        "use": true,
+        "unfolded-tools": ["AskUserQuestion", "Skill", "Agent"]
+      },
+      "use-edit-summary": false
     },
     "prompt": {
       "prompt-upgrade": {
@@ -46,7 +48,11 @@ Every feature is off until you turn it on. Switches live under `ccChatTweaks` in
 }
 ```
 
-The prompt upgrade keys are read only from `ccChatTweaks.prompt.prompt-upgrade`. Keys left in `ccChatTweaks.prompt` or `ccChatTweaks.chat` by an earlier version have no effect, and neither does the old `silent-trigger` key. `/tweaks-doctor` writes the new group with defaults and leaves the old keys where they are, so move your values by hand.
+The tool folding keys are read only from `ccChatTweaks.chat.tool-fold`. The old `ccChatTweaks.chat.use-tool-fold` and `ccChatTweaks.chat.unfolded-tools` have no effect.
+
+The prompt upgrade keys are read only from `ccChatTweaks.prompt.prompt-upgrade`. Keys left in `ccChatTweaks.prompt` or `ccChatTweaks.chat` by an earlier version have no effect, and neither does the old `silent-trigger` key.
+
+`/tweaks-doctor` writes the new groups with defaults and leaves the old keys where they are, so move your values by hand. If you had `use-tool-fold` set to `true`, folding is off until you set `chat.tool-fold.use`.
 
 ## Doctor
 
@@ -56,11 +62,11 @@ The prompt upgrade keys are read only from `ccChatTweaks.prompt.prompt-upgrade`.
 
 First it writes every key your user `settings.json` lacks, switches and value keys alike, with its default, so you can see and flip them. It never changes a value that is already there. It leaves a file that is not plain JSON alone and says so.
 
-Then it prints each switch and each value key (`unfolded-tools`, `min-length`, `silent-triggers`, `model`, `effort`) with its value and the source it came from, the fold counters, the prompt upgrade phase and threshold, the environment and a list of checks.
+Then it prints each switch and each value key (`unfolded-tools`, `min-length`, `silent-triggers`, `model`, `effort`) by its path under `ccChatTweaks`, such as `chat.tool-fold.use`, with its value and the source it came from, the fold counters, the prompt upgrade phase and threshold, the environment and a list of checks.
 
 ## Features
 
-### `use-tool-fold`
+### `chat.tool-fold.use`
 
 Consecutive tool calls with no assistant message between them fold into one line:
 
@@ -85,7 +91,7 @@ Consecutive tool calls with no assistant message between them fold into one line
 
 ### `use-edit-summary`
 
-An `Edit` or `Write` call that is not folded draws as one line. The diff body is hidden until you click the line. Calls fold while `use-tool-fold` is on, so this row shows when that switch is off. A count of zero is left out.
+An `Edit` or `Write` call that is not folded draws as one line. The diff body is hidden until you click the line. Calls fold while `chat.tool-fold.use` is on, so this row shows when that switch is off. A count of zero is left out.
 
 ```
 ● Update(src/app.ts) +3 -1

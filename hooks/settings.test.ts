@@ -8,8 +8,10 @@ import {
   FLAG_PATHS,
   flagsOf,
   isFlagOn,
+  labelOf,
   minLengthOf,
   modelOf,
+  propOf,
   silentTriggersOf,
   unfoldedToolsOf,
   withMissingDefaults,
@@ -31,7 +33,7 @@ test('min-length comes from the first source with a valid whole number from 1 to
 const nest = (path: readonly string[], leaf: Record<string, unknown>): Record<string, unknown> =>
   path.reduceRight<Record<string, unknown>>((inner, name) => ({ [name]: inner }), leaf)
 
-const set = (key: FlagKey, value: unknown) => ({ ccChatTweaks: nest(FLAG_PATHS[key], { [key]: value }) })
+const set = (key: FlagKey, value: unknown) => ({ ccChatTweaks: nest(FLAG_PATHS[key], { [propOf(key)]: value }) })
 
 const triggers = (value: unknown) => up({ 'silent-triggers': value })
 
@@ -86,7 +88,10 @@ test('the prompt upgrade keys live under ccChatTweaks.prompt.prompt-upgrade and 
   for (const key of ['use-prompt-upgrade', 'use-questions', 'use-silent-upgrade', 'skip-silent-trigger'] as const) {
     expect(FLAG_PATHS[key]).toEqual(['prompt', 'prompt-upgrade'])
   }
-  expect(FLAG_PATHS['use-tool-fold']).toEqual(['chat'])
+  expect(FLAG_PATHS['use-tool-fold']).toEqual(['chat', 'tool-fold'])
+  expect(propOf('use-tool-fold')).toBe('use')
+  expect(propOf('use-edit-summary')).toBe('use-edit-summary')
+  expect(FLAG_PATHS['use-edit-summary']).toEqual(['chat'])
   expect(isFlagOn([up({ 'use-prompt-upgrade': true })], 'use-prompt-upgrade')).toBe(true)
   expect(isFlagOn([{ ccChatTweaks: { prompt: { 'use-prompt-upgrade': true } } }], 'use-prompt-upgrade')).toBe(false)
   expect(isFlagOn([{ ccChatTweaks: { 'prompt-upgrade': { 'use-prompt-upgrade': true } } }], 'use-prompt-upgrade')).toBe(false)
@@ -94,6 +99,24 @@ test('the prompt upgrade keys live under ccChatTweaks.prompt.prompt-upgrade and 
   expect(modelOf([{ ccChatTweaks: { prompt: { model: 'sonnet' } } }])).toBeUndefined()
   expect(isFlagOn([{ ccChatTweaks: { chat: { 'use-prompt-upgrade': true } } }], 'use-prompt-upgrade')).toBe(false)
   expect(isFlagOn([{ ccChatTweaks: { chat: { 'use-questions': false } } }], 'use-questions')).toBe(true)
+})
+
+test('tool folding is switched by ccChatTweaks.chat.tool-fold.use and by nothing else', () => {
+  expect(isFlagOn([{ ccChatTweaks: { chat: { 'tool-fold': { use: true } } } }], 'use-tool-fold')).toBe(true)
+  expect(isFlagOn([{ ccChatTweaks: { chat: { 'use-tool-fold': true } } }], 'use-tool-fold')).toBe(false)
+  expect(isFlagOn([{ ccChatTweaks: { chat: { use: true } } }], 'use-tool-fold')).toBe(false)
+  expect(isFlagOn([{ ccChatTweaks: { 'tool-fold': { use: true } } }], 'use-tool-fold')).toBe(false)
+  expect(isFlagOn([{ ccChatTweaks: { chat: { 'tool-fold': { 'use-tool-fold': true } } } }], 'use-tool-fold')).toBe(false)
+  expect(isFlagOn([{ ccChatTweaks: { chat: { 'tool-fold': { use: 'yes' } } } }], 'use-tool-fold')).toBe(false)
+  expect(isFlagOn([{ ccChatTweaks: { chat: { 'use-edit-summary': true } } }], 'use-edit-summary')).toBe(true)
+})
+
+test('the label of a key is the path of its setting under ccChatTweaks', () => {
+  expect(labelOf('use-tool-fold')).toBe('chat.tool-fold.use')
+  expect(labelOf('use-edit-summary')).toBe('chat.use-edit-summary')
+  expect(labelOf('unfolded-tools')).toBe('chat.tool-fold.unfolded-tools')
+  expect(labelOf('use-prompt-upgrade')).toBe('prompt.prompt-upgrade.use-prompt-upgrade')
+  expect(labelOf('min-length')).toBe('prompt.prompt-upgrade.min-length')
 })
 
 test('a boolean in a source overrides the default in both directions', () => {
@@ -115,6 +138,7 @@ test('takes the first source that holds a boolean, highest precedence first', ()
 
 test('ignores a malformed namespace', () => {
   expect(isFlagOn([{ ccChatTweaks: 'on' }, { ccChatTweaks: { chat: ['use-tool-fold'] } }, null], 'use-tool-fold')).toBe(false)
+  expect(isFlagOn([{ ccChatTweaks: { chat: { 'tool-fold': ['use'] } } }], 'use-tool-fold')).toBe(false)
 })
 
 test('reads every flag at once', () => {
@@ -142,7 +166,7 @@ test('names the source each switch comes from', () => {
 test('adds only the missing switches with their default and keeps everything else', () => {
   const existing = {
     theme: 'dark',
-    ccChatTweaks: { chat: { 'use-tool-fold': true }, prompt: { later: { 'a-future-key': 1 } }, other: 1 },
+    ccChatTweaks: { chat: { 'tool-fold': { use: true } }, prompt: { later: { 'a-future-key': 1 } }, other: 1 },
   }
   const { settings, added } = withMissingDefaults(existing)
 
@@ -150,7 +174,10 @@ test('adds only the missing switches with their default and keeps everything els
   expect(settings).toEqual({
     theme: 'dark',
     ccChatTweaks: {
-      chat: { 'use-tool-fold': true, 'use-edit-summary': false, 'unfolded-tools': ['AskUserQuestion', 'Skill', 'Agent'] },
+      chat: {
+        'tool-fold': { use: true, 'unfolded-tools': ['AskUserQuestion', 'Skill', 'Agent'] },
+        'use-edit-summary': false,
+      },
       prompt: {
         later: { 'a-future-key': 1 },
         'prompt-upgrade': {
@@ -167,7 +194,7 @@ test('adds only the missing switches with their default and keeps everything els
       other: 1,
     },
   })
-  expect(existing.ccChatTweaks.chat).toEqual({ 'use-tool-fold': true })
+  expect(existing.ccChatTweaks.chat).toEqual({ 'tool-fold': { use: true } })
   expect(existing.ccChatTweaks.prompt).toEqual({ later: { 'a-future-key': 1 } })
 })
 
@@ -176,7 +203,10 @@ test('builds the whole section for an empty or malformed file', () => {
   expect(withMissingDefaults(null).added).toHaveLength(11)
   expect(withMissingDefaults({ ccChatTweaks: 'x' }).settings).toEqual({
     ccChatTweaks: {
-      chat: { 'use-tool-fold': false, 'use-edit-summary': false, 'unfolded-tools': ['AskUserQuestion', 'Skill', 'Agent'] },
+      chat: {
+        'tool-fold': { use: false, 'unfolded-tools': ['AskUserQuestion', 'Skill', 'Agent'] },
+        'use-edit-summary': false,
+      },
       prompt: {
         'prompt-upgrade': {
           'use-prompt-upgrade': false,
@@ -239,7 +269,7 @@ test('describes every extra key with its value and the source it came from', () 
   expect(describeExtras([['user', chat({ 'unfolded-tools': [] })]]).at(-1)).toEqual({ key: 'unfolded-tools', value: [], from: 'user' })
 })
 
-const chat = (group: Record<string, unknown>) => ({ ccChatTweaks: { chat: group } })
+const chat = (group: Record<string, unknown>) => ({ ccChatTweaks: { chat: { 'tool-fold': group } } })
 
 test('unfolded-tools is the first array of tool names, an empty array is a valid choice and the default list is the old hard-coded one', () => {
   expect(DEFAULT_UNFOLDED_TOOLS).toEqual(['AskUserQuestion', 'Skill', 'Agent'])
@@ -252,22 +282,23 @@ test('unfolded-tools is the first array of tool names, an empty array is a valid
   expect(unfoldedToolsOf([chat({ 'unfolded-tools': 5 })])).toBeUndefined()
   expect(unfoldedToolsOf([chat({ 'unfolded-tools': ['  '] }), chat({ 'unfolded-tools': ['Skill'] })])).toEqual(['Skill'])
   expect(unfoldedToolsOf([up({ 'unfolded-tools': ['Bash'] })])).toBeUndefined()
+  expect(unfoldedToolsOf([{ ccChatTweaks: { chat: { 'unfolded-tools': ['Bash'] } } }])).toBeUndefined()
   expect(unfoldedToolsOf([chat({ 'unfolded-tools': Array.from({ length: 60 }, (_, i) => `t${i}`) })])).toHaveLength(50)
 })
 
 test('the default unfolded list written to a file is a copy', () => {
-  type Written = { ccChatTweaks: { chat: { 'unfolded-tools': string[] } } }
+  type Written = { ccChatTweaks: { chat: { 'tool-fold': { 'unfolded-tools': string[] } } } }
   const first = withMissingDefaults({}).settings as Written
 
-  first.ccChatTweaks.chat['unfolded-tools'].push('Bash')
-  expect((withMissingDefaults({}).settings as Written).ccChatTweaks.chat['unfolded-tools']).toEqual(['AskUserQuestion', 'Skill', 'Agent'])
+  first.ccChatTweaks.chat['tool-fold']['unfolded-tools'].push('Bash')
+  expect((withMissingDefaults({}).settings as Written).ccChatTweaks.chat['tool-fold']['unfolded-tools']).toEqual(['AskUserQuestion', 'Skill', 'Agent'])
   expect(DEFAULT_UNFOLDED_TOOLS).toEqual(['AskUserQuestion', 'Skill', 'Agent'])
 })
 
 test('reports nothing to add when every switch is present', () => {
   const full = {
     ccChatTweaks: {
-      chat: { 'use-tool-fold': true, 'use-edit-summary': false, 'unfolded-tools': ['Bash'] },
+      chat: { 'tool-fold': { use: true, 'unfolded-tools': ['Bash'] }, 'use-edit-summary': false },
       prompt: {
         'prompt-upgrade': {
           'use-prompt-upgrade': false,

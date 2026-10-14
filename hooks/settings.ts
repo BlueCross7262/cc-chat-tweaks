@@ -13,10 +13,11 @@ export const FLAG_DEFAULTS = {
 export type FlagKey = keyof typeof FLAG_DEFAULTS
 
 export const CHAT_PATH: readonly string[] = ['chat']
+export const TOOL_FOLD_PATH: readonly string[] = ['chat', 'tool-fold']
 export const PROMPT_UPGRADE_PATH: readonly string[] = ['prompt', 'prompt-upgrade']
 
 export const FLAG_PATHS: Record<FlagKey, readonly string[]> = {
-  'use-tool-fold': CHAT_PATH,
+  'use-tool-fold': TOOL_FOLD_PATH,
   'use-edit-summary': CHAT_PATH,
   'use-prompt-upgrade': PROMPT_UPGRADE_PATH,
   'use-questions': PROMPT_UPGRADE_PATH,
@@ -24,7 +25,11 @@ export const FLAG_PATHS: Record<FlagKey, readonly string[]> = {
   'skip-silent-trigger': PROMPT_UPGRADE_PATH,
 }
 
-export const GROUP_PATHS: readonly (readonly string[])[] = [CHAT_PATH, PROMPT_UPGRADE_PATH]
+const FLAG_PROPS: Partial<Record<FlagKey, string>> = { 'use-tool-fold': 'use' }
+
+export const propOf = (key: FlagKey): string => FLAG_PROPS[key] ?? key
+
+export const GROUP_PATHS: readonly (readonly string[])[] = [CHAT_PATH, TOOL_FOLD_PATH, PROMPT_UPGRADE_PATH]
 
 export const pathText = (path: readonly string[]): string => [SETTINGS_NAMESPACE, ...path].join('.')
 
@@ -54,7 +59,7 @@ const upgradeValueOf = (source: unknown, key: string): unknown => groupAt(source
 
 export const isFlagOn = (sources: readonly unknown[], key: FlagKey): boolean => {
   for (const source of sources) {
-    const value = groupOf(source, key)?.[key]
+    const value = groupOf(source, key)?.[propOf(key)]
 
     if (typeof value === 'boolean') return value
   }
@@ -107,8 +112,11 @@ const EXTRA_PATHS: Record<keyof typeof EXTRA_DEFAULTS, readonly string[]> = {
   [SILENT_TRIGGERS_KEY]: PROMPT_UPGRADE_PATH,
   [MODEL_KEY]: PROMPT_UPGRADE_PATH,
   [EFFORT_KEY]: PROMPT_UPGRADE_PATH,
-  [UNFOLDED_TOOLS_KEY]: CHAT_PATH,
+  [UNFOLDED_TOOLS_KEY]: TOOL_FOLD_PATH,
 }
+
+export const labelOf = (key: AddedKey): string =>
+  isExtraKey(key) ? [...EXTRA_PATHS[key], key].join('.') : [...FLAG_PATHS[key], propOf(key)].join('.')
 
 export type ExtraKey = keyof typeof EXTRA_DEFAULTS
 
@@ -161,8 +169,8 @@ export const withMissingDefaults = (
   for (const key of flagKeys) {
     const group = groupIn(FLAG_PATHS[key])
 
-    if (group[key] === undefined) {
-      group[key] = FLAG_DEFAULTS[key]
+    if (group[propOf(key)] === undefined) {
+      group[propOf(key)] = FLAG_DEFAULTS[key]
       added.push(key)
     }
   }
@@ -181,7 +189,7 @@ export const withMissingDefaults = (
   return { settings: root, added }
 }
 
-const hasFlag = (source: unknown, key: FlagKey): boolean => typeof groupOf(source, key)?.[key] === 'boolean'
+const hasFlag = (source: unknown, key: FlagKey): boolean => typeof groupOf(source, key)?.[propOf(key)] === 'boolean'
 
 export const minLengthOf = (sources: readonly unknown[]): number | undefined => {
   for (const source of sources) {
@@ -237,7 +245,7 @@ export const effortOf = (sources: readonly unknown[]): Effort | undefined => {
 
 export const unfoldedToolsOf = (sources: readonly unknown[]): string[] | undefined => {
   for (const source of sources) {
-    const value = groupAt(source, CHAT_PATH)?.[UNFOLDED_TOOLS_KEY]
+    const value = groupAt(source, TOOL_FOLD_PATH)?.[UNFOLDED_TOOLS_KEY]
 
     if (!Array.isArray(value)) continue
     if (value.length === 0) return []

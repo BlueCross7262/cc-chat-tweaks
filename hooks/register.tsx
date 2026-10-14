@@ -40,6 +40,7 @@ import {
   describeFlags,
   defaultOf,
   flagsOf,
+  labelOf,
   minLengthOf,
   SETTINGS_SOURCES,
   unfoldedToolsOf,
@@ -259,7 +260,7 @@ const applyDefaults = async ($: EngineInterface): Promise<string> => {
     return `Nothing written: ${messageOf(error)}`
   }
 
-  return `Added to ${path}: ${added.map(key => `${key}=${JSON.stringify(defaultOf(key))}`).join(', ')}.`
+  return `Added to ${path}: ${added.map(key => `${labelOf(key)}=${JSON.stringify(defaultOf(key))}`).join(', ')}.`
 }
 
 const collectDoctorInput = async ($: EngineInterface): Promise<DoctorInput> => {
