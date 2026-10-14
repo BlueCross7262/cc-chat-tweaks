@@ -3,6 +3,7 @@ import { expect, mock, test, type Engine } from 'claude-code/testing'
 
 const PLUGIN = 'cc-chat-tweaks'
 const PANE = 'prompt-upgrade'
+const USAGE_LINE = /^Prompt Upgrade (questions|rewrite|revise): /
 const LONG = 'please summarise the attached design document for me'
 const USAGE = { input_tokens: 1, output_tokens: 1 }
 
@@ -89,7 +90,7 @@ test('a long composer prompt is dropped, upgraded and resubmitted once', async (
   })
   const result = await submit($, LONG)
   await settle(s)
-  expect(s.logs).toEqual([])
+  expect(s.logs.filter(line => !USAGE_LINE.test(line))).toEqual([])
   expect(result).toMatchObject({ drop: expect.any(String) })
   expect(s.entered).toEqual([])
 
@@ -333,4 +334,25 @@ test('with use-silent-upgrade off the trigger is ordinary text and the pane path
   await settle(s)
   expect(result).toMatchObject({ drop: expect.any(String) })
   expect(s.opens).toBe(1)
+})
+
+test('every Haiku call writes one log line with model, time and tokens, and nothing goes to the prompt or the toasts', async ($, on) => {
+  const s = world($, on, { answers: [QUESTION, 'Upgraded prompt.'] })
+  await submit($, LONG)
+  await settle(s)
+  await mountPane($)
+  await $.ui.press({ plugin: PLUGIN, key: 'q0o1', requestId: PANE })
+  const lines = s.logs.filter(line => USAGE_LINE.test(line))
+  expect(lines).toHaveLength(2)
+  expect(lines[0]).toMatch(/^Prompt Upgrade questions: haiku low · \d+(ms|\.\ds) · in 1 · out 1$/)
+  expect(lines[1]).toMatch(/^Prompt Upgrade rewrite: haiku low · /)
+  expect(s.toasts).toEqual([])
+  expect(s.entered).toEqual([])
+})
+
+test('a Haiku call that fails still logs its line', async ($, on) => {
+  const s = world($, on, { answers: [null, null] })
+  await submit($, LONG)
+  await settle(s)
+  expect(s.logs.filter(line => USAGE_LINE.test(line)).length).toBeGreaterThan(0)
 })

@@ -37,6 +37,8 @@ import {
   withRecommended,
   withTook,
   tookText,
+  usageLine,
+  usageOf,
   unwrapDraft,
 } from './upgrade-logic'
 import { CALLS, Q_SYSTEM, R_SYSTEM, REVISE_SYSTEM } from './upgrade-prompts'
@@ -72,30 +74,59 @@ const setFlow = async ($: EngineInterface, fn: (f: Flow) => Flow): Promise<Flow>
 const setIf = ($: EngineInterface, id: number, fn: (f: Flow) => Flow): Promise<Flow> =>
   setFlow($, f => (isStale(f, id) ? f : fn(f)))
 
+const sessionUsd = async ($: EngineInterface): Promise<number | undefined> => {
+  try {
+    return (await $.session.usage()).cost?.usd
+  } catch {
+    return undefined
+  }
+}
+
+const logUsage = (
+  $: EngineInterface,
+  label: string,
+  call: Call,
+  ms: number,
+  raw: unknown,
+  before: number | undefined,
+  after: number | undefined,
+): void => {
+  try {
+    const usd = before === undefined || after === undefined ? undefined : after - before
+    $.ui.log(usageLine(label, call, ms, usageOf(raw), usd))
+  } catch {
+    return
+  }
+}
+
 const callHaiku = async (
   $: EngineInterface,
+  label: string,
   call: Call,
   system: string,
   prompt: string,
 ): Promise<Timed> => {
+  const costBefore = await sessionUsd($)
   const startedAt = await $.clock.now()
   let text: string | null = null
+  let raw: unknown = null
   try {
-    text = normalizeCompletion(
-      await $.model.complete({
-        model: call.model,
-        effort: call.effort,
-        system,
-        prompt,
-        maxTokens: call.maxTokens,
-        timeoutMs: call.timeoutMs,
-      }),
-    )
+    raw = await $.model.complete({
+      model: call.model,
+      effort: call.effort,
+      system,
+      prompt,
+      maxTokens: call.maxTokens,
+      timeoutMs: call.timeoutMs,
+    })
+    text = normalizeCompletion(raw)
   } catch {
     text = null
   }
+  const ms = Math.max(0, (await $.clock.now()) - startedAt)
+  logUsage($, label, call, ms, raw, costBefore, await sessionUsd($))
 
-  return { text, ms: Math.max(0, (await $.clock.now()) - startedAt) }
+  return { text, ms }
 }
 
 const restoreText = async ($: EngineInterface, text: string): Promise<void> => {
@@ -132,7 +163,7 @@ const startAsk = async ($: EngineInterface, id: number, useQuestions: boolean): 
   try {
     const f = await getFlow($)
     if (isStale(f, id)) return
-    const asked = useQuestions ? await callHaiku($, CALLS.ask, Q_SYSTEM, askInput(f)) : null
+    const asked = useQuestions ? await callHaiku($, 'questions', CALLS.ask, Q_SYSTEM, askInput(f)) : null
     const questions = parseQuestions(asked?.text ?? null)
     const next = await setIf($, id, cur =>
       withQuestions(asked?.text ? withTook(cur, 'ask', asked.ms) : cur, questions),
@@ -148,7 +179,7 @@ const startRewrite = async ($: EngineInterface, id: number): Promise<void> => {
   try {
     const f = await setIf($, id, cur => toPhase(cur, 'rewriteLoading'))
     if (isStale(f, id)) return
-    const done = await callHaiku($, CALLS.rewrite, R_SYSTEM, rewriteInput(f))
+    const done = await callHaiku($, 'rewrite', CALLS.rewrite, R_SYSTEM, rewriteInput(f))
     await setIf($, id, cur =>
       done.text === null
         ? withDraft(cur, cur.original, FAILED_NOTICE)
@@ -181,7 +212,7 @@ const revise = async ($: EngineInterface, request: string): Promise<void> => {
   const id = f.runId
   await setIf($, id, cur => ({ ...cur, phase: 'rewriteLoading', notice: '' }))
   try {
-    const done = await callHaiku($, CALLS.revise, REVISE_SYSTEM, reviseInput(f.draft, req))
+    const done = await callHaiku($, 'revise', CALLS.revise, REVISE_SYSTEM, reviseInput(f.draft, req))
     await setIf($, id, cur =>
       done.text === null
         ? { ...cur, phase: 'review', notice: REVISE_FAILED_NOTICE }
