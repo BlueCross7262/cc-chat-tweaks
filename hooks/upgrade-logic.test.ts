@@ -26,6 +26,8 @@ import {
   stripFence,
   undo,
   unwrapDraft,
+  breakSentences,
+  formatDraft,
   withDraft,
   withQuestions,
   withRecommended,
@@ -106,6 +108,28 @@ test('the manual-edit pass is spent once and expires', () => {
   const flow = { ...EMPTY_FLOW, skipUntil: 5000 }
   expect(gate({ now: 4000, flow })).toEqual({ intercept: false, reason: 'manual-edit', clearSkip: true })
   expect(gate({ now: 6000, flow })).toEqual({ intercept: true })
+})
+
+test('a new line follows every sentence end, and text that is already broken stays', () => {
+  expect(breakSentences('로그인 기능의 버그를 찾아 고쳐 달라. 원인을 설명해 달라.')).toBe('로그인 기능의 버그를 찾아 고쳐 달라.\n원인을 설명해 달라.')
+  expect(breakSentences('Read the file. Then fix it? Yes! Done.')).toBe('Read the file.\nThen fix it?\nYes!\nDone.')
+  expect(breakSentences('First.\nSecond.\n\nThird.')).toBe('First.\nSecond.\n\nThird.')
+  expect(breakSentences('One sentence only.')).toBe('One sentence only.')
+  expect(breakSentences('Ends with a space. ')).toBe('Ends with a space. ')
+})
+
+test('a dot inside a number, a version or an abbreviation does not end a sentence', () => {
+  expect(breakSentences('Use v1.2 and pi 3.14 now. Step 1. Do it.')).toBe('Use v1.2 and pi 3.14 now.\nStep 1. Do it.')
+  expect(breakSentences('See e.g. the file. Done.')).toBe('See e.g. the file.\nDone.')
+})
+
+test('pasted material in input tags and code fences keeps its own line breaks', () => {
+  expect(breakSentences('Read <input>a. b. c.</input> now. Then stop.')).toBe('Read <input>a. b. c.</input> now.\nThen stop.')
+  expect(breakSentences('Run this. ```\nx. y.\n``` Then stop.')).toBe('Run this.\n```\nx. y.\n``` Then stop.')
+})
+
+test('the draft loses its wrapper tags and then breaks at every sentence end', () => {
+  expect(formatDraft('<prompt>One. Two.</prompt>')).toBe('One.\nTwo.')
 })
 
 test('a prompt with the trigger is upgraded again while a manual-edit pass is open, and the pass stays', () => {

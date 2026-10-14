@@ -88,7 +88,7 @@ An `Edit` or `Write` call that is not folded draws as one line. The diff body is
 A prompt you type at the prompt box and send is held back, and a pane opens with four steps: your prompt, questions, rewrite, review.
 
 - Haiku asks up to three questions with 3 to 5 options each. You pick an option, type your own answer, or skip.
-- Haiku rewrites the prompt as prose and keeps pasted material as it is, wrapped in `<input>` tags.
+- Haiku rewrites the prompt as prose with one sentence on each line and keeps pasted material as it is, wrapped in `<input>` tags.
 - In the review you can ask for a change to the draft, undo it, edit the draft in the prompt box, send the draft, send the original, or cancel.
 - Each upgraded prompt costs up to three Haiku calls on your plan or API key.
 - Prompts typed while a turn runs, prompts with attachments, slash commands and short prompts pass through unchanged. So does every prompt when the pane cannot be placed or Haiku does not answer.
