@@ -59,42 +59,8 @@ export const tookText = (flow: Flow): string => {
   return parts.length === 0 ? '' : `Haiku took ${parts.join(' · ')}`
 }
 
-export type CallUsage = { input: number; output: number; cacheRead: number; cacheWrite: number }
-
-const count = (value: unknown): number => (typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : 0)
-
-export const usageOf = (r: unknown): CallUsage | null => {
-  const usage = typeof r === 'object' && r !== null ? (r as { usage?: unknown }).usage : undefined
-  if (typeof usage !== 'object' || usage === null) return null
-  const u = usage as Record<string, unknown>
-
-  return {
-    input: count(u.input_tokens),
-    output: count(u.output_tokens),
-    cacheRead: count(u.cache_read_input_tokens),
-    cacheWrite: count(u.cache_creation_input_tokens),
-  }
-}
-
-export const formatUsd = (usd: number): string => `$${usd < 0.01 ? usd.toFixed(4) : usd.toFixed(2)}`
-
-export const usageLine = (
-  label: string,
-  call: { model: string; effort: string },
-  ms: number,
-  usage: CallUsage | null,
-  usd: number | undefined,
-): string => {
-  const parts = [`${call.model} ${call.effort}`, formatMs(ms)]
-  if (usage === null) parts.push('tokens unknown')
-  else {
-    parts.push(`in ${usage.input} · out ${usage.output}`)
-    if (usage.cacheRead > 0 || usage.cacheWrite > 0) parts.push(`cache read ${usage.cacheRead} · write ${usage.cacheWrite}`)
-  }
-  if (usd !== undefined && usd > 0) parts.push(`session cost +${formatUsd(usd)}`)
-
-  return `Prompt Upgrade ${label}: ${parts.join(' · ')}`
-}
+export const callLine = (label: string, call: { model: string; effort: string }, ms: number): string =>
+  `Prompt Upgrade ${label}: ${call.model} ${call.effort} · ${formatMs(ms)}`
 
 export type GateInput = {
   text: string

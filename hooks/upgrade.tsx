@@ -10,6 +10,7 @@ import type {
 
 import type { Flow, Phase } from '../types'
 import {
+  callLine,
   allAnswered,
   answer,
   answeredCount,
@@ -37,8 +38,6 @@ import {
   withRecommended,
   withTook,
   tookText,
-  usageLine,
-  usageOf,
   unwrapDraft,
 } from './upgrade-logic'
 import { CALLS, Q_SYSTEM, R_SYSTEM, REVISE_SYSTEM } from './upgrade-prompts'
@@ -74,26 +73,9 @@ const setFlow = async ($: EngineInterface, fn: (f: Flow) => Flow): Promise<Flow>
 const setIf = ($: EngineInterface, id: number, fn: (f: Flow) => Flow): Promise<Flow> =>
   setFlow($, f => (isStale(f, id) ? f : fn(f)))
 
-const sessionUsd = async ($: EngineInterface): Promise<number | undefined> => {
+const logCall = ($: EngineInterface, label: string, call: Call, ms: number): void => {
   try {
-    return (await $.session.usage()).cost?.usd
-  } catch {
-    return undefined
-  }
-}
-
-const logUsage = (
-  $: EngineInterface,
-  label: string,
-  call: Call,
-  ms: number,
-  raw: unknown,
-  before: number | undefined,
-  after: number | undefined,
-): void => {
-  try {
-    const usd = before === undefined || after === undefined ? undefined : after - before
-    $.ui.log(usageLine(label, call, ms, usageOf(raw), usd))
+    $.ui.log(callLine(label, call, ms))
   } catch {
     return
   }
@@ -106,25 +88,24 @@ const callHaiku = async (
   system: string,
   prompt: string,
 ): Promise<Timed> => {
-  const costBefore = await sessionUsd($)
   const startedAt = await $.clock.now()
   let text: string | null = null
-  let raw: unknown = null
   try {
-    raw = await $.model.complete({
-      model: call.model,
-      effort: call.effort,
-      system,
-      prompt,
-      maxTokens: call.maxTokens,
-      timeoutMs: call.timeoutMs,
-    })
-    text = normalizeCompletion(raw)
+    text = normalizeCompletion(
+      await $.model.complete({
+        model: call.model,
+        effort: call.effort,
+        system,
+        prompt,
+        maxTokens: call.maxTokens,
+        timeoutMs: call.timeoutMs,
+      }),
+    )
   } catch {
     text = null
   }
   const ms = Math.max(0, (await $.clock.now()) - startedAt)
-  logUsage($, label, call, ms, raw, costBefore, await sessionUsd($))
+  logCall($, label, call, ms)
 
   return { text, ms }
 }

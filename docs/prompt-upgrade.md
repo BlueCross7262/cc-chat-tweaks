@@ -112,13 +112,11 @@ Put the trigger (`+++` by default) at the start or the end of a prompt to skip t
 Each Haiku call writes one dim line to the transcript with `$.ui.log`. The line is not sent to the model, so it never enters the context.
 
 ```
-Prompt Upgrade rewrite: haiku low · 1.2s · in 340 · out 120
+Prompt Upgrade rewrite: haiku low · 1.2s
 ```
 
-- The line names the call (`questions`, `rewrite` or `revise`), the model alias and effort, the time, and the token counts. Cache tokens appear only when they are not zero.
-- `session cost +$x` is the change in the session cost (`$.session.usage().cost.usd`) across the call. It appears only when the change is above zero.
-- The API gives no price per call, so the mod does not compute one from a price table.
-- Not verified: whether a `$.model.complete` call counts in the session cost. Another request that runs during the call also changes the figure.
+- The line names the call (`questions`, `rewrite` or `revise`), the model alias and effort, and the time.
+- The line shows no token count and no cost.
 - A failed call logs its line too.
 
 ## What is not intercepted

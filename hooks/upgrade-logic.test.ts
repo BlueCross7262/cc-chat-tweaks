@@ -19,8 +19,7 @@ import {
   parseQuestions,
   reset,
   tookText,
-  usageLine,
-  usageOf,
+  callLine,
   withTook,
   revised,
   rewriteInput,
@@ -314,25 +313,9 @@ test('a resubmitted rewrite that ends with the trigger is not intercepted again'
   expect(gate({ silentTrigger: '+++', text: 'done +++', flow })).toMatchObject({ intercept: false, reason: 'resubmit' })
 })
 
-test('reads the token counts of a completion and nothing else', () => {
-  const answered = { isAnswered: true, text: 'x', usage: { input_tokens: 340, output_tokens: 120, cache_read_input_tokens: 5, cache_creation_input_tokens: 7 } }
-
-  expect(usageOf(answered)).toEqual({ input: 340, output: 120, cacheRead: 5, cacheWrite: 7 })
-  expect(usageOf({ usage: { input_tokens: -1, output_tokens: 'x' } })).toEqual({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0 })
-  expect(usageOf(null)).toBeNull()
-  expect(usageOf('text')).toBeNull()
-  expect(usageOf({ text: 'no usage' })).toBeNull()
-})
-
-test('the usage line names the call, model, time and tokens, and adds cache and cost only when they exist', () => {
+test('the call line names the call, model, effort and time', () => {
   const call = { model: 'haiku', effort: 'low' }
-  const plain = { input: 340, output: 120, cacheRead: 0, cacheWrite: 0 }
 
-  expect(usageLine('rewrite', call, 840, plain, undefined)).toBe('Prompt Upgrade rewrite: haiku low · 840ms · in 340 · out 120')
-  expect(usageLine('rewrite', call, 2100, plain, 0)).toBe('Prompt Upgrade rewrite: haiku low · 2.1s · in 340 · out 120')
-  expect(usageLine('questions', call, 2100, { ...plain, cacheRead: 5, cacheWrite: 7 }, 0.0004)).toBe(
-    'Prompt Upgrade questions: haiku low · 2.1s · in 340 · out 120 · cache read 5 · write 7 · session cost +$0.0004',
-  )
-  expect(usageLine('revise', call, 100, plain, 0.5)).toContain('session cost +$0.50')
-  expect(usageLine('revise', call, 100, null, undefined)).toBe('Prompt Upgrade revise: haiku low · 100ms · tokens unknown')
+  expect(callLine('rewrite', call, 840)).toBe('Prompt Upgrade rewrite: haiku low · 840ms')
+  expect(callLine('questions', call, 2100)).toBe('Prompt Upgrade questions: haiku low · 2.1s')
 })
