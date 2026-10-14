@@ -26,7 +26,7 @@ type Setup = {
 const world = (
   $: Engine,
   on: On,
-  options: { isFilled?: boolean; isCopied?: boolean; isPlaced?: boolean; answers?: Array<string | null>; enabled?: boolean; useQuestions?: boolean; silent?: boolean; box?: string; extra?: Record<string, unknown>; failFills?: number } = {},
+  options: { isFilled?: boolean; isCopied?: boolean; isPlaced?: boolean; answers?: Array<string | null>; enabled?: boolean; useQuestions?: boolean; silent?: boolean; box?: string | string[]; extra?: Record<string, unknown>; failFills?: number } = {},
 ): Setup => {
   const s: Setup = { entered: [], filled: [], closed: [], models: [], efforts: [], ids: [], events: [], logs: [], copied: [], toasts: [], prompts: [], opens: 0, clock: undefined }
   const answers = [...(options.answers ?? [])]
@@ -39,7 +39,8 @@ const world = (
   mock.store(on, {})
   on('settings.read', (_$, e) => ({ value: (e as { source?: string }).source === 'user' ? { ccChatTweaks: { prompt: { 'prompt-upgrade': group } } } : {} }) as never)
   on('session.surfaces', () => ({ value: ['terminal'] }) as never)
-  on('prompt.read', () => ({ value: { text: options.box ?? '', cursor: 0 } }) as never)
+  const boxReads = Array.isArray(options.box) ? [...options.box] : [options.box ?? '']
+  on('prompt.read', () => ({ value: { text: boxReads.length > 1 ? boxReads.shift() : boxReads[0], cursor: 0 } }) as never)
   on('ui.open', () => (s.opens++, { value: options.isPlaced === false ? { isPlaced: false, reason: 'narrow' } : { isPlaced: true } }) as never)
   on('ui.close', (_$, e) => {
     s.closed.push((e as { id: string }).id)
@@ -84,7 +85,10 @@ const world = (
   return s
 }
 
-const settle = (s: Setup) => s.clock?.advance(0)
+const settle = async (s: Setup) => {
+  await s.clock?.advance(0)
+  await s.clock?.advance(300)
+}
 
 const composer = { kind: 'composer' } as const
 
@@ -366,13 +370,22 @@ test('a silent run whose Haiku call fails puts the original without the trigger 
 })
 
 test('a silent run does not overwrite what the person typed meanwhile and puts the draft on the clipboard', async ($, on) => {
-  const s = world($, on, { silent: true, useQuestions: false, answers: ['Silently upgraded prompt.'], box: 'something typed later' })
+  const s = world($, on, { silent: true, useQuestions: false, answers: ['Silently upgraded prompt.'], box: ['', 'something typed later'] })
   await submit($, TRIGGERED)
   await settle(s)
   expect(s.filled).toEqual([])
   expect(s.entered).toEqual([])
   expect(s.copied).toEqual(['Silently upgraded prompt.'])
   expect(s.toasts.join(' ')).toMatch(/clipboard/)
+})
+
+test('a silent run fills the draft when the box still holds what the engine left there, such as a paste placeholder', async ($, on) => {
+  const s = world($, on, { silent: true, useQuestions: false, answers: ['Silently upgraded prompt.'], box: '[Pasted text #1 +3 lines]' })
+  await submit($, TRIGGERED)
+  await settle(s)
+  expect(s.filled).toEqual(['Silently upgraded prompt.'])
+  expect(s.copied).toEqual([])
+  expect(s.toasts.join(' ')).not.toMatch(/clipboard/)
 })
 
 test('a prompt submitted while a silent run is working passes through untouched', async ($, on) => {

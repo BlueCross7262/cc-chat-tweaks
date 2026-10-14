@@ -232,6 +232,7 @@ const cancel = async ($: EngineInterface): Promise<void> => {
 
 const CLEAR_TRIES = 3
 const CLEAR_WAIT_MS = 100
+const BOX_SETTLE_MS = 300
 
 const clearBox = async ($: EngineInterface): Promise<boolean> => {
   for (let i = 0; i < CLEAR_TRIES; i++) {
@@ -273,14 +274,18 @@ const recoverSilent = async ($: EngineInterface, id: number): Promise<void> => {
   }
 }
 
-const isBoxFree = async ($: EngineInterface, typed: string): Promise<boolean> => {
+const boxText = async ($: EngineInterface): Promise<string | null> => {
   try {
-    const current = (await $.prompt.read()).text.trim()
-
-    return current === '' || current === typed.trim()
+    return (await $.prompt.read()).text.trim()
   } catch {
-    return true
+    return null
   }
+}
+
+const isBoxFree = async ($: EngineInterface, typed: string, baseline: string | null): Promise<boolean> => {
+  const current = await boxText($)
+
+  return current === null || current === '' || current === typed.trim() || current === baseline
 }
 
 const fillDraft = async ($: EngineInterface, draft: string): Promise<void> => {
@@ -316,12 +321,14 @@ const askAndApplyRecommended = async ($: EngineInterface, id: number): Promise<v
 
 const runSilent = async ($: EngineInterface, id: number, typed: string, useQuestions: boolean): Promise<void> => {
   try {
+    await $.clock.sleep(BOX_SETTLE_MS).catch(() => undefined)
+    const baseline = await boxText($)
     if (useQuestions) await askAndApplyRecommended($, id)
     await startRewrite($, id)
     const f = await getFlow($)
     if (isStale(f, id) || f.phase !== 'review') return
     if (f.notice !== '') $.ui.toast(f.notice)
-    if (await isBoxFree($, typed)) await fillDraft($, f.draft)
+    if (await isBoxFree($, typed, baseline)) await fillDraft($, f.draft)
     else await parkDraft($, f.draft)
   } catch {
     await recoverSilent($, id)

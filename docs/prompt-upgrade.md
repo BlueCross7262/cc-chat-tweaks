@@ -131,7 +131,8 @@ The trigger (`+++` by default) at the start or the end of a prompt is what start
 - A prompt with the trigger is upgraded again instead, and the pass stays open.
 - Only the white space is ignored. A changed letter, digit or punctuation mark counts as an edit.
 - If Haiku fails, the prompt box gets the prompt as you wrote it, without the trigger, and a toast says so.
-- If you typed something else in the prompt box meanwhile, the mod leaves the box alone and puts the draft on your clipboard. A toast says so.
+- The mod reads the prompt box 0.3 s after it took the prompt, and keeps that text as the baseline. It is whatever the engine left there, such as a paste placeholder.
+- If the box holds other text than the baseline when the draft is ready, you typed something meanwhile. The mod leaves the box alone and puts the draft on your clipboard. A toast says so.
 - If something unexpected fails after the prompt was taken, the text without the trigger is put back in the prompt box.
 - A prompt you send while the silent upgrade is still running passes through as it is, trigger included.
 - The `min-length` check and the terminal-surface check do not apply to a prompt with the trigger. The terminal-surface check does not apply to any silent upgrade.
