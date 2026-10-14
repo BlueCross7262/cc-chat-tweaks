@@ -97,7 +97,7 @@ const logCall = ($: EngineInterface, label: string, call: Call, ms: number, orig
   }
 }
 
-const callHaiku = async (
+const callModel = async (
   $: EngineInterface,
   label: string,
   call: Call,
@@ -161,7 +161,7 @@ const startAsk = async ($: EngineInterface, id: number, useQuestions: boolean): 
   try {
     const f = await getFlow($)
     if (isStale(f, id)) return
-    const asked = useQuestions ? await callHaiku($, 'questions', CALLS.ask, Q_SYSTEM, askInput(f)) : null
+    const asked = useQuestions ? await callModel($, 'questions', CALLS.ask, Q_SYSTEM, askInput(f)) : null
     const questions = parseQuestions(asked?.text ?? null)
     const next = await setIf($, id, cur =>
       withQuestions(asked?.text ? withTook(cur, 'ask', asked.ms) : cur, questions),
@@ -177,7 +177,7 @@ const startRewrite = async ($: EngineInterface, id: number): Promise<void> => {
   try {
     const f = await setIf($, id, cur => toPhase(cur, 'rewriteLoading'))
     if (isStale(f, id)) return
-    const done = await callHaiku($, 'rewrite', CALLS.rewrite, R_SYSTEM, rewriteInput(f))
+    const done = await callModel($, 'rewrite', CALLS.rewrite, R_SYSTEM, rewriteInput(f))
     await setIf($, id, cur =>
       done.text === null
         ? withDraft(cur, cur.original, FAILED_NOTICE)
@@ -210,7 +210,7 @@ const revise = async ($: EngineInterface, request: string): Promise<void> => {
   const id = f.runId
   await setIf($, id, cur => ({ ...cur, phase: 'rewriteLoading', notice: '' }))
   try {
-    const done = await callHaiku($, 'revise', CALLS.revise, REVISE_SYSTEM, reviseInput(f.draft, req))
+    const done = await callModel($, 'revise', CALLS.revise, REVISE_SYSTEM, reviseInput(f.draft, req))
     await setIf($, id, cur =>
       done.text === null
         ? { ...cur, phase: 'review', notice: REVISE_FAILED_NOTICE }
@@ -309,7 +309,7 @@ const parkDraft = async ($: EngineInterface, draft: string): Promise<void> => {
 const askAndApplyRecommended = async ($: EngineInterface, id: number): Promise<void> => {
   const f = await getFlow($)
   if (isStale(f, id)) return
-  const asked = await callHaiku($, 'questions', CALLS.ask, Q_SYSTEM, askInput(f))
+  const asked = await callModel($, 'questions', CALLS.ask, Q_SYSTEM, askInput(f))
   const questions = parseQuestions(asked.text)
   await setIf($, id, cur =>
     withRecommended(withQuestions(asked.text ? withTook(cur, 'ask', asked.ms) : cur, questions)),
