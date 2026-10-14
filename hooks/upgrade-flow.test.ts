@@ -4,7 +4,7 @@ import { expect, mock, test, type Engine } from 'claude-code/testing'
 const PLUGIN = 'cc-chat-tweaks'
 const PANE = 'prompt-upgrade'
 const USAGE_LINE = /^Prompt Upgrade (questions|rewrite|revise): /
-const ORIGINAL_LINE = /^Prompt Upgrade original:$/
+const ORIGINAL_LINE = /^Prompt Upgrade original: /
 const LONG = 'please summarise the attached design document for me'
 const USAGE = { input_tokens: 1, output_tokens: 1 }
 
@@ -101,7 +101,7 @@ test('a long composer prompt is dropped, upgraded and resubmitted once', async (
   })
   const result = await submit($, LONG)
   await settle(s)
-  expect(s.logs.filter(line => !USAGE_LINE.test(line) && !ORIGINAL_LINE.test(line) && line !== LONG)).toEqual([])
+  expect(s.logs.filter(line => !USAGE_LINE.test(line) && !ORIGINAL_LINE.test(line))).toEqual([])
   expect(result).toMatchObject({ drop: expect.any(String) })
   expect(s.entered).toEqual([])
 
@@ -491,7 +491,7 @@ test('every Haiku call writes one log line with model and time, and nothing goes
   expect(s.entered).toEqual([])
 })
 
-test('the original prompt is logged as a header row and then its own rows, right after each call row', async ($, on) => {
+test('the original prompt is logged on one row with its header, right after each call row', async ($, on) => {
   const s = world($, on, { answers: [QUESTION, 'Upgraded prompt.'] })
   await submit($, LONG)
   await settle(s)
@@ -500,23 +500,18 @@ test('the original prompt is logged as a header row and then its own rows, right
   const calls = s.logs.flatMap((line, i) => (USAGE_LINE.test(line) ? [i] : []))
   expect(calls).toHaveLength(2)
   for (const i of calls) {
-    expect(s.logs[i + 1]).toBe('Prompt Upgrade original:')
-    expect(s.logs[i + 2]).toBe(LONG)
+    expect(s.logs[i + 1]).toBe(`Prompt Upgrade original: ${LONG}`)
   }
+  expect(s.logs.filter(line => line === LONG || line === 'Prompt Upgrade original:')).toEqual([])
 })
 
-test('a multi-line original is logged one row per line, without blank rows', async ($, on) => {
+test('a multi-line original is logged on one row, its line breaks turned into spaces', async ($, on) => {
   const s = world($, on, { useQuestions: false, answers: ['Upgraded prompt.'] })
   const text = 'first line of a long prompt\nsecond line of a long prompt\n\nfourth line after a blank one'
   await submit($, text)
   await settle(s)
-  const at = s.logs.findIndex(entry => ORIGINAL_LINE.test(entry))
-  expect(at).toBeGreaterThan(-1)
-  expect(s.logs.slice(at, at + 4)).toEqual([
-    'Prompt Upgrade original:',
-    'first line of a long prompt',
-    'second line of a long prompt',
-    'fourth line after a blank one',
+  expect(s.logs.filter(entry => ORIGINAL_LINE.test(entry))).toEqual([
+    'Prompt Upgrade original: first line of a long prompt second line of a long prompt fourth line after a blank one',
   ])
 })
 
@@ -534,10 +529,9 @@ test('a very long original is cut at 2000 characters in the log', async ($, on) 
   const s = world($, on, { useQuestions: false, answers: ['Upgraded prompt.'] })
   await submit($, 'x'.repeat(5000))
   await settle(s)
-  const at = s.logs.findIndex(item => ORIGINAL_LINE.test(item))
-  const body = s.logs[at + 1] ?? ''
-  expect(body.length).toBe(2000)
-  expect(body.endsWith('x...')).toBe(true)
+  const row = s.logs.find(item => ORIGINAL_LINE.test(item)) ?? ''
+  expect(row.length).toBe(2000)
+  expect(row.endsWith('x...')).toBe(true)
 })
 
 test('model and effort from the settings reach every call and its log line', async ($, on) => {

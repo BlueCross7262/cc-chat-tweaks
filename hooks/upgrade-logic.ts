@@ -65,11 +65,12 @@ export const callLine = (label: string, call: { model: string; effort: string },
 
 export const ORIGINAL_HEADER = 'Prompt Upgrade original:'
 
-export const originalLines = (original: string, max: number): string[] => {
-  const body = original.trim().replace(/\r\n?/g, '\n')
-  const shown = body.length <= max ? body : `${body.slice(0, Math.max(0, max - 3))}...`
+export const originalLine = (original: string, max: number): string => {
+  const body = original.replace(/\s+/g, ' ').trim()
+  const room = Math.max(0, max - ORIGINAL_HEADER.length - 1)
+  const shown = body.length <= room ? body : `${body.slice(0, Math.max(0, room - 3))}...`
 
-  return [ORIGINAL_HEADER, ...shown.split('\n').filter(line => line.trim() !== '')]
+  return `${ORIGINAL_HEADER} ${shown}`
 }
 
 export type GateInput = {

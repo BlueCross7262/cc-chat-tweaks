@@ -145,15 +145,15 @@ Each model call writes dim rows to the transcript with `$.ui.log`. The rows are 
 
 ```
 cc-chat-tweaks: Prompt Upgrade rewrite: sonnet low · 1.2s
-cc-chat-tweaks: Prompt Upgrade original:
-cc-chat-tweaks: fix the login bug
+cc-chat-tweaks: Prompt Upgrade original: fix the login bug
 ```
 
 - The engine puts the plugin name `cc-chat-tweaks: ` in front of every row. The mod does not write it, and `$.ui.log` takes only the text and the sink, so the mod cannot remove it.
 - The first row names the call (`questions`, `rewrite` or `revise`), the model alias and effort, and the time.
-- The next row is the header `Prompt Upgrade original:`. The prompt you typed, without the trigger, follows with one row per line.
-- One log call is one row. A line break inside the text of a call is not drawn as a break, and shows as a garbled character. So the mod writes one call for each row and never puts a line break in a log.
-- Blank lines of the prompt are left out, and the prompt part is cut at 2000 characters with `...`.
+- The next row is the header `Prompt Upgrade original:` and the prompt you typed, without the trigger, on the same row.
+- One log call is one row. A line break inside the text of a call is not drawn as a break, and shows as a garbled character. So the mod turns every run of spaces and line breaks in the prompt into one space, and never puts a line break in a log.
+- The whole row is cut at 2000 characters with `...`.
+- The empty line the engine draws between rows is the engine's own spacing. The mod writes no empty row.
 - The rows show no token count and no cost.
 - A failed call writes its rows too.
 - A run with questions writes the rows once per call, so the original appears again after each call row.
