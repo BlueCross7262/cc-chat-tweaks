@@ -22,6 +22,7 @@ import {
   changeOf,
   closeRunOnTurnEnd,
   EMPTY_RUN_STATE,
+  failedSeparator,
   hasChanges,
   hasPending,
   headerText,
@@ -319,6 +320,7 @@ const withHeader = (
           {isDotOn ? ROW_MARK : '  '}
         </Text>
         <Text>{headerText(header)}</Text>
+        {failedSeparator(header) !== '' ? <Text>{failedSeparator(header)}</Text> : null}
         {header.failed > 0 ? <Text color={FAILED_COLOR}> {header.failed} failed</Text> : null}
         {hasChanges(header) ? <Text> …</Text> : null}
         {header.added > 0 ? <Text color="green"> +{header.added}</Text> : null}

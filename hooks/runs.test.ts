@@ -8,6 +8,7 @@ import {
   closeRunOnTurnEnd,
   diffCounts,
   EMPTY_RUN_STATE,
+  failedSeparator,
   hasChanges,
   hasMoreNames,
   headerText,
@@ -326,6 +327,20 @@ test('a name list that is not cut never gets a trailing comma', () => {
     'Called 7 times Edit, Read, replace_content',
   )
   expect(headerText(headerOf(['Bash', 'Edit', 'Grep', 'Read'], { added: 1 }))).toBe('Called 7 times Bash, Edit, Grep, Read')
+})
+
+test('failed is set off from the names by a comma, and a cut list already ends with one', () => {
+  const lineOf = (header: Header): string =>
+    `${headerText(header)}${failedSeparator(header)}${header.failed > 0 ? ` ${header.failed} failed` : ''}`
+
+  expect(failedSeparator(headerOf(['Edit', 'Read']))).toBe('')
+  expect(failedSeparator(headerOf(['Edit', 'Read'], { added: 3 }))).toBe('')
+  expect(lineOf(headerOf(['Edit', 'Read', 'replace_content'], { failed: 2 }))).toBe('Called 7 times Edit, Read, replace_content, 2 failed')
+  expect(lineOf(headerOf(['Bash', 'Edit', 'Grep', 'Read'], { failed: 1 }))).toBe('Called 7 times Bash, Edit, Grep, Read, 1 failed')
+  expect(lineOf(headerOf(MANY, { failed: 2 }))).toBe('Called 7 times Bash, Edit, Grep, Read, 2 failed')
+  expect(lineOf(headerOf(MANY, { failed: 2, added: 13 }))).toBe('Called 7 times Bash, Edit, Grep, Read, 2 failed')
+  expect(lineOf(headerOf(['Edit'], { failed: 1, isPending: true }))).toBe('Calling 7 times Edit, 1 failed')
+  expect(lineOf(headerOf(MANY))).toBe('Called 7 times Bash, Edit, Grep, Read, …')
 })
 
 test('the header has changes when lines were added or removed', () => {

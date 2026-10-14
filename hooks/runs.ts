@@ -323,6 +323,9 @@ export const namesOf = (calls: readonly Call[], hasTail = false): string => {
 
 export const hasChanges = (header: Header): boolean => header.added > 0 || header.removed > 0
 
+export const failedSeparator = (header: Header): string =>
+  header.failed > 0 && !headerText(header).endsWith(',') ? ',' : ''
+
 export const headerText = (header: Header): string => {
   const hasTail = header.failed > 0 || hasChanges(header)
 
