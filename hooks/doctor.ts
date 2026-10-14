@@ -1,4 +1,4 @@
-import { GROUPS, isFeatureKey, type FlagKey } from './settings'
+import { GROUPS, isFeatureKey, type ExtraReport, type FlagKey } from './settings'
 
 export type FlagReport = {
   key: FlagKey
@@ -8,6 +8,7 @@ export type FlagReport = {
 
 export type DoctorInput = {
   flags: FlagReport[]
+  extras: ExtraReport[]
   runs: {
     tracked: number
     pending: boolean
@@ -39,6 +40,9 @@ export const versionText = (info: unknown): string => {
 const flag = (report: FlagReport, keyWidth: number): string =>
   `  ${report.key.padEnd(keyWidth)}  ${report.value ? 'on ' : 'off'}  (${report.from})`
 
+const extra = (report: ExtraReport, keyWidth: number): string =>
+  `  ${report.key.padEnd(keyWidth)}  ${JSON.stringify(report.value)}  (${report.from})`
+
 const isOn = (input: DoctorInput, key: FlagKey): boolean =>
   input.flags.some(report => report.key === key && report.value)
 
@@ -65,7 +69,7 @@ export const checksOf = (input: DoctorInput): string[] => {
 }
 
 export const formatReport = (input: DoctorInput): string => {
-  const width = Math.max(...input.flags.map(report => report.key.length))
+  const width = Math.max(...input.flags.map(report => report.key.length), ...input.extras.map(report => report.key.length))
   const { runs, upgrade, env } = input
 
   return [
@@ -73,6 +77,7 @@ export const formatReport = (input: DoctorInput): string => {
     '',
     `settings (${GROUPS.map(group => `ccChatTweaks.${group}`).join(', ')})`,
     ...input.flags.map(report => flag(report, width)),
+    ...input.extras.map(report => extra(report, width)),
     '',
     'tool-call folding',
     `  runs tracked: ${runs.tracked}, pending: ${runs.pending ? 'yes' : 'no'}, failed calls: ${runs.failed}, change records: ${runs.changes}`,

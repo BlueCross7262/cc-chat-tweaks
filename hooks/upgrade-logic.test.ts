@@ -41,7 +41,7 @@ const base: GateInput = {
   surfaces: ['terminal'],
   isEnabled: true,
   minLen: MIN_LEN,
-  silentTrigger: '',
+  silentTriggers: [],
   isSilent: false,
   skipTrigger: false,
   now: 1000,
@@ -112,11 +112,11 @@ test('the manual-edit pass is spent once and expires', () => {
 
 test('a prompt with the trigger is upgraded again while a manual-edit pass is open, and the pass stays', () => {
   const flow = { ...EMPTY_FLOW, skipUntil: 5000 }
-  const on = { isSilent: true, silentTrigger: '+++', now: 4000, flow }
+  const on = { isSilent: true, silentTriggers: ['+++'], now: 4000, flow }
 
   expect(gate({ ...on, text: base.text + ' +++' })).toEqual({ intercept: true, silent: true, text: base.text })
   expect(gate({ ...on, text: base.text })).toEqual({ intercept: false, reason: 'manual-edit', clearSkip: true })
-  expect(gate({ isSilent: false, silentTrigger: '', now: 4000, flow, text: base.text + ' +++' })).toEqual({
+  expect(gate({ isSilent: false, silentTriggers: [], now: 4000, flow, text: base.text + ' +++' })).toEqual({
     intercept: false,
     reason: 'manual-edit',
     clearSkip: true,
@@ -297,19 +297,29 @@ test('the ask and rewrite inputs carry the context only when there is one', () =
 })
 
 test('parseTrigger strips the trigger from the start, the end or both and repeats', () => {
-  expect(parseTrigger('+++ hello', '+++')).toBe('hello')
-  expect(parseTrigger('hello +++', '+++')).toBe('hello')
-  expect(parseTrigger('+++ hello +++', '+++')).toBe('hello')
-  expect(parseTrigger('+++hello', '+++')).toBe('hello')
-  expect(parseTrigger('+++ +++ hello', '+++')).toBe('hello')
-  expect(parseTrigger('+++', '+++')).toBe('')
-  expect(parseTrigger('++++++', '+++')).toBe('')
-  expect(parseTrigger('a +++ b', '+++')).toBeNull()
-  expect(parseTrigger('+++ hello', '')).toBeNull()
+  expect(parseTrigger('+++ hello', ['+++'])).toBe('hello')
+  expect(parseTrigger('hello +++', ['+++'])).toBe('hello')
+  expect(parseTrigger('+++ hello +++', ['+++'])).toBe('hello')
+  expect(parseTrigger('+++hello', ['+++'])).toBe('hello')
+  expect(parseTrigger('+++ +++ hello', ['+++'])).toBe('hello')
+  expect(parseTrigger('+++', ['+++'])).toBe('')
+  expect(parseTrigger('++++++', ['+++'])).toBe('')
+  expect(parseTrigger('a +++ b', ['+++'])).toBeNull()
+  expect(parseTrigger('+++ hello', [''])).toBeNull()
+  expect(parseTrigger('+++ hello', [])).toBeNull()
+})
+
+test('parseTrigger accepts any trigger of the list, mixed at both edges, and tries the longest first', () => {
+  expect(parseTrigger('>> hello', ['+++', '>>'])).toBe('hello')
+  expect(parseTrigger('hello +++', ['+++', '>>'])).toBe('hello')
+  expect(parseTrigger('>> hello +++', ['+++', '>>'])).toBe('hello')
+  expect(parseTrigger('+++ >> +++ hello', ['+++', '>>'])).toBe('hello')
+  expect(parseTrigger('+++ hello', ['+', '+++'])).toBe('hello')
+  expect(parseTrigger('hello ?? there', ['+++', '>>'])).toBeNull()
 })
 
 test('a trigger intercepts silently with the stripped text and skips the short and terminal checks', () => {
-  const silent = { silentTrigger: '+++', minLen: 100, surfaces: [] as string[] }
+  const silent = { silentTriggers: ['+++'], minLen: 100, surfaces: [] as string[] }
   expect(gate({ ...silent, text: '+++ summarise it' })).toEqual({ intercept: true, silent: true, text: 'summarise it' })
   expect(gate({ ...silent, text: 'summarise it +++' })).toEqual({ intercept: true, silent: true, text: 'summarise it' })
   expect(gate({ ...silent, text: '+++' })).toMatchObject({ intercept: false, reason: 'trigger-only' })
@@ -320,7 +330,7 @@ test('a trigger intercepts silently with the stripped text and skips the short a
 })
 
 test('with the silent switch on only the trigger starts an upgrade, and a prompt without it passes without a pane', () => {
-  const on = { isSilent: true, silentTrigger: '+++' }
+  const on = { isSilent: true, silentTriggers: ['+++'] }
 
   expect(gate({ ...on })).toMatchObject({ intercept: false, reason: 'no-trigger' })
   expect(gate({ ...on, surfaces: [] })).toMatchObject({ intercept: false, reason: 'no-trigger' })
@@ -331,7 +341,7 @@ test('with the silent switch on only the trigger starts an upgrade, and a prompt
 })
 
 test('skip-silent-trigger upgrades every long prompt without the pane and keeps the other checks', () => {
-  const on = { isSilent: true, skipTrigger: true, silentTrigger: '+++' }
+  const on = { isSilent: true, skipTrigger: true, silentTriggers: ['+++'] }
 
   expect(gate({ ...on })).toEqual({ intercept: true, silent: true, text: base.text })
   expect(gate({ ...on, surfaces: [] })).toEqual({ intercept: true, silent: true, text: base.text })
@@ -347,14 +357,22 @@ test('skip-silent-trigger does nothing while the silent switch is off', () => {
   expect(gate({ isSilent: false, skipTrigger: true })).toEqual({ intercept: true })
 })
 
+test('any trigger of the list starts the silent upgrade', () => {
+  const on = { isSilent: true, silentTriggers: ['+++', '>>'] }
+
+  expect(gate({ ...on, text: '>> ' + base.text })).toEqual({ intercept: true, silent: true, text: base.text })
+  expect(gate({ ...on, text: base.text + ' +++' })).toEqual({ intercept: true, silent: true, text: base.text })
+  expect(gate({ ...on, text: base.text + ' ??' })).toMatchObject({ intercept: false, reason: 'no-trigger' })
+})
+
 test('an empty trigger keeps the ordinary gate and a long prompt still takes the pane path', () => {
-  expect(gate({ silentTrigger: '', text: '+++ ' + base.text })).toEqual({ intercept: true })
-  expect(gate({ silentTrigger: '+++' })).toEqual({ intercept: true })
+  expect(gate({ silentTriggers: [], text: '+++ ' + base.text })).toEqual({ intercept: true })
+  expect(gate({ silentTriggers: ['+++'] })).toEqual({ intercept: true })
 })
 
 test('a resubmitted rewrite that ends with the trigger is not intercepted again', () => {
   const flow = { ...EMPTY_FLOW, pending: 'done +++' }
-  expect(gate({ silentTrigger: '+++', text: 'done +++', flow })).toMatchObject({ intercept: false, reason: 'resubmit' })
+  expect(gate({ silentTriggers: ['+++'], text: 'done +++', flow })).toMatchObject({ intercept: false, reason: 'resubmit' })
 })
 
 test('the original lines are a header followed by the prompt, one entry per line', () => {

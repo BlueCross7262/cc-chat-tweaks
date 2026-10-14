@@ -33,7 +33,7 @@ A key that is absent uses its default.
 | `use-questions` | `true` | Ask Haiku for clarifying questions. When `false`, the mod rewrites the prompt at once. |
 | `use-silent-upgrade` | `true` | Option of `use-prompt-upgrade`. When `true`, the pane never opens, and only a prompt with the trigger is upgraded. The recommended answers to the questions are applied when `use-questions` is `true`, and the draft is put in the prompt box without being sent. When `false`, the pane runs for every prompt and the trigger is ordinary text. |
 | `skip-silent-trigger` | `false` | Option of `use-silent-upgrade`. When `true`, the trigger check is skipped and every prompt of `min-length` or more is upgraded without the pane. It has no effect while `use-silent-upgrade` is `false`. |
-| `silent-trigger` | `+++` | The trigger text. 1 to 32 characters after trimming. A blank or non-text value uses the default. |
+| `silent-triggers` | `["+++"]` | The trigger texts, as an array of strings. Any one of them at the start or the end of a prompt is a trigger. Each entry is 1 to 32 characters after trimming. An entry that is blank or not text is dropped, a repeated entry counts once, and only the first 10 entries are used. An array with no valid entry uses the default. The old key `silent-trigger` is not read. |
 | `min-length` | `10` | Shortest prompt that is intercepted, in characters. A whole number from 1 to 10000. It beats the value set by `/prompt-upgrade threshold`. |
 | `model` | `haiku` | The model of the question, rewrite and revise calls. An alias or a full model id, 1 to 100 characters after trimming. A blank or non-text value uses the default. |
 | `effort` | `low` | The effort of the same calls: `low`, `medium`, `high`, `xhigh` or `max`. Any other value uses the default. |
@@ -46,7 +46,7 @@ A key that is absent uses its default.
       "use-questions": true,
       "use-silent-upgrade": true,
       "skip-silent-trigger": false,
-      "silent-trigger": "+++",
+      "silent-triggers": ["+++"],
       "min-length": 40,
       "model": "haiku",
       "effort": "low"

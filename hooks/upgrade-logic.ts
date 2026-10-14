@@ -78,7 +78,7 @@ export type GateInput = {
   surfaces: readonly string[]
   isEnabled: boolean
   minLen: number
-  silentTrigger: string
+  silentTriggers: readonly string[]
   isSilent: boolean
   skipTrigger: boolean
   now: number
@@ -90,14 +90,27 @@ export type Gate =
   | { intercept: true; silent: true; text: string }
   | { intercept: false; reason: string; clearPending?: true; clearSkip?: true }
 
-export const parseTrigger = (text: string, trigger: string): string | null => {
-  if (trigger === '') return null
+export const parseTrigger = (text: string, triggers: readonly string[]): string | null => {
+  const list = triggers.filter(trigger => trigger !== '').sort((a, b) => b.length - a.length)
   let rest = text.trim()
-  if (!rest.startsWith(trigger) && !rest.endsWith(trigger)) return null
-  while (rest.startsWith(trigger)) rest = rest.slice(trigger.length).trimStart()
-  while (rest.endsWith(trigger)) rest = rest.slice(0, rest.length - trigger.length).trimEnd()
+  let isFound = false
+  let isChanged = true
+  while (isChanged) {
+    isChanged = false
+    for (const trigger of list) {
+      if (rest.startsWith(trigger)) {
+        rest = rest.slice(trigger.length).trimStart()
+      } else if (rest.endsWith(trigger)) {
+        rest = rest.slice(0, rest.length - trigger.length).trimEnd()
+      } else {
+        continue
+      }
+      isChanged = true
+      isFound = true
+    }
+  }
 
-  return rest.trim()
+  return isFound ? rest.trim() : null
 }
 
 export const decideGate = (g: GateInput): Gate => {
@@ -106,7 +119,7 @@ export const decideGate = (g: GateInput): Gate => {
     return { intercept: false, reason: 'resubmit', clearPending: true }
   }
   if (g.flow.skipUntil > 0) {
-    if (g.now < g.flow.skipUntil && parseTrigger(text, g.silentTrigger) === null) {
+    if (g.now < g.flow.skipUntil && parseTrigger(text, g.silentTriggers) === null) {
       return { intercept: false, reason: 'manual-edit', clearSkip: true }
     }
     return decideRest(g, text, true)
@@ -123,7 +136,7 @@ const decideRest = (g: GateInput, text: string, clearSkip: boolean): Gate => {
   if (g.originKind !== 'composer') return pass('origin')
   if (g.hasTurnId) return pass('mid-turn')
   if (g.hasAttachments) return pass('attachments')
-  const stripped = parseTrigger(text, g.silentTrigger)
+  const stripped = parseTrigger(text, g.silentTriggers)
   if ((stripped ?? text).startsWith('/')) return pass('slash')
   if (stripped !== null) {
     if (stripped === '') return pass('trigger-only')

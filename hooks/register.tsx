@@ -33,8 +33,9 @@ import {
 } from './runs'
 import { formatReport, versionText, type DoctorInput } from './doctor'
 import { COMMAND as UPGRADE_COMMAND, COMMAND_HELP, KEY_MIN_LEN, registerUpgrade } from './upgrade'
-import { EMPTY_FLOW, parseMinLen } from './upgrade-logic'
+import { EMPTY_FLOW, MIN_LEN, parseMinLen } from './upgrade-logic'
 import {
+  describeExtras,
   describeFlags,
   defaultOf,
   flagsOf,
@@ -242,7 +243,7 @@ const applyDefaults = async ($: EngineInterface): Promise<string> => {
     return `Nothing written: ${messageOf(error)}`
   }
 
-  return `Added to ${path}: ${added.map(key => `${key}=${String(defaultOf(key))}`).join(', ')}.`
+  return `Added to ${path}: ${added.map(key => `${key}=${JSON.stringify(defaultOf(key))}`).join(', ')}.`
 }
 
 const collectDoctorInput = async ($: EngineInterface): Promise<DoctorInput> => {
@@ -253,11 +254,17 @@ const collectDoctorInput = async ($: EngineInterface): Promise<DoctorInput> => {
   const surface = await $.session.surface().then(String, () => 'unknown')
   const version = await $.session.version().then(versionText, () => 'unknown')
   const flow = await read($, flowAtom)
-  const minLen =
-    minLengthOf(named.map(([, settings]) => settings)) ?? parseMinLen(await $.store.get(KEY_MIN_LEN))
+  const stored = parseMinLen(await $.store.get(KEY_MIN_LEN))
+  const minLen = minLengthOf(named.map(([, settings]) => settings)) ?? stored
+  const extras = describeExtras(named).map(report =>
+    report.key === 'min-length' && report.from === 'default'
+      ? { ...report, value: stored, from: stored === MIN_LEN ? 'default' : 'threshold command' }
+      : report,
+  )
 
   return {
     flags: describeFlags(named),
+    extras,
     runs: {
       tracked: state.runs.length,
       pending: hasPending(state),

@@ -1,6 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 
 import {
+  describeExtras,
   describeFlags,
   effortOf,
   FLAG_GROUPS,
@@ -8,7 +9,7 @@ import {
   isFlagOn,
   minLengthOf,
   modelOf,
-  silentTriggerOf,
+  silentTriggersOf,
   withMissingDefaults,
   type FlagKey,
 } from './settings'
@@ -25,15 +26,25 @@ test('min-length comes from the first source with a valid whole number from 1 to
 
 const set = (key: FlagKey, value: unknown) => ({ ccChatTweaks: { [FLAG_GROUPS[key]]: { [key]: value } } })
 
-const trigger = (value: unknown) => ({ ccChatTweaks: { prompt: { 'silent-trigger': value } } })
+const triggers = (value: unknown) => ({ ccChatTweaks: { prompt: { 'silent-triggers': value } } })
 
-test('silent-trigger is the first trimmed string of 1 to 32 characters', () => {
-  expect(silentTriggerOf([])).toBeUndefined()
-  expect(silentTriggerOf([trigger('  >>  ')])).toBe('>>')
-  expect(silentTriggerOf([trigger('   ')])).toBeUndefined()
-  expect(silentTriggerOf([trigger(5)])).toBeUndefined()
-  expect(silentTriggerOf([trigger('x'.repeat(33))])).toBeUndefined()
-  expect(silentTriggerOf([trigger(''), trigger('##')])).toBe('##')
+test('silent-triggers is the first array with a valid entry, each entry a trimmed string of 1 to 32 characters', () => {
+  expect(silentTriggersOf([])).toBeUndefined()
+  expect(silentTriggersOf([triggers(['  >>  ', '+++'])])).toEqual(['>>', '+++'])
+  expect(silentTriggersOf([triggers(['   ', 5, null, 'x'.repeat(33), '##'])])).toEqual(['##'])
+  expect(silentTriggersOf([triggers(['>>', '>>', ' >> '])])).toEqual(['>>'])
+  expect(silentTriggersOf([triggers([])])).toBeUndefined()
+  expect(silentTriggersOf([triggers(['  ', 5])])).toBeUndefined()
+  expect(silentTriggersOf([triggers('+++')])).toBeUndefined()
+  expect(silentTriggersOf([triggers(5)])).toBeUndefined()
+  expect(silentTriggersOf([triggers([]), triggers(['##'])])).toEqual(['##'])
+  expect(silentTriggersOf([{ ccChatTweaks: { prompt: { 'silent-trigger': '+++' } } }])).toBeUndefined()
+})
+
+test('silent-triggers keeps at most 10 entries', () => {
+  const many = Array.from({ length: 15 }, (_, i) => `t${i}`)
+
+  expect(silentTriggersOf([triggers(many)])).toEqual(many.slice(0, 10))
 })
 
 const prompt = (key: string, value: unknown) => ({ ccChatTweaks: { prompt: { [key]: value } } })
@@ -119,7 +130,7 @@ test('adds only the missing switches with their default and keeps everything els
   const existing = { theme: 'dark', ccChatTweaks: { chat: { 'use-tool-fold': true }, other: 1 } }
   const { settings, added } = withMissingDefaults(existing)
 
-  expect(added).toEqual(['use-edit-summary', 'use-prompt-upgrade', 'use-questions', 'use-silent-upgrade', 'skip-silent-trigger', 'min-length', 'silent-trigger', 'model', 'effort'])
+  expect(added).toEqual(['use-edit-summary', 'use-prompt-upgrade', 'use-questions', 'use-silent-upgrade', 'skip-silent-trigger', 'min-length', 'silent-triggers', 'model', 'effort'])
   expect(settings).toEqual({
     theme: 'dark',
     ccChatTweaks: {
@@ -130,7 +141,7 @@ test('adds only the missing switches with their default and keeps everything els
         'use-silent-upgrade': true,
         'skip-silent-trigger': false,
         'min-length': 10,
-        'silent-trigger': '+++',
+        'silent-triggers': ['+++'],
         model: 'haiku',
         effort: 'low',
       },
@@ -152,12 +163,42 @@ test('builds the whole section for an empty or malformed file', () => {
         'use-silent-upgrade': true,
         'skip-silent-trigger': false,
         'min-length': 10,
-        'silent-trigger': '+++',
+        'silent-triggers': ['+++'],
         model: 'haiku',
         effort: 'low',
       },
     },
   })
+})
+
+test('the default trigger list written to a file is a copy, so editing it leaves the default alone', () => {
+  const first = withMissingDefaults({}).settings as { ccChatTweaks: { prompt: { 'silent-triggers': string[] } } }
+
+  first.ccChatTweaks.prompt['silent-triggers'].push('>>')
+  const second = withMissingDefaults({}).settings as { ccChatTweaks: { prompt: { 'silent-triggers': string[] } } }
+
+  expect(second.ccChatTweaks.prompt['silent-triggers']).toEqual(['+++'])
+})
+
+test('describes every extra key with its value and the source it came from', () => {
+  const report = describeExtras([
+    ['policy', {}],
+    ['local', { ccChatTweaks: { prompt: { model: 'sonnet', 'silent-triggers': ['>>'] } } }],
+    ['user', { ccChatTweaks: { prompt: { model: 'opus', effort: 'high', 'min-length': 40 } } }],
+  ])
+
+  expect(report).toEqual([
+    { key: 'min-length', value: 40, from: 'user' },
+    { key: 'silent-triggers', value: ['>>'], from: 'local' },
+    { key: 'model', value: 'sonnet', from: 'local' },
+    { key: 'effort', value: 'high', from: 'user' },
+  ])
+  expect(describeExtras([['user', {}]])).toEqual([
+    { key: 'min-length', value: 10, from: 'default' },
+    { key: 'silent-triggers', value: ['+++'], from: 'default' },
+    { key: 'model', value: 'haiku', from: 'default' },
+    { key: 'effort', value: 'low', from: 'default' },
+  ])
 })
 
 test('reports nothing to add when every switch is present', () => {
@@ -170,7 +211,7 @@ test('reports nothing to add when every switch is present', () => {
         'use-silent-upgrade': false,
         'skip-silent-trigger': true,
         'min-length': 25,
-        'silent-trigger': '##',
+        'silent-triggers': ['##', '>>'],
         model: 'sonnet',
         effort: 'high',
       },

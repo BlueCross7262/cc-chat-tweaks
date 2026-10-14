@@ -22,7 +22,7 @@ Every feature is off until you turn it on. Switches live under `ccChatTweaks` in
 | `prompt` | `use-questions` | `true` | Option of `use-prompt-upgrade`. When `false`, the prompt is rewritten without questions. |
 | `prompt` | `use-silent-upgrade` | `true` | Option of `use-prompt-upgrade`. When `true`, the pane never opens, and only a prompt with the trigger is upgraded. The recommended answers to the questions are applied when `use-questions` is `true`, and the draft is put in the prompt box without being sent. |
 | `prompt` | `skip-silent-trigger` | `false` | Option of `use-silent-upgrade`. When `true`, the trigger check is skipped and every prompt of `min-length` or more is upgraded without the pane. |
-| `prompt` | `silent-trigger` | `+++` | The trigger text for the silent upgrade. |
+| `prompt` | `silent-triggers` | `["+++"]` | The trigger texts for the silent upgrade, as an array of strings. |
 | `prompt` | `min-length` | `10` | Shortest prompt that is upgraded, in characters. |
 | `prompt` | `model` | `haiku` | The model of every upgrade call. An alias or a full model id. |
 | `prompt` | `effort` | `low` | The effort of every upgrade call: `low`, `medium`, `high`, `xhigh` or `max`. |
@@ -50,9 +50,9 @@ The prompt switches are not read from the `chat` group. A `use-prompt-upgrade` o
 /tweaks-doctor
 ```
 
-First it writes every switch your user `settings.json` lacks, with its default, so you can see and flip them. It never changes a value that is already there. It leaves a file that is not plain JSON alone and says so.
+First it writes every key your user `settings.json` lacks, switches and value keys alike, with its default, so you can see and flip them. It never changes a value that is already there. It leaves a file that is not plain JSON alone and says so.
 
-Then it prints each switch with its value and the source it came from, the fold counters, the prompt upgrade phase and threshold, the environment and a list of checks.
+Then it prints each switch and each value key (`min-length`, `silent-triggers`, `model`, `effort`) with its value and the source it came from, the fold counters, the prompt upgrade phase and threshold, the environment and a list of checks.
 
 ## Features
 

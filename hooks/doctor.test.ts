@@ -7,6 +7,12 @@ const input = (patch: Partial<DoctorInput> = {}): DoctorInput => ({
     { key: 'use-tool-fold', value: true, from: 'user' },
     { key: 'use-edit-summary', value: false, from: 'default' },
   ],
+  extras: [
+    { key: 'min-length', value: 10, from: 'default' },
+    { key: 'silent-triggers', value: ['+++'], from: 'default' },
+    { key: 'model', value: 'haiku', from: 'default' },
+    { key: 'effort', value: 'low', from: 'user' },
+  ],
   runs: { tracked: 3, pending: false, failed: 0, changes: 5 },
   upgrade: { phase: 'idle', minLen: 10 },
   env: { surface: 'terminal', version: '2.1.0' },
@@ -18,6 +24,16 @@ test('prints each switch with its value and where it came from', () => {
 
   expect(text).toContain('use-tool-fold     on   (user)')
   expect(text).toContain('use-edit-summary  off  (default)')
+})
+
+test('prints the value keys with their value and source under the switches', () => {
+  const text = formatReport(input())
+
+  expect(text).toMatch(/min-length\s+10\s+\(default\)/)
+  expect(text).toMatch(/silent-triggers\s+\["\+\+\+"\]\s+\(default\)/)
+  expect(text).toMatch(/model\s+"haiku"\s+\(default\)/)
+  expect(text).toMatch(/effort\s+"low"\s+\(user\)/)
+  expect(text.indexOf('use-edit-summary')).toBeLessThan(text.indexOf('min-length'))
 })
 
 test('prints the prompt upgrade phase and threshold', () => {

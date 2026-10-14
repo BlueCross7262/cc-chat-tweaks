@@ -43,14 +43,14 @@ import {
 } from './upgrade-logic'
 import { CALLS, Q_SYSTEM, R_SYSTEM, REVISE_SYSTEM } from './upgrade-prompts'
 import {
-  DEFAULT_SILENT_TRIGGER,
+  DEFAULT_SILENT_TRIGGERS,
   describeFlags,
   effortOf,
   flagsOf,
   minLengthOf,
   modelOf,
   SETTINGS_SOURCES,
-  silentTriggerOf,
+  silentTriggersOf,
   type Flags,
 } from './settings'
 
@@ -632,8 +632,8 @@ const settingsOf = async ($: EngineInterface) => {
     isSilent: flags['use-prompt-upgrade'] && flags['use-silent-upgrade'],
     skipTrigger: flags['skip-silent-trigger'],
     minLen: minLengthOf(sources) ?? parseMinLen(await $.store.get(KEY_MIN_LEN)),
-    silentTrigger:
-      flags['use-prompt-upgrade'] && flags['use-silent-upgrade'] ? (silentTriggerOf(sources) ?? DEFAULT_SILENT_TRIGGER) : '',
+    silentTriggers:
+      flags['use-prompt-upgrade'] && flags['use-silent-upgrade'] ? (silentTriggersOf(sources) ?? DEFAULT_SILENT_TRIGGERS) : [],
   }
 }
 
@@ -658,7 +658,7 @@ const readContext = async ($: EngineInterface): Promise<string> => {
 }
 
 const interceptOrPass = async ($: EngineInterface, e: PromptSubmitInput) => {
-  const { isEnabled, useQuestions, isSilent, skipTrigger, minLen, silentTrigger } = await settingsOf($)
+  const { isEnabled, useQuestions, isSilent, skipTrigger, minLen, silentTriggers } = await settingsOf($)
   const flow = await getFlow($)
   const gate = decideGate({
     text: e.text,
@@ -668,7 +668,7 @@ const interceptOrPass = async ($: EngineInterface, e: PromptSubmitInput) => {
     surfaces: isEnabled ? await $.session.surfaces() : [],
     isEnabled,
     minLen,
-    silentTrigger,
+    silentTriggers,
     isSilent,
     skipTrigger,
     now: await $.clock.now(),

@@ -68,18 +68,19 @@ export const describeFlags = (
   })
 
 export const DEFAULT_MIN_LENGTH = 10
-export const DEFAULT_SILENT_TRIGGER = '+++'
+export const DEFAULT_SILENT_TRIGGERS: readonly string[] = ['+++']
 export const DEFAULT_MODEL = 'haiku'
 export const DEFAULT_EFFORT = 'low'
 export const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const
 export const MIN_LENGTH_KEY = 'min-length'
-export const SILENT_TRIGGER_KEY = 'silent-trigger'
+export const SILENT_TRIGGERS_KEY = 'silent-triggers'
+export const MAX_SILENT_TRIGGERS = 10
 export const MODEL_KEY = 'model'
 export const EFFORT_KEY = 'effort'
 
 const EXTRA_DEFAULTS = {
   [MIN_LENGTH_KEY]: DEFAULT_MIN_LENGTH,
-  [SILENT_TRIGGER_KEY]: DEFAULT_SILENT_TRIGGER,
+  [SILENT_TRIGGERS_KEY]: DEFAULT_SILENT_TRIGGERS,
   [MODEL_KEY]: DEFAULT_MODEL,
   [EFFORT_KEY]: DEFAULT_EFFORT,
 } as const
@@ -90,8 +91,13 @@ export type AddedKey = FlagKey | ExtraKey
 
 const isExtraKey = (key: AddedKey): key is ExtraKey => key in EXTRA_DEFAULTS
 
-export const defaultOf = (key: AddedKey): boolean | number | string =>
-  isExtraKey(key) ? EXTRA_DEFAULTS[key] : FLAG_DEFAULTS[key]
+export type SettingValue = boolean | number | string | string[]
+
+const copyOf = (value: number | string | readonly string[]): number | string | string[] =>
+  typeof value === 'object' ? [...value] : value
+
+export const defaultOf = (key: AddedKey): SettingValue =>
+  isExtraKey(key) ? copyOf(EXTRA_DEFAULTS[key]) : FLAG_DEFAULTS[key]
 
 export const withMissingDefaults = (
   settings: unknown,
@@ -120,7 +126,7 @@ export const withMissingDefaults = (
 
   for (const key of Object.keys(EXTRA_DEFAULTS) as ExtraKey[]) {
     if (promptGroup[key] === undefined) {
-      promptGroup[key] = EXTRA_DEFAULTS[key]
+      promptGroup[key] = copyOf(EXTRA_DEFAULTS[key])
       added.push(key)
     }
   }
@@ -148,13 +154,23 @@ export const minLengthOf = (sources: readonly unknown[]): number | undefined => 
   return undefined
 }
 
-export const silentTriggerOf = (sources: readonly unknown[]): string | undefined => {
+export const silentTriggersOf = (sources: readonly unknown[]): string[] | undefined => {
   for (const source of sources) {
     const namespace = isRecord(source) ? source[SETTINGS_NAMESPACE] : undefined
     const group = isRecord(namespace) ? namespace.prompt : undefined
-    const value = isRecord(group) ? group[SILENT_TRIGGER_KEY] : undefined
+    const value = isRecord(group) ? group[SILENT_TRIGGERS_KEY] : undefined
 
-    if (typeof value === 'string' && value.trim().length >= 1 && value.trim().length <= 32) return value.trim()
+    if (!Array.isArray(value)) continue
+    const triggers = [
+      ...new Set(
+        value
+          .filter((item): item is string => typeof item === 'string')
+          .map(item => item.trim())
+          .filter(item => item.length >= 1 && item.length <= 32),
+      ),
+    ].slice(0, MAX_SILENT_TRIGGERS)
+
+    if (triggers.length > 0) return triggers
   }
 
   return undefined
@@ -185,6 +201,30 @@ export const effortOf = (sources: readonly unknown[]): Effort | undefined => {
 
   return undefined
 }
+
+export type ExtraReport = { key: ExtraKey; value: number | string | string[]; from: string }
+
+const extraReader = (key: ExtraKey): ((sources: readonly unknown[]) => number | string | string[] | undefined) => {
+  if (key === MIN_LENGTH_KEY) return minLengthOf
+  if (key === SILENT_TRIGGERS_KEY) return silentTriggersOf
+  if (key === MODEL_KEY) return modelOf
+
+  return effortOf
+}
+
+export const extraKeys = Object.keys(EXTRA_DEFAULTS) as ExtraKey[]
+
+export const describeExtras = (named: readonly (readonly [string, unknown])[]): ExtraReport[] =>
+  extraKeys.map(key => {
+    const read = extraReader(key)
+    const hit = named.find(([, source]) => read([source]) !== undefined)
+
+    return {
+      key,
+      value: read(named.map(([, source]) => source)) ?? copyOf(EXTRA_DEFAULTS[key]),
+      from: hit === undefined ? 'default' : hit[0],
+    }
+  })
 
 export const flagsOf = (sources: readonly unknown[]): Flags => ({
   'use-tool-fold': isFlagOn(sources, 'use-tool-fold'),
