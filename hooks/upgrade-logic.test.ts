@@ -20,7 +20,7 @@ import {
   reset,
   tookText,
   callLine,
-  originalLine,
+  originalLines,
   withTook,
   revised,
   rewriteInput,
@@ -339,10 +339,11 @@ test('a resubmitted rewrite that ends with the trigger is not intercepted again'
   expect(gate({ silentTrigger: '+++', text: 'done +++', flow })).toMatchObject({ intercept: false, reason: 'resubmit' })
 })
 
-test('the original line holds the prompt on one line and clips it', () => {
-  expect(originalLine('fix the login bug', 240)).toBe('Prompt Upgrade original: fix the login bug')
-  expect(originalLine('  line one\n\nline  two  ', 240)).toBe('Prompt Upgrade original: line one line two')
-  expect(originalLine('abcdef', 3)).toBe('Prompt Upgrade original: abc...')
+test('the original lines are a header followed by the prompt, one entry per line', () => {
+  expect(originalLines('fix the login bug', 240)).toEqual(['Prompt Upgrade original:', 'fix the login bug'])
+  expect(originalLines('  line one\n\nline two  \n', 240)).toEqual(['Prompt Upgrade original:', 'line one', '', 'line two'])
+  expect(originalLines('a\r\nb', 240)).toEqual(['Prompt Upgrade original:', 'a', 'b'])
+  expect(originalLines('abcdef', 3)).toEqual(['Prompt Upgrade original:', 'abc...'])
 })
 
 test('the call line names the call, model, effort and time', () => {

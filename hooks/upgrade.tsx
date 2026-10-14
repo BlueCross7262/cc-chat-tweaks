@@ -11,7 +11,7 @@ import type {
 import type { Flow, Phase } from '../types'
 import {
   callLine,
-  originalLine,
+  originalLines,
   allAnswered,
   answer,
   answeredCount,
@@ -55,6 +55,7 @@ import {
 } from './settings'
 
 const PANE = 'prompt-upgrade'
+const LOG_ORIGINAL_MAX = 2000
 
 const flowAtom = atom({ plugin: 'cc-chat-tweaks', key: 'flow' } as const, EMPTY_FLOW)
 
@@ -89,7 +90,7 @@ const callWithSettings = async ($: EngineInterface, call: Call): Promise<Call> =
 const logCall = ($: EngineInterface, label: string, call: Call, ms: number, original: string): void => {
   try {
     $.ui.log(callLine(label, call, ms))
-    if (original.trim() !== '') $.ui.log(originalLine(original, ORIGINAL_CLIP))
+    if (original.trim() !== '') for (const line of originalLines(original, LOG_ORIGINAL_MAX)) $.ui.log(line)
   } catch {
     return
   }
