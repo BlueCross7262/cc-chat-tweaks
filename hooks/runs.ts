@@ -1,6 +1,7 @@
-import type { Call, Change, Run, RunState } from '../types'
+import type { Call, Change, Run, RunState, Timing } from '../types'
 import { countOutput, type EditOutput } from './edit-counts'
 import { DEFAULT_UNFOLDED_TOOLS } from './settings'
+import { formatMs } from './upgrade-logic'
 
 export const FOLD_MIN_CALLS = 1
 
@@ -8,7 +9,7 @@ const MAX_RUNS = 60
 const MAX_IDS = 400
 const TALLY_SHOWN = 4
 
-export const EMPTY_RUN_STATE: RunState = { runs: [], failed: [], done: [], changes: [] }
+export const EMPTY_RUN_STATE: RunState = { runs: [], failed: [], done: [], changes: [], times: [] }
 
 export const normalizeState = (state: Partial<RunState> | null | undefined): RunState => {
   if (
@@ -16,7 +17,8 @@ export const normalizeState = (state: Partial<RunState> | null | undefined): Run
     state.runs !== undefined &&
     state.failed !== undefined &&
     state.done !== undefined &&
-    state.changes !== undefined
+    state.changes !== undefined &&
+    state.times !== undefined
   ) {
     return state as RunState
   }
@@ -26,6 +28,7 @@ export const normalizeState = (state: Partial<RunState> | null | undefined): Run
     failed: state?.failed ?? [],
     done: state?.done ?? [],
     changes: state?.changes ?? [],
+    times: state?.times ?? [],
   }
 }
 
@@ -92,6 +95,21 @@ export const recordChange = (stored: RunState, change: Change): RunState => {
   return { ...state, changes: [...state.changes, change].slice(-MAX_IDS) }
 }
 
+export const recordTime = (stored: RunState, timing: Timing): RunState => {
+  const state = normalizeState(stored)
+
+  return { ...state, times: [...state.times, timing].slice(-MAX_IDS) }
+}
+
+export const timingOf = (event: { tool_use_id: string; duration_ms?: number; agent_id?: string }): Timing | null =>
+  event.agent_id === undefined &&
+  event.tool_use_id !== '' &&
+  typeof event.duration_ms === 'number' &&
+  Number.isFinite(event.duration_ms) &&
+  event.duration_ms >= 0
+    ? { id: event.tool_use_id, ms: event.duration_ms }
+    : null
+
 type Block = {
   type?: string
   text?: string
@@ -115,6 +133,7 @@ export type Header = {
   failed: number
   added: number
   removed: number
+  ms: number | null
 }
 
 export type RowView = {
@@ -268,6 +287,10 @@ export const viewOf = (stored: RunState, ids: readonly string[]): RowView => {
       (sum, change) => ({ added: sum.added + change.added, removed: sum.removed + change.removed }),
       { added: 0, removed: 0 },
     )
+  const timed = new Map(state.times.map(timing => [timing.id, timing.ms]))
+  const ms = isPending || folded.some(call => !timed.has(call.id))
+    ? null
+    : folded.reduce((sum, call) => sum + (timed.get(call.id) ?? 0), 0)
   const header: Header | null =
     firstId !== undefined && ids.includes(firstId)
       ? {
@@ -277,6 +300,7 @@ export const viewOf = (stored: RunState, ids: readonly string[]): RowView => {
           calls: folded,
           failed: folded.length - succeededIds.length,
           ...totals,
+          ms,
         }
       : null
 
@@ -329,5 +353,7 @@ export const failedSeparator = (header: Header): string =>
 export const headerText = (header: Header): string => {
   const hasTail = header.failed > 0 || hasChanges(header)
 
-  return `${header.isPending ? 'Calling' : 'Called'} ${header.count} ${header.count === 1 ? 'time' : 'times'} ${namesOf(header.calls, hasTail)}`
+  const spent = header.ms === null ? '' : ` in ${formatMs(header.ms)}`
+
+  return `${header.isPending ? 'Calling' : 'Called'} ${header.count} ${header.count === 1 ? 'time' : 'times'}${spent} ${namesOf(header.calls, hasTail)}`
 }

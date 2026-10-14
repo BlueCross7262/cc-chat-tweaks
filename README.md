@@ -75,7 +75,7 @@ Consecutive tool calls with no assistant message between them fold into one line
 
 ```
 ● Calling 5 times Edit, Read, replace_content … +9 -3
-● Called 7 times Bash, Edit, Grep, Read, … +13 -5
+● Called 7 times in 3.4s Bash, Edit, Grep, Read, … +13 -5
 ● Calling 9 times Edit, Read, 1 failed … +9 -3
 ● Called 8 times Bash, Edit, Grep, Read, 1 failed … +2 -1
 ● Called 7 times Edit, Read, replace_content, 2 failed … +13 -5
@@ -88,6 +88,7 @@ Consecutive tool calls with no assistant message between them fold into one line
 - The order after the names is `N failed`, then `…`, then `+N -M`.
 - `N failed` is set off from the names by a comma. A cut name list already ends with a comma, so no second one is added. This makes a cut list and a list of exactly 4 names look the same in front of `N failed`.
 - A `…` always sits in front of the `+N -M` total, and only there when something follows the names. When nothing follows a cut list, the list itself ends with `, …`, as in the last line above.
+- `in 3.4s` after the count is the sum of the run time of every call in the line, as the engine reports it for each finished call. The time of a permission prompt is not in it. Calls that run at the same time add up, so the sum can be longer than the time you waited. The time is left out while the line says `Calling`, and when any call has no reported time.
 - `Calling` with a blinking blue `●` while a call has no result yet. `Called` with a green `●` once every call has finished. The colours follow your theme.
 - The `+N -M` total counts the lines changed by `Edit`, `Write` and Serena's `replace_content`, `insert_after_symbol`, `insert_before_symbol` and `replace_symbol_body`. `Edit` and `Write` read the exact diff. The Serena figures come from the call arguments and are approximate: `replace_symbol_body` counts added lines only.
 - Every run folds, even a single call: `● Called 1 time Edit … +3 -1`. A failed call folds in too: its row and error text are hidden, and the header adds an orange `N failed` count.

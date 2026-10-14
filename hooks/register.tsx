@@ -29,7 +29,9 @@ import {
   isStreamingRow,
   normalizeState,
   recordChange,
+  recordTime,
   SHOW_ROW,
+  timingOf,
   viewOf,
   type Header,
 } from './runs'
@@ -81,6 +83,21 @@ const readUnfolded = async ($: SettingsReader): Promise<readonly string[]> => {
 
 const messageOf = (error: unknown): string =>
   error instanceof Error ? error.message : String(error)
+
+const recordDuration = async (
+  $: EngineInterface,
+  event: { tool_use_id: string; duration_ms?: number; agent_id?: string },
+): Promise<void> => {
+  try {
+    const timing = timingOf(event)
+
+    if (timing !== null) {
+      await update($, runsAtom, state => recordTime(state, timing))
+    }
+  } catch {
+    return
+  }
+}
 
 export const register: Register = on => {
   registerUpgrade(on)
@@ -159,6 +176,18 @@ export const register: Register = on => {
     }
 
     return outcome
+  })
+
+  on('classic.PostToolUse', async ($, e, next) => {
+    await recordDuration($, e)
+
+    return next(e)
+  })
+
+  on('classic.PostToolUseFailure', async ($, e, next) => {
+    await recordDuration($, e)
+
+    return next(e)
   })
 
   on('turn.complete', async ($, e, next) => {
@@ -311,7 +340,7 @@ const withHeader = (
 
   return (
     <Box
-      key={`run-box-${stamp}-${header.added}-${header.removed}-${header.failed}`}
+      key={`run-box-${stamp}-${header.added}-${header.removed}-${header.failed}-${header.ms ?? 'none'}`}
       flexDirection="column"
       marginTop={1}
     >
