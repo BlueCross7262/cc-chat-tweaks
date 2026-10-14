@@ -23,6 +23,8 @@ Every feature is off until you turn it on. Switches live under `ccChatTweaks` in
 | `prompt` | `use-silent-upgrade` | `true` | Option of `use-prompt-upgrade`. A prompt that starts or ends with the trigger is upgraded without the pane, and the draft is put in the prompt box without being sent. |
 | `prompt` | `silent-trigger` | `+++` | The trigger text for the silent upgrade. |
 | `prompt` | `min-length` | `10` | Shortest prompt that is upgraded, in characters. |
+| `prompt` | `model` | `haiku` | The model of every upgrade call. An alias or a full model id. |
+| `prompt` | `effort` | `low` | The effort of every upgrade call: `low`, `medium`, `high`, `xhigh` or `max`. |
 
 ```json
 {

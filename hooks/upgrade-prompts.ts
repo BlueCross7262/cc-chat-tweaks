@@ -1,3 +1,5 @@
+import { DEFAULT_EFFORT, DEFAULT_MODEL } from './settings'
+
 export const Q_SYSTEM = `사용자의 프롬프트를 더 정확하게 만들기 위한 보강 질문을 만든다.
 규칙:
 - 질문은 최대 3개, 각 질문의 선택지는 3~5개로 한다.
@@ -35,7 +37,7 @@ export const REVISE_SYSTEM = `<draft>를 <request>에 따라 수정한다.
 - 수정된 프롬프트만 출력한다.`
 
 export const CALLS = {
-  ask: { model: 'haiku', effort: 'low', maxTokens: 5000, timeoutMs: 20000 },
-  rewrite: { model: 'haiku', effort: 'low', maxTokens: 1500, timeoutMs: 30000 },
-  revise: { model: 'haiku', effort: 'low', maxTokens: 1500, timeoutMs: 30000 },
+  ask: { model: DEFAULT_MODEL, effort: DEFAULT_EFFORT, maxTokens: 5000, timeoutMs: 20000 },
+  rewrite: { model: DEFAULT_MODEL, effort: DEFAULT_EFFORT, maxTokens: 1500, timeoutMs: 30000 },
+  revise: { model: DEFAULT_MODEL, effort: DEFAULT_EFFORT, maxTokens: 1500, timeoutMs: 30000 },
 } as const

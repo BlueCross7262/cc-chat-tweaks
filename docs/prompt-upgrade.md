@@ -34,6 +34,8 @@ A key that is absent uses its default.
 | `use-silent-upgrade` | `true` | Option of `use-prompt-upgrade`. A prompt that starts or ends with the trigger is upgraded without the pane, and the draft is put in the prompt box without being sent. |
 | `silent-trigger` | `+++` | The trigger text. 1 to 32 characters after trimming. A blank or non-text value uses the default. |
 | `min-length` | `10` | Shortest prompt that is intercepted, in characters. A whole number from 1 to 10000. It beats the value set by `/prompt-upgrade threshold`. |
+| `model` | `haiku` | The model of the question, rewrite and revise calls. An alias or a full model id, 1 to 100 characters after trimming. A blank or non-text value uses the default. |
+| `effort` | `low` | The effort of the same calls: `low`, `medium`, `high`, `xhigh` or `max`. Any other value uses the default. |
 
 ```json
 {
@@ -43,13 +45,17 @@ A key that is absent uses its default.
       "use-questions": true,
       "use-silent-upgrade": true,
       "silent-trigger": "+++",
-      "min-length": 40
+      "min-length": 40,
+      "model": "haiku",
+      "effort": "low"
     }
   }
 }
 ```
 
 Settings changes apply to the next prompt you submit.
+
+A `model` the engine refuses makes the call fail, and the flow ends with your original prompt as for any Haiku failure. The usage log line shows the model and effort the call used. `/prompt-upgrade status` shows them too. Whether the engine accepts a given model id depends on its allowlist and provider, and the mod does not check it.
 
 ## Commands
 

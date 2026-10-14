@@ -13,6 +13,7 @@ type Setup = {
   closed: string[]
   models: string[]
   efforts: string[]
+  ids: string[]
   logs: string[]
   copied: string[]
   toasts: string[]
@@ -24,16 +25,16 @@ type Setup = {
 const world = (
   $: Engine,
   on: On,
-  options: { isFilled?: boolean; isCopied?: boolean; isPlaced?: boolean; answers?: Array<string | null>; enabled?: boolean; useQuestions?: boolean; silent?: boolean; box?: string } = {},
+  options: { isFilled?: boolean; isCopied?: boolean; isPlaced?: boolean; answers?: Array<string | null>; enabled?: boolean; useQuestions?: boolean; silent?: boolean; box?: string; extra?: Record<string, unknown> } = {},
 ): Setup => {
-  const s: Setup = { entered: [], filled: [], closed: [], models: [], efforts: [], logs: [], copied: [], toasts: [], prompts: [], opens: 0, clock: undefined }
+  const s: Setup = { entered: [], filled: [], closed: [], models: [], efforts: [], ids: [], logs: [], copied: [], toasts: [], prompts: [], opens: 0, clock: undefined }
   const answers = [...(options.answers ?? [])]
   s.clock = mock.clock(on, { now: 1000 })
   on('ui.toast', (_$, e) => {
     s.toasts.push((e as { text: string }).text)
     return { value: undefined } as never
   })
-  const group = { 'use-prompt-upgrade': options.enabled ?? true, 'use-questions': options.useQuestions ?? true, 'use-silent-upgrade': options.silent ?? true }
+  const group = { 'use-prompt-upgrade': options.enabled ?? true, 'use-questions': options.useQuestions ?? true, 'use-silent-upgrade': options.silent ?? true, ...options.extra }
   mock.store(on, {})
   on('settings.read', (_$, e) => ({ value: (e as { source?: string }).source === 'user' ? { ccChatTweaks: { prompt: group } } : {} }) as never)
   on('session.surfaces', () => ({ value: ['terminal'] }) as never)
@@ -55,6 +56,7 @@ const world = (
     s.models.push((e as { system?: string }).system?.slice(0, 6) ?? '')
     s.prompts.push((e as { prompt?: string }).prompt ?? '')
     s.efforts.push((e as { effort?: string }).effort ?? 'none')
+    s.ids.push((e as { model?: string }).model ?? 'none')
     const text = answers.shift()
     return {
       value: text === null || text === undefined
@@ -348,6 +350,25 @@ test('every Haiku call writes one log line with model and time, and nothing goes
   expect(lines[1]).toMatch(/^Prompt Upgrade rewrite: haiku low · /)
   expect(s.toasts).toEqual([])
   expect(s.entered).toEqual([])
+})
+
+test('model and effort from the settings reach every call and its log line', async ($, on) => {
+  const s = world($, on, { extra: { model: 'sonnet', effort: 'high' }, answers: [QUESTION, 'Upgraded prompt.'] })
+  await submit($, LONG)
+  await settle(s)
+  await mountPane($)
+  await $.ui.press({ plugin: PLUGIN, key: 'q0o1', requestId: PANE })
+  expect(s.ids).toEqual(['sonnet', 'sonnet'])
+  expect(s.efforts).toEqual(['high', 'high'])
+  expect(s.logs.filter(line => USAGE_LINE.test(line)).every(line => line.includes('sonnet high'))).toBe(true)
+})
+
+test('a model or effort that is not valid falls back to haiku and low', async ($, on) => {
+  const s = world($, on, { extra: { model: '  ', effort: 'ultra' }, answers: [JSON.stringify({ questions: [] }), 'Upgraded prompt.'] })
+  await submit($, LONG)
+  await settle(s)
+  expect(s.ids).toEqual(['haiku', 'haiku'])
+  expect(s.efforts).toEqual(['low', 'low'])
 })
 
 test('a Haiku call that fails still logs its line', async ($, on) => {

@@ -67,12 +67,19 @@ export const describeFlags = (
 
 export const DEFAULT_MIN_LENGTH = 10
 export const DEFAULT_SILENT_TRIGGER = '+++'
+export const DEFAULT_MODEL = 'haiku'
+export const DEFAULT_EFFORT = 'low'
+export const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const
 export const MIN_LENGTH_KEY = 'min-length'
 export const SILENT_TRIGGER_KEY = 'silent-trigger'
+export const MODEL_KEY = 'model'
+export const EFFORT_KEY = 'effort'
 
 const EXTRA_DEFAULTS = {
   [MIN_LENGTH_KEY]: DEFAULT_MIN_LENGTH,
   [SILENT_TRIGGER_KEY]: DEFAULT_SILENT_TRIGGER,
+  [MODEL_KEY]: DEFAULT_MODEL,
+  [EFFORT_KEY]: DEFAULT_EFFORT,
 } as const
 
 export type ExtraKey = keyof typeof EXTRA_DEFAULTS
@@ -146,6 +153,32 @@ export const silentTriggerOf = (sources: readonly unknown[]): string | undefined
     const value = isRecord(group) ? group[SILENT_TRIGGER_KEY] : undefined
 
     if (typeof value === 'string' && value.trim().length >= 1 && value.trim().length <= 32) return value.trim()
+  }
+
+  return undefined
+}
+
+export type Effort = (typeof EFFORTS)[number]
+
+export const modelOf = (sources: readonly unknown[]): string | undefined => {
+  for (const source of sources) {
+    const namespace = isRecord(source) ? source[SETTINGS_NAMESPACE] : undefined
+    const group = isRecord(namespace) ? namespace.prompt : undefined
+    const value = isRecord(group) ? group[MODEL_KEY] : undefined
+
+    if (typeof value === 'string' && value.trim().length >= 1 && value.trim().length <= 100) return value.trim()
+  }
+
+  return undefined
+}
+
+export const effortOf = (sources: readonly unknown[]): Effort | undefined => {
+  for (const source of sources) {
+    const namespace = isRecord(source) ? source[SETTINGS_NAMESPACE] : undefined
+    const group = isRecord(namespace) ? namespace.prompt : undefined
+    const value = isRecord(group) ? group[EFFORT_KEY] : undefined
+
+    if (typeof value === 'string' && (EFFORTS as readonly string[]).includes(value.trim())) return value.trim() as Effort
   }
 
   return undefined

@@ -44,8 +44,10 @@ import { CALLS, Q_SYSTEM, R_SYSTEM, REVISE_SYSTEM } from './upgrade-prompts'
 import {
   DEFAULT_SILENT_TRIGGER,
   describeFlags,
+  effortOf,
   flagsOf,
   minLengthOf,
+  modelOf,
   SETTINGS_SOURCES,
   silentTriggerOf,
   type Flags,
@@ -73,6 +75,16 @@ const setFlow = async ($: EngineInterface, fn: (f: Flow) => Flow): Promise<Flow>
 const setIf = ($: EngineInterface, id: number, fn: (f: Flow) => Flow): Promise<Flow> =>
   setFlow($, f => (isStale(f, id) ? f : fn(f)))
 
+const callWithSettings = async ($: EngineInterface, call: Call): Promise<Call> => {
+  try {
+    const sources = (await readSources($)).map(([, settings]) => settings)
+
+    return { ...call, model: modelOf(sources) ?? call.model, effort: effortOf(sources) ?? call.effort }
+  } catch {
+    return call
+  }
+}
+
 const logCall = ($: EngineInterface, label: string, call: Call, ms: number): void => {
   try {
     $.ui.log(callLine(label, call, ms))
@@ -88,24 +100,25 @@ const callHaiku = async (
   system: string,
   prompt: string,
 ): Promise<Timed> => {
+  const used = await callWithSettings($, call)
   const startedAt = await $.clock.now()
   let text: string | null = null
   try {
     text = normalizeCompletion(
       await $.model.complete({
-        model: call.model,
-        effort: call.effort,
+        model: used.model,
+        effort: used.effort,
         system,
         prompt,
-        maxTokens: call.maxTokens,
-        timeoutMs: call.timeoutMs,
+        maxTokens: used.maxTokens,
+        timeoutMs: used.timeoutMs,
       }),
     )
   } catch {
     text = null
   }
   const ms = Math.max(0, (await $.clock.now()) - startedAt)
-  logCall($, label, call, ms)
+  logCall($, label, used, ms)
 
   return { text, ms }
 }
@@ -712,9 +725,11 @@ export const registerUpgrade = (on: Parameters<Register>[0]): void => {
       const probe = (await $.store.get(KEY_PROBE)) === true
       const flow = await getFlow($)
       const flags = describeFlags(await readSources($))
+      const used = await callWithSettings($, CALLS.rewrite)
       return {
         text: [
           ...flags.map(f => `${f.key}: ${f.value} (${f.from})`),
+          `model ${used.model}; effort ${used.effort}.`,
           `threshold ${minLen} characters (default ${MIN_LEN}); phase ${flow.phase}; probe ${probe ? 'on' : 'off'}.`,
         ].join('\n'),
       }

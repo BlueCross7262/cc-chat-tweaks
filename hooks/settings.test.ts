@@ -2,10 +2,12 @@ import { expect, test } from 'claude-code/testing'
 
 import {
   describeFlags,
+  effortOf,
   FLAG_GROUPS,
   flagsOf,
   isFlagOn,
   minLengthOf,
+  modelOf,
   silentTriggerOf,
   withMissingDefaults,
   type FlagKey,
@@ -32,6 +34,22 @@ test('silent-trigger is the first trimmed string of 1 to 32 characters', () => {
   expect(silentTriggerOf([trigger(5)])).toBeUndefined()
   expect(silentTriggerOf([trigger('x'.repeat(33))])).toBeUndefined()
   expect(silentTriggerOf([trigger(''), trigger('##')])).toBe('##')
+})
+
+const prompt = (key: string, value: unknown) => ({ ccChatTweaks: { prompt: { [key]: value } } })
+
+test('model is the first trimmed string of 1 to 100 characters', () => {
+  expect(modelOf([])).toBeUndefined()
+  expect(modelOf([prompt('model', '  sonnet  ')])).toBe('sonnet')
+  expect(modelOf([prompt('model', '   '), prompt('model', 5), prompt('model', 'x'.repeat(101)), prompt('model', 'claude-haiku-5-5')])).toBe('claude-haiku-5-5')
+  expect(modelOf([{ ccChatTweaks: { chat: { model: 'opus' } } }])).toBeUndefined()
+})
+
+test('effort is the first value among low, medium, high, xhigh and max', () => {
+  expect(effortOf([])).toBeUndefined()
+  expect(effortOf([prompt('effort', 'high')])).toBe('high')
+  expect(effortOf([prompt('effort', ' max ')])).toBe('max')
+  expect(effortOf([prompt('effort', 'LOW'), prompt('effort', 3), prompt('effort', 'ultra'), prompt('effort', 'xhigh')])).toBe('xhigh')
 })
 
 test('every feature switch is off and the option is on when no source sets it', () => {
@@ -97,7 +115,7 @@ test('adds only the missing switches with their default and keeps everything els
   const existing = { theme: 'dark', ccChatTweaks: { chat: { 'use-tool-fold': true }, other: 1 } }
   const { settings, added } = withMissingDefaults(existing)
 
-  expect(added).toEqual(['use-edit-summary', 'use-prompt-upgrade', 'use-questions', 'use-silent-upgrade', 'min-length', 'silent-trigger'])
+  expect(added).toEqual(['use-edit-summary', 'use-prompt-upgrade', 'use-questions', 'use-silent-upgrade', 'min-length', 'silent-trigger', 'model', 'effort'])
   expect(settings).toEqual({
     theme: 'dark',
     ccChatTweaks: {
@@ -108,6 +126,8 @@ test('adds only the missing switches with their default and keeps everything els
         'use-silent-upgrade': true,
         'min-length': 10,
         'silent-trigger': '+++',
+        model: 'haiku',
+        effort: 'low',
       },
       other: 1,
     },
@@ -116,8 +136,8 @@ test('adds only the missing switches with their default and keeps everything els
 })
 
 test('builds the whole section for an empty or malformed file', () => {
-  expect(withMissingDefaults({}).added).toHaveLength(7)
-  expect(withMissingDefaults(null).added).toHaveLength(7)
+  expect(withMissingDefaults({}).added).toHaveLength(9)
+  expect(withMissingDefaults(null).added).toHaveLength(9)
   expect(withMissingDefaults({ ccChatTweaks: 'x' }).settings).toEqual({
     ccChatTweaks: {
       chat: { 'use-tool-fold': false, 'use-edit-summary': false },
@@ -127,6 +147,8 @@ test('builds the whole section for an empty or malformed file', () => {
         'use-silent-upgrade': true,
         'min-length': 10,
         'silent-trigger': '+++',
+        model: 'haiku',
+        effort: 'low',
       },
     },
   })
@@ -142,6 +164,8 @@ test('reports nothing to add when every switch is present', () => {
         'use-silent-upgrade': false,
         'min-length': 25,
         'silent-trigger': '##',
+        model: 'sonnet',
+        effort: 'high',
       },
     },
   }
