@@ -92,9 +92,13 @@ test('the prompt upgrade keys live under ccChatTweaks.prompt.prompt-upgrade and 
   expect(propOf('use-tool-fold')).toBe('use')
   expect(propOf('use-edit-summary')).toBe('use-edit-summary')
   expect(FLAG_PATHS['use-edit-summary']).toEqual(['chat'])
-  expect(isFlagOn([up({ 'use-prompt-upgrade': true })], 'use-prompt-upgrade')).toBe(true)
+  expect(propOf('use-prompt-upgrade')).toBe('use')
+  expect(isFlagOn([up({ use: true })], 'use-prompt-upgrade')).toBe(true)
+  expect(isFlagOn([up({ 'use-prompt-upgrade': true })], 'use-prompt-upgrade')).toBe(false)
+  expect(isFlagOn([{ ccChatTweaks: { prompt: { use: true } } }], 'use-prompt-upgrade')).toBe(false)
   expect(isFlagOn([{ ccChatTweaks: { prompt: { 'use-prompt-upgrade': true } } }], 'use-prompt-upgrade')).toBe(false)
-  expect(isFlagOn([{ ccChatTweaks: { 'prompt-upgrade': { 'use-prompt-upgrade': true } } }], 'use-prompt-upgrade')).toBe(false)
+  expect(isFlagOn([{ ccChatTweaks: { 'prompt-upgrade': { use: true } } }], 'use-prompt-upgrade')).toBe(false)
+  expect(isFlagOn([up({ use: 'yes' })], 'use-prompt-upgrade')).toBe(false)
   expect(minLengthOf([{ ccChatTweaks: { prompt: { 'min-length': 40 } } }])).toBeUndefined()
   expect(modelOf([{ ccChatTweaks: { prompt: { model: 'sonnet' } } }])).toBeUndefined()
   expect(isFlagOn([{ ccChatTweaks: { chat: { 'use-prompt-upgrade': true } } }], 'use-prompt-upgrade')).toBe(false)
@@ -115,7 +119,8 @@ test('the label of a key is the path of its setting under ccChatTweaks', () => {
   expect(labelOf('use-tool-fold')).toBe('chat.tool-fold.use')
   expect(labelOf('use-edit-summary')).toBe('chat.use-edit-summary')
   expect(labelOf('unfolded-tools')).toBe('chat.tool-fold.unfolded-tools')
-  expect(labelOf('use-prompt-upgrade')).toBe('prompt.prompt-upgrade.use-prompt-upgrade')
+  expect(labelOf('use-prompt-upgrade')).toBe('prompt.prompt-upgrade.use')
+  expect(labelOf('use-questions')).toBe('prompt.prompt-upgrade.use-questions')
   expect(labelOf('min-length')).toBe('prompt.prompt-upgrade.min-length')
 })
 
@@ -181,7 +186,7 @@ test('adds only the missing switches with their default and keeps everything els
       prompt: {
         later: { 'a-future-key': 1 },
         'prompt-upgrade': {
-          'use-prompt-upgrade': false,
+          use: false,
           'use-questions': true,
           'use-silent-upgrade': true,
           'skip-silent-trigger': false,
@@ -209,7 +214,7 @@ test('builds the whole section for an empty or malformed file', () => {
       },
       prompt: {
         'prompt-upgrade': {
-          'use-prompt-upgrade': false,
+          use: false,
           'use-questions': true,
           'use-silent-upgrade': true,
           'skip-silent-trigger': false,
@@ -231,7 +236,7 @@ test('the old location is left alone and its keys are not read', () => {
   expect(added).toContain('use-prompt-upgrade')
   expect(prompt['use-prompt-upgrade']).toBe(true)
   expect(prompt.model).toBe('sonnet')
-  expect((prompt['prompt-upgrade'] as Record<string, unknown>)['use-prompt-upgrade']).toBe(false)
+  expect((prompt['prompt-upgrade'] as Record<string, unknown>).use).toBe(false)
   expect(isFlagOn([settings], 'use-prompt-upgrade')).toBe(false)
 })
 
@@ -301,7 +306,7 @@ test('reports nothing to add when every switch is present', () => {
       chat: { 'tool-fold': { use: true, 'unfolded-tools': ['Bash'] }, 'use-edit-summary': false },
       prompt: {
         'prompt-upgrade': {
-          'use-prompt-upgrade': false,
+          use: false,
           'use-questions': true,
           'use-silent-upgrade': false,
           'skip-silent-trigger': true,

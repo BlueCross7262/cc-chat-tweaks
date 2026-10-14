@@ -1,4 +1,4 @@
-# Prompt Upgrade (`use-prompt-upgrade`)
+# Prompt Upgrade (`prompt.prompt-upgrade.use`)
 
 A feature of cc-chat-tweaks.
 It intercepts a prompt you submit, asks Haiku for up to three clarifying questions, rewrites the prompt as prose, and sends it after you review it.
@@ -6,7 +6,7 @@ It intercepts a prompt you submit, asks Haiku for up to three clarifying questio
 ## Security notice
 
 - A mod runs with your user permissions and has no sandbox.
-- While `use-prompt-upgrade` is `true`, the mod sees every prompt you submit.
+- While `use` is `true`, the mod sees every prompt you submit.
 - Each upgraded prompt costs up to three Haiku calls on your plan or API key.
 - The mod sends prompt text to Haiku only through `$.model.complete`.
 - The mod makes no other network call and does not use `$.http`.
@@ -25,6 +25,7 @@ Switches live under `ccChatTweaks.prompt.prompt-upgrade` in any settings file (`
 Other prompt features can get their own group under `ccChatTweaks.prompt`.
 The prompt upgrade keys are read only from `ccChatTweaks.prompt.prompt-upgrade`.
 Keys left in `ccChatTweaks.prompt` or `ccChatTweaks.chat` by an earlier version have no effect.
+The switch is now `use`. The old key `use-prompt-upgrade` is not read.
 `/tweaks-doctor` leaves those old keys where they are, so move your values by hand.
 A boolean in a higher-precedence source wins.
 A key that is absent uses its default.
@@ -32,9 +33,9 @@ A key that is absent uses its default.
 
 | Key | Default | Feature |
 |---|---|---|
-| `use-prompt-upgrade` | `false` | Intercept your prompts and upgrade them. |
+| `use` | `false` | Intercept your prompts and upgrade them. |
 | `use-questions` | `true` | Ask Haiku for clarifying questions. When `false`, the mod rewrites the prompt at once. |
-| `use-silent-upgrade` | `true` | Option of `use-prompt-upgrade`. When `true`, the pane never opens, and only a prompt with the trigger is upgraded. The recommended answers to the questions are applied when `use-questions` is `true`, and the draft is put in the prompt box without being sent. When `false`, the pane runs for every prompt and the trigger is ordinary text. |
+| `use-silent-upgrade` | `true` | Option of `use`. When `true`, the pane never opens, and only a prompt with the trigger is upgraded. The recommended answers to the questions are applied when `use-questions` is `true`, and the draft is put in the prompt box without being sent. When `false`, the pane runs for every prompt and the trigger is ordinary text. |
 | `skip-silent-trigger` | `false` | Option of `use-silent-upgrade`. When `true`, the trigger check is skipped and every prompt of `min-length` or more is upgraded without the pane. It has no effect while `use-silent-upgrade` is `false`. |
 | `silent-triggers` | `["+++"]` | The trigger texts, as an array of strings. Any one of them at the start or the end of a prompt is a trigger. Each entry is 1 to 32 characters after trimming. An entry that is blank or not text is dropped, a repeated entry counts once, and only the first 10 entries are used. An array with no valid entry uses the default. The old key `silent-trigger` is not read. |
 | `min-length` | `10` | Shortest prompt that is intercepted, in characters. A whole number from 1 to 10000. It beats the value set by `/prompt-upgrade threshold`. |
@@ -46,7 +47,7 @@ A key that is absent uses its default.
   "ccChatTweaks": {
     "prompt": {
       "prompt-upgrade": {
-        "use-prompt-upgrade": true,
+        "use": true,
         "use-questions": true,
         "use-silent-upgrade": true,
         "skip-silent-trigger": false,
@@ -153,7 +154,7 @@ fix the login bug
 
 ## What is not intercepted
 
-- `use-prompt-upgrade` is not `true`.
+- `use` is not `true`.
 - The prompt does not come from your own Enter at the prompt box.
   - Notifications, peer messages, scheduled prompts, SDK and `-p` turns pass through.
 - You typed it while a turn was running.

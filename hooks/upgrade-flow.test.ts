@@ -36,7 +36,7 @@ const world = (
     s.toasts.push((e as { text: string }).text)
     return { value: undefined } as never
   })
-  const group = { 'use-prompt-upgrade': options.enabled ?? true, 'use-questions': options.useQuestions ?? true, 'use-silent-upgrade': options.silent ?? false, ...options.extra }
+  const group = { use: options.enabled ?? true, 'use-questions': options.useQuestions ?? true, 'use-silent-upgrade': options.silent ?? false, ...options.extra }
   mock.store(on, {})
   on('settings.read', (_$, e) => ({ value: (e as { source?: string }).source === 'user' ? { ccChatTweaks: { prompt: { 'prompt-upgrade': group } } } : {} }) as never)
   on('session.surfaces', () => ({ value: ['terminal'] }) as never)

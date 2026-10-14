@@ -19,9 +19,9 @@ Every feature is off until you turn it on. Switches live under `ccChatTweaks` in
 | `chat.tool-fold` | `use` | `false` | Fold consecutive tool calls into one line. |
 | `chat.tool-fold` | `unfolded-tools` | `["AskUserQuestion", "Skill", "Agent"]` | Option of `use`. The tools that are never folded. Each keeps its own row and ends the run before it. |
 | `chat` | `use-edit-summary` | `false` | Draw `Edit` and `Write` calls as one summary line. |
-| `prompt.prompt-upgrade` | `use-prompt-upgrade` | `false` | Ask clarifying questions about your prompt and rewrite it before it is sent. |
-| `prompt.prompt-upgrade` | `use-questions` | `true` | Option of `use-prompt-upgrade`. When `false`, the prompt is rewritten without questions. |
-| `prompt.prompt-upgrade` | `use-silent-upgrade` | `true` | Option of `use-prompt-upgrade`. When `true`, the pane never opens, and only a prompt with the trigger is upgraded. The recommended answers to the questions are applied when `use-questions` is `true`, and the draft is put in the prompt box without being sent. |
+| `prompt.prompt-upgrade` | `use` | `false` | Ask clarifying questions about your prompt and rewrite it before it is sent. |
+| `prompt.prompt-upgrade` | `use-questions` | `true` | Option of `use`. When `false`, the prompt is rewritten without questions. |
+| `prompt.prompt-upgrade` | `use-silent-upgrade` | `true` | Option of `use`. When `true`, the pane never opens, and only a prompt with the trigger is upgraded. The recommended answers to the questions are applied when `use-questions` is `true`, and the draft is put in the prompt box without being sent. |
 | `prompt.prompt-upgrade` | `skip-silent-trigger` | `false` | Option of `use-silent-upgrade`. When `true`, the trigger check is skipped and every prompt of `min-length` or more is upgraded without the pane. |
 | `prompt.prompt-upgrade` | `silent-triggers` | `["+++"]` | The trigger texts for the silent upgrade, as an array of strings. |
 | `prompt.prompt-upgrade` | `min-length` | `10` | Shortest prompt that is upgraded, in characters. |
@@ -40,7 +40,7 @@ Every feature is off until you turn it on. Switches live under `ccChatTweaks` in
     },
     "prompt": {
       "prompt-upgrade": {
-        "use-prompt-upgrade": false,
+        "use": false,
         "use-questions": true
       }
     }
@@ -50,7 +50,7 @@ Every feature is off until you turn it on. Switches live under `ccChatTweaks` in
 
 The tool folding keys are read only from `ccChatTweaks.chat.tool-fold`. The old `ccChatTweaks.chat.use-tool-fold` and `ccChatTweaks.chat.unfolded-tools` have no effect.
 
-The prompt upgrade keys are read only from `ccChatTweaks.prompt.prompt-upgrade`. Keys left in `ccChatTweaks.prompt` or `ccChatTweaks.chat` by an earlier version have no effect, and neither does the old `silent-trigger` key.
+The prompt upgrade keys are read only from `ccChatTweaks.prompt.prompt-upgrade`. Keys left in `ccChatTweaks.prompt` or `ccChatTweaks.chat` by an earlier version have no effect, and neither do the old `use-prompt-upgrade` key (now `use`) and the old `silent-trigger` key.
 
 `/tweaks-doctor` writes the new groups with defaults and leaves the old keys where they are, so move your values by hand. If you had `use-tool-fold` set to `true`, folding is off until you set `chat.tool-fold.use`.
 
@@ -98,7 +98,7 @@ An `Edit` or `Write` call that is not folded draws as one line. The diff body is
 ● Write(notes.md) +12
 ```
 
-### `use-prompt-upgrade`
+### `prompt.prompt-upgrade.use`
 
 A prompt you type at the prompt box and send is held back, and a pane opens with four steps: your prompt, questions, rewrite, review.
 

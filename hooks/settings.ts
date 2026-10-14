@@ -25,7 +25,7 @@ export const FLAG_PATHS: Record<FlagKey, readonly string[]> = {
   'skip-silent-trigger': PROMPT_UPGRADE_PATH,
 }
 
-const FLAG_PROPS: Partial<Record<FlagKey, string>> = { 'use-tool-fold': 'use' }
+const FLAG_PROPS: Partial<Record<FlagKey, string>> = { 'use-tool-fold': 'use', 'use-prompt-upgrade': 'use' }
 
 export const propOf = (key: FlagKey): string => FLAG_PROPS[key] ?? key
 
