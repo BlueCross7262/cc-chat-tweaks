@@ -14,6 +14,7 @@ type Setup = {
   models: string[]
   efforts: string[]
   ids: string[]
+  events: string[]
   logs: string[]
   copied: string[]
   toasts: string[]
@@ -25,9 +26,9 @@ type Setup = {
 const world = (
   $: Engine,
   on: On,
-  options: { isFilled?: boolean; isCopied?: boolean; isPlaced?: boolean; answers?: Array<string | null>; enabled?: boolean; useQuestions?: boolean; silent?: boolean; box?: string; extra?: Record<string, unknown> } = {},
+  options: { isFilled?: boolean; isCopied?: boolean; isPlaced?: boolean; answers?: Array<string | null>; enabled?: boolean; useQuestions?: boolean; silent?: boolean; box?: string; extra?: Record<string, unknown>; failFills?: number } = {},
 ): Setup => {
-  const s: Setup = { entered: [], filled: [], closed: [], models: [], efforts: [], ids: [], logs: [], copied: [], toasts: [], prompts: [], opens: 0, clock: undefined }
+  const s: Setup = { entered: [], filled: [], closed: [], models: [], efforts: [], ids: [], events: [], logs: [], copied: [], toasts: [], prompts: [], opens: 0, clock: undefined }
   const answers = [...(options.answers ?? [])]
   s.clock = mock.clock(on, { now: 1000 })
   on('ui.toast', (_$, e) => {
@@ -44,8 +45,14 @@ const world = (
     s.closed.push((e as { id: string }).id)
     return { value: undefined } as never
   })
+  let failFills = options.failFills ?? 0
   on('prompt.fill', (_$, e) => {
     s.filled.push((e as { text: string }).text)
+    s.events.push(`fill:${(e as { text: string }).text}`)
+    if (failFills > 0) {
+      failFills -= 1
+      return { isFilled: false } as never
+    }
     return { isFilled: options.isFilled ?? true } as never
   })
   on('ui.copy', (_$, e) => {
@@ -70,6 +77,7 @@ const world = (
   })
   on('prompt.submit', (_$, e) => {
     s.entered.push((e as { text: string }).text)
+    s.events.push(`submit:${(e as { text: string }).text}`)
     return { text: (e as { text: string }).text } as never
   })
 
@@ -369,6 +377,43 @@ test('a model or effort that is not valid falls back to haiku and low', async ($
   await settle(s)
   expect(s.ids).toEqual(['haiku', 'haiku'])
   expect(s.efforts).toEqual(['low', 'low'])
+})
+
+test('Send this prompt clears the prompt box before it sends', async ($, on) => {
+  const s = world($, on, { answers: [JSON.stringify({ questions: [] }), 'Draft to send.'] })
+  await submit($, LONG)
+  await settle(s)
+  await mountPane($)
+  await $.ui.press({ plugin: PLUGIN, key: '이 프롬프트 보내기', requestId: PANE })
+  expect(s.events.indexOf('fill:')).toBeGreaterThan(-1)
+  expect(s.events.indexOf('fill:')).toBeLessThan(s.events.indexOf('submit:Draft to send.'))
+
+})
+
+test('Send original clears the prompt box before it sends', async ($, on) => {
+  const s = world($, on, { answers: [JSON.stringify({ questions: [] }), 'Draft not sent.'] })
+  await submit($, LONG)
+  await settle(s)
+  await mountPane($)
+  await $.ui.press({ plugin: PLUGIN, key: '원문 그대로 보내기', requestId: PANE })
+  expect(s.events.indexOf('fill:')).toBeGreaterThan(-1)
+  expect(s.events.indexOf('fill:')).toBeLessThan(s.events.indexOf(`submit:${LONG}`, 1))
+})
+
+test('a refused fill is retried until the prompt box is cleared', async ($, on) => {
+  const s = world($, on, { failFills: 2, answers: [JSON.stringify({ questions: [] }), 'Draft to send.'] })
+  await submit($, LONG)
+  await settle(s)
+  await mountPane($)
+  const pressed = $.ui.press({ plugin: PLUGIN, key: '이 프롬프트 보내기', requestId: PANE })
+  for (let i = 0; i < 8; i++) {
+    await Promise.resolve()
+    await s.clock?.advance(100)
+  }
+  await pressed
+  expect(s.filled).toEqual(['', '', ''])
+  expect(s.events.indexOf('fill:')).toBeLessThan(s.events.indexOf('submit:Draft to send.'))
+  expect(s.entered).toContain('Draft to send.')
 })
 
 test('a Haiku call that fails still logs its line', async ($, on) => {

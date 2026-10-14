@@ -228,6 +228,24 @@ const cancel = async ($: EngineInterface): Promise<void> => {
   if (f.phase !== 'idle' && f.original !== '') await restoreText($, f.original)
 }
 
+const CLEAR_TRIES = 3
+const CLEAR_WAIT_MS = 100
+
+const clearBox = async ($: EngineInterface): Promise<boolean> => {
+  for (let i = 0; i < CLEAR_TRIES; i++) {
+    let isCleared = false
+    try {
+      isCleared = (await $.prompt.fill({ text: '' })).isFilled
+    } catch {
+      isCleared = false
+    }
+    if (isCleared) return true
+    if (i < CLEAR_TRIES - 1) await $.clock.sleep(CLEAR_WAIT_MS).catch(() => undefined)
+  }
+
+  return false
+}
+
 const finish = async ($: EngineInterface, text: string): Promise<void> => {
   const t = text.trim()
   if (t === '') {
@@ -236,9 +254,10 @@ const finish = async ($: EngineInterface, text: string): Promise<void> => {
   }
   await setFlow($, f => ({ ...reset(f), pending: t }))
   await $.ui.close({ id: PANE }).catch(() => undefined)
-  await $.prompt.fill({ text: '' }).catch(() => undefined)
+  const isCleared = await clearBox($)
   // UNVERIFIED: the asUser resubmit reaches prompt.submit with text equal to the trimmed pending value
   $.prompt.submit({ text: t, asUser: true }).catch(() => restoreText($, t))
+  if (!isCleared) await clearBox($)
 }
 
 const recoverSilent = async ($: EngineInterface, id: number): Promise<void> => {
