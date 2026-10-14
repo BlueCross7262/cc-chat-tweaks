@@ -176,6 +176,8 @@ cc-chat-tweaks: Prompt Upgrade: sonnet low · 1.9s · fix the login bug
 - It carries an image or another attachment.
 - It starts with `/`.
 - It starts with `!`, which makes it a shell command.
+- It holds an `@file` or `@agent` mention: an `@` at the start or after a white space, then path characters. The resubmit does not expand mentions, so the upgraded prompt would lose the file. An address such as `a@b.com` is not a mention. A trigger or an off trigger does not change this, and the trigger text stays in the prompt.
+- It is only pasted material. The mod removes every `<pasted_content ...>...</pasted_content>` block and counts what is left. If that is shorter than the threshold, the prompt passes. A prompt with a trigger skips this check, like the other length check.
 - It is shorter than the threshold.
 - No terminal surface is attached.
 - A flow is already running.

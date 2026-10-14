@@ -485,6 +485,26 @@ test('a shell command that starts with ! passes on every path, with or without a
   expect(gate({ ...off, text: `${shell} !` })).toMatchObject({ intercept: true })
 })
 
+test('a prompt with an @file or @agent mention passes, because the resubmit does not expand it', () => {
+  expect(gate({ text: 'please review @src/app.ts and tell me what is wrong' })).toMatchObject({ intercept: false, reason: 'mention' })
+  expect(gate({ text: '@reviewer please look at the change set carefully' })).toMatchObject({ intercept: false, reason: 'mention' })
+  expect(gate({ text: 'see @C:\\work\\a.ts for the failing case please' })).toMatchObject({ intercept: false, reason: 'mention' })
+  expect(gate({ ...off, text: `--- ${base.text} @src/app.ts` })).toMatchObject({ intercept: false, reason: 'mention' })
+  expect(gate({ ...off, text: `+++ ${base.text} @src/app.ts` })).toMatchObject({ intercept: false, reason: 'mention' })
+  expect(gate({ text: 'mail me at someone@example.com about the design document' })).toEqual({ intercept: true })
+  expect(gate({ text: 'a lone @ sign in the prompt about the design document' })).toEqual({ intercept: true })
+})
+
+const PASTE = '<pasted_content id="1926"> PS Z:\\Work> powershell -File run.ps1 FAIL: cannot verify master key </pasted_content id="1926">'
+
+test('a prompt that is only pasted material passes, and one with enough text of its own does not', () => {
+  expect(gate({ text: PASTE })).toMatchObject({ intercept: false, reason: 'pasted-only' })
+  expect(gate({ text: `why?\n${PASTE}` })).toMatchObject({ intercept: false, reason: 'pasted-only' })
+  expect(gate({ ...off, text: PASTE })).toMatchObject({ intercept: false, reason: 'pasted-only' })
+  expect(gate({ text: `please find the cause of this failure\n${PASTE}` })).toEqual({ intercept: true })
+  expect(gate({ ...off, text: `+++ ${PASTE}` })).toMatchObject({ intercept: true, silent: true })
+})
+
 test('with no off trigger the text is ordinary', () => {
   expect(gate({ ...off, offTriggers: [], skipTrigger: false, text: `${base.text} ---` })).toMatchObject({ intercept: false, reason: 'no-trigger' })
 })

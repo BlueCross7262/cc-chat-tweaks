@@ -121,6 +121,12 @@ export const parseTrigger = (text: string, triggers: readonly string[]): string 
 
 export const squash = (text: string): string => text.replace(/\s+/g, '')
 
+const MENTION = /(^|\s)@[\w./\\-]+/
+
+const PASTED = /<pasted_content\b[^>]*>[\s\S]*?<\/pasted_content\b[^>]*>/g
+
+export const withoutPasted = (text: string): string => text.replace(PASTED, ' ').trim()
+
 export const decideGate = (g: GateInput): Gate => {
   const text = g.text.trim()
   if (g.flow.pending !== null && text === g.flow.pending) {
@@ -154,6 +160,7 @@ const decideRest = (g: GateInput, text: string, clearSkip: boolean): Gate => {
   const cleaned = isOff ? parseTrigger(text, [...g.offTriggers, ...g.silentTriggers]) : stripped
   if ((cleaned ?? text).startsWith('/')) return pass('slash')
   if ((cleaned ?? text).startsWith('!')) return pass('shell')
+  if (MENTION.test(cleaned ?? text)) return pass('mention')
   if (isOff) {
     if (cleaned === null || cleaned === '') return pass('trigger-only')
     return { intercept: true, off: true, text: cleaned }
@@ -164,6 +171,7 @@ const decideRest = (g: GateInput, text: string, clearSkip: boolean): Gate => {
   }
   if (g.isSilent && !g.skipTrigger) return pass('no-trigger')
   if (text.length < g.minLen) return pass('short')
+  if (withoutPasted(text).length < g.minLen) return pass('pasted-only')
   if (g.isSilent) return { intercept: true, silent: true, text }
   if (!g.surfaces.includes('terminal')) return pass('no-terminal')
   return { intercept: true }
