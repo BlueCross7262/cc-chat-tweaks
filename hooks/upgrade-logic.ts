@@ -120,8 +120,8 @@ const decideRest = (g: GateInput, text: string, clearSkip: boolean): Gate => {
     if (stripped === '') return pass('trigger-only')
     return { intercept: true, silent: true, text: stripped }
   }
+  if (g.isSilent) return pass('no-trigger')
   if (text.length < g.minLen) return pass('short')
-  if (g.isSilent) return { intercept: true, silent: true, text }
   if (!g.surfaces.includes('terminal')) return pass('no-terminal')
   return { intercept: true }
 }

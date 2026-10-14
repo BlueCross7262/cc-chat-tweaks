@@ -31,7 +31,7 @@ A key that is absent uses its default.
 |---|---|---|
 | `use-prompt-upgrade` | `false` | Intercept your prompts and upgrade them. |
 | `use-questions` | `true` | Ask Haiku for clarifying questions. When `false`, the mod rewrites the prompt at once. |
-| `use-silent-upgrade` | `true` | Option of `use-prompt-upgrade`. When `true`, no prompt opens the pane. Each one is upgraded, with the recommended answers to the questions applied when `use-questions` is `true`, and the draft is put in the prompt box without being sent. When `false`, the pane runs and the trigger is ordinary text. |
+| `use-silent-upgrade` | `true` | Option of `use-prompt-upgrade`. When `true`, the pane never opens, and only a prompt with the trigger is upgraded. The recommended answers to the questions are applied when `use-questions` is `true`, and the draft is put in the prompt box without being sent. When `false`, the pane runs for every prompt and the trigger is ordinary text. |
 | `silent-trigger` | `+++` | The trigger text. 1 to 32 characters after trimming. A blank or non-text value uses the default. |
 | `min-length` | `10` | Shortest prompt that is intercepted, in characters. A whole number from 1 to 10000. It beats the value set by `/prompt-upgrade threshold`. |
 | `model` | `haiku` | The model of the question, rewrite and revise calls. An alias or a full model id, 1 to 100 characters after trimming. A blank or non-text value uses the default. |
@@ -98,9 +98,14 @@ Press Tab to move to a button, or click it.
 
 ## Silent upgrade
 
-While `use-silent-upgrade` is `true`, no prompt opens the pane. Every prompt that would be intercepted is upgraded silently. The `min-length` check still applies to a prompt without the trigger, so a short prompt passes through.
+`use-silent-upgrade` only hides the pane. It does not make the upgrade run on every prompt.
 
-The trigger (`+++` by default) at the start or the end of a prompt forces the silent upgrade past the `min-length` check.
+The trigger (`+++` by default) at the start or the end of a prompt is what starts the upgrade.
+
+- While `use-silent-upgrade` is `true`, a prompt with the trigger is upgraded without the pane.
+- While `use-silent-upgrade` is `true`, a prompt without the trigger passes through unchanged. The pane does not open and nothing is upgraded.
+- While `use-silent-upgrade` is `false`, the pane runs for every prompt of `min-length` or more, and the trigger is ordinary text.
+- A prompt with the trigger skips the `min-length` check.
 
 - The trigger is removed. Repeated triggers at an edge go too. A trigger in the middle stays.
 - With `use-questions` `true`, Haiku first writes the questions, and the mod answers each one with its recommended option. A question with no recommended option stays unanswered. Nothing is shown and you are not asked. This costs one more Haiku call.

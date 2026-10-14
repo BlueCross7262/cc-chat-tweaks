@@ -308,7 +308,7 @@ test('the draft a silent run puts in the prompt box passes the next submit once'
   await settle(s)
   const edited = await submit($, 'Silently upgraded prompt, then changed by hand.')
   expect(edited).toMatchObject({ text: 'Silently upgraded prompt, then changed by hand.' })
-  expect(await submit($, LONG)).toMatchObject({ drop: expect.any(String) })
+  expect(await submit($, TRIGGERED)).toMatchObject({ drop: expect.any(String) })
 })
 
 test('the trigger typed after a silent draft upgrades the draft again instead of sending it', async ($, on) => {
@@ -352,22 +352,22 @@ test('a prompt submitted while a silent run is working passes through untouched'
   expect(second).toMatchObject({ text: '+++ another long prompt typed meanwhile' })
 })
 
-test('with use-silent-upgrade on a prompt without the trigger opens no pane and fills the draft', async ($, on) => {
-  const s = world($, on, { silent: true, useQuestions: false, answers: ['Silently upgraded prompt.'] })
+test('with use-silent-upgrade on a prompt without the trigger passes through with no pane and no upgrade', async ($, on) => {
+  const s = world($, on, { silent: true, answers: ['Unused draft.'] })
   const result = await submit($, LONG)
   await settle(s)
-  expect(result).toMatchObject({ drop: expect.any(String) })
+  expect(result).toMatchObject({ text: LONG })
   expect(s.opens).toBe(0)
-  expect(s.models).toHaveLength(1)
-  expect(s.filled).toEqual(['Silently upgraded prompt.'])
-  expect(s.entered).toEqual([])
+  expect(s.models).toEqual([])
+  expect(s.filled).toEqual([])
+  expect(s.entered).toEqual([LONG])
 })
 
 const RECOMMENDED_QUESTION = JSON.stringify({ questions: [{ q: 'Which format?', options: ['table', 'bullets', 'prose'], recommended: 1 }] })
 
 test('a silent run asks inside, applies the recommended answer and fills the draft', async ($, on) => {
-  const s = world($, on, { silent: true, answers: [RECOMMENDED_QUESTION, 'Draft with bullets.'] })
-  const result = await submit($, LONG)
+  const s = world($, on, { silent: true, answers: [RECOMMENDED_QUESTION, 'Draft with bullets.'], box: TRIGGERED })
+  const result = await submit($, TRIGGERED)
   await settle(s)
   expect(result).toMatchObject({ drop: expect.any(String) })
   expect(s.opens).toBe(0)
@@ -382,8 +382,8 @@ test('a silent run asks inside, applies the recommended answer and fills the dra
 })
 
 test('a silent run leaves a question without a recommended answer unanswered', async ($, on) => {
-  const s = world($, on, { silent: true, answers: [QUESTION, 'Draft without answers.'] })
-  await submit($, LONG)
+  const s = world($, on, { silent: true, answers: [QUESTION, 'Draft without answers.'], box: TRIGGERED })
+  await submit($, TRIGGERED)
   await settle(s)
   expect(s.models).toHaveLength(2)
   expect(s.prompts[1]).not.toContain('Q: ')
@@ -391,16 +391,16 @@ test('a silent run leaves a question without a recommended answer unanswered', a
 })
 
 test('a silent run still rewrites when the questions call fails', async ($, on) => {
-  const s = world($, on, { silent: true, answers: [null, 'Draft after a failed ask.'] })
-  await submit($, LONG)
+  const s = world($, on, { silent: true, answers: [null, 'Draft after a failed ask.'], box: TRIGGERED })
+  await submit($, TRIGGERED)
   await settle(s)
   expect(s.models).toHaveLength(2)
   expect(s.filled).toEqual(['Draft after a failed ask.'])
 })
 
 test('use-questions false makes the silent run a single call', async ($, on) => {
-  const s = world($, on, { silent: true, useQuestions: false, answers: ['Single call draft.'] })
-  await submit($, LONG)
+  const s = world($, on, { silent: true, useQuestions: false, answers: ['Single call draft.'], box: TRIGGERED })
+  await submit($, TRIGGERED)
   await settle(s)
   expect(s.models).toHaveLength(1)
   expect(s.filled).toEqual(['Single call draft.'])

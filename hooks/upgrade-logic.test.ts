@@ -317,15 +317,15 @@ test('a trigger intercepts silently with the stripped text and skips the short a
   expect(gate({ ...silent, text: '+++ hi', flow: { ...EMPTY_FLOW, phase: 'rewriteLoading' } })).toMatchObject({ intercept: false, reason: 'busy' })
 })
 
-test('with the silent switch on, every long composer prompt is upgraded without the pane and short ones still pass', () => {
+test('with the silent switch on only the trigger starts an upgrade, and a prompt without it passes without a pane', () => {
   const on = { isSilent: true, silentTrigger: '+++' }
 
-  expect(gate({ ...on })).toEqual({ intercept: true, silent: true, text: base.text })
-  expect(gate({ ...on, surfaces: [] })).toEqual({ intercept: true, silent: true, text: base.text })
-  expect(gate({ ...on, text: 'short' })).toMatchObject({ intercept: false, reason: 'short' })
+  expect(gate({ ...on })).toMatchObject({ intercept: false, reason: 'no-trigger' })
+  expect(gate({ ...on, surfaces: [] })).toMatchObject({ intercept: false, reason: 'no-trigger' })
+  expect(gate({ ...on, text: base.text + ' +++' })).toEqual({ intercept: true, silent: true, text: base.text })
+  expect(gate({ ...on, text: '+++ short' })).toEqual({ intercept: true, silent: true, text: 'short' })
   expect(gate({ ...on, text: '/compact now please do it' })).toMatchObject({ intercept: false, reason: 'slash' })
   expect(gate({ ...on, originKind: 'peer' })).toMatchObject({ intercept: false, reason: 'origin' })
-  expect(gate({ ...on, text: base.text + ' +++' })).toEqual({ intercept: true, silent: true, text: base.text })
 })
 
 test('an empty trigger keeps the ordinary gate and a long prompt still takes the pane path', () => {
