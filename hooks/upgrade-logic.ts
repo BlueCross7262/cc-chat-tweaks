@@ -64,10 +64,12 @@ export const callLine = (label: string, call: { model: string; effort: string },
 
 export const ORIGINAL_HEADER = 'Prompt Upgrade original:'
 
-export const originalLines = (original: string, max: number): string[] => {
-  const body = clip(original.trim(), max).split(/\r?\n/)
+export const originalLog = (original: string, max: number): string => {
+  const body = original.trim().replace(/\r\n?/g, '\n')
+  const room = Math.max(0, max - ORIGINAL_HEADER.length - 1)
+  const shown = body.length <= room ? body : `${body.slice(0, Math.max(0, room - 3))}...`
 
-  return [ORIGINAL_HEADER, ...body]
+  return `${ORIGINAL_HEADER}\n${shown}`
 }
 
 export type GateInput = {

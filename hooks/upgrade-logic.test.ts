@@ -20,7 +20,7 @@ import {
   reset,
   tookText,
   callLine,
-  originalLines,
+  originalLog,
   withTook,
   revised,
   rewriteInput,
@@ -375,11 +375,20 @@ test('a resubmitted rewrite that ends with the trigger is not intercepted again'
   expect(gate({ silentTriggers: ['+++'], text: 'done +++', flow })).toMatchObject({ intercept: false, reason: 'resubmit' })
 })
 
-test('the original lines are a header followed by the prompt, one entry per line', () => {
-  expect(originalLines('fix the login bug', 240)).toEqual(['Prompt Upgrade original:', 'fix the login bug'])
-  expect(originalLines('  line one\n\nline two  \n', 240)).toEqual(['Prompt Upgrade original:', 'line one', '', 'line two'])
-  expect(originalLines('a\r\nb', 240)).toEqual(['Prompt Upgrade original:', 'a', 'b'])
-  expect(originalLines('abcdef', 3)).toEqual(['Prompt Upgrade original:', 'abc...'])
+test('the original log is one text: a header line, a line break and the prompt', () => {
+  expect(originalLog('fix the login bug', 2000)).toBe('Prompt Upgrade original:\nfix the login bug')
+  expect(originalLog('  line one\n\nline two  \n', 2000)).toBe('Prompt Upgrade original:\nline one\n\nline two')
+  expect(originalLog('a\r\nb\rc', 2000)).toBe('Prompt Upgrade original:\na\nb\nc')
+})
+
+test('the original log is cut so the whole text stays within the limit', () => {
+  const log = originalLog('x'.repeat(5000), 2000)
+
+  expect(log.startsWith('Prompt Upgrade original:\nxxx')).toBe(true)
+  expect(log.endsWith('xxx...')).toBe(true)
+  expect(log.length).toBe(2000)
+  expect(originalLog('abcdefghij', 25 + 6)).toBe('Prompt Upgrade original:\nabc...')
+  expect(originalLog('abcdef', 25 + 6)).toBe('Prompt Upgrade original:\nabcdef')
 })
 
 test('the call line names the call, model, effort and time', () => {
