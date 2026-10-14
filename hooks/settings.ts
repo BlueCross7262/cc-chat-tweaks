@@ -97,6 +97,10 @@ export const DEFAULT_SILENT_OFF_TRIGGERS: readonly string[] = ['---']
 export const SILENT_OFF_TRIGGERS_KEY = 'silent-off-triggers'
 export const MODEL_KEY = 'model'
 export const EFFORT_KEY = 'effort'
+export const DEFAULT_TYPE_MODEL = 'haiku'
+export const DEFAULT_TYPE_EFFORT = 'low'
+export const TYPE_MODEL_KEY = 'type-model'
+export const TYPE_EFFORT_KEY = 'type-effort'
 export const UNFOLDED_TOOLS_KEY = 'unfolded-tools'
 export const DEFAULT_UNFOLDED_TOOLS: readonly string[] = ['AskUserQuestion', 'Skill', 'Agent']
 export const MAX_UNFOLDED_TOOLS = 50
@@ -107,6 +111,8 @@ const EXTRA_DEFAULTS = {
   [SILENT_OFF_TRIGGERS_KEY]: DEFAULT_SILENT_OFF_TRIGGERS,
   [MODEL_KEY]: DEFAULT_MODEL,
   [EFFORT_KEY]: DEFAULT_EFFORT,
+  [TYPE_MODEL_KEY]: DEFAULT_TYPE_MODEL,
+  [TYPE_EFFORT_KEY]: DEFAULT_TYPE_EFFORT,
   [UNFOLDED_TOOLS_KEY]: DEFAULT_UNFOLDED_TOOLS,
 } as const
 
@@ -116,6 +122,8 @@ const EXTRA_PATHS: Record<keyof typeof EXTRA_DEFAULTS, readonly string[]> = {
   [SILENT_OFF_TRIGGERS_KEY]: PROMPT_UPGRADE_PATH,
   [MODEL_KEY]: PROMPT_UPGRADE_PATH,
   [EFFORT_KEY]: PROMPT_UPGRADE_PATH,
+  [TYPE_MODEL_KEY]: PROMPT_UPGRADE_PATH,
+  [TYPE_EFFORT_KEY]: PROMPT_UPGRADE_PATH,
   [UNFOLDED_TOOLS_KEY]: TOOL_FOLD_PATH,
 }
 
@@ -234,9 +242,9 @@ export const silentOffTriggersOf = (sources: readonly unknown[]): string[] | und
 
 export type Effort = (typeof EFFORTS)[number]
 
-export const modelOf = (sources: readonly unknown[]): string | undefined => {
+export const modelOf = (sources: readonly unknown[], key: string = MODEL_KEY): string | undefined => {
   for (const source of sources) {
-    const value = upgradeValueOf(source, MODEL_KEY)
+    const value = upgradeValueOf(source, key)
 
     if (typeof value === 'string' && value.trim().length >= 1 && value.trim().length <= 100) return value.trim()
   }
@@ -244,9 +252,9 @@ export const modelOf = (sources: readonly unknown[]): string | undefined => {
   return undefined
 }
 
-export const effortOf = (sources: readonly unknown[]): Effort | undefined => {
+export const effortOf = (sources: readonly unknown[], key: string = EFFORT_KEY): Effort | undefined => {
   for (const source of sources) {
-    const value = upgradeValueOf(source, EFFORT_KEY)
+    const value = upgradeValueOf(source, key)
 
     if (typeof value === 'string' && (EFFORTS as readonly string[]).includes(value.trim())) return value.trim() as Effort
   }
@@ -281,10 +289,12 @@ const extraReader = (key: ExtraKey): ((sources: readonly unknown[]) => number | 
   if (key === MIN_LENGTH_KEY) return minLengthOf
   if (key === SILENT_TRIGGERS_KEY) return silentTriggersOf
   if (key === SILENT_OFF_TRIGGERS_KEY) return silentOffTriggersOf
-  if (key === MODEL_KEY) return modelOf
+  if (key === MODEL_KEY) return sources => modelOf(sources)
+  if (key === TYPE_MODEL_KEY) return sources => modelOf(sources, TYPE_MODEL_KEY)
+  if (key === TYPE_EFFORT_KEY) return sources => effortOf(sources, TYPE_EFFORT_KEY)
   if (key === UNFOLDED_TOOLS_KEY) return unfoldedToolsOf
 
-  return effortOf
+  return sources => effortOf(sources)
 }
 
 export const extraKeys = Object.keys(EXTRA_DEFAULTS) as ExtraKey[]

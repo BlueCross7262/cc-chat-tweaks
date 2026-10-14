@@ -1,6 +1,8 @@
 import type { On } from 'claude-code'
 import { expect, mock, test, type Engine } from 'claude-code/testing'
 
+import { CLASSIFY_SYSTEM } from './upgrade-prompts'
+
 const PLUGIN = 'cc-chat-tweaks'
 const PANE = 'prompt-upgrade'
 const USAGE_LINE = /^Prompt Upgrade: /
@@ -19,6 +21,8 @@ type Setup = {
   copied: string[]
   toasts: string[]
   prompts: string[]
+  classified: { model: string; effort: string; prompt: string }[]
+  classifyLogs: string[]
   opens: number
   clock: ReturnType<typeof mock.clock> | undefined
 }
@@ -26,9 +30,9 @@ type Setup = {
 const world = (
   $: Engine,
   on: On,
-  options: { isFilled?: boolean; isCopied?: boolean; isPlaced?: boolean; answers?: Array<string | null>; enabled?: boolean; useQuestions?: boolean; silent?: boolean; box?: string | string[]; extra?: Record<string, unknown>; failFills?: number } = {},
+  options: { isFilled?: boolean; isCopied?: boolean; isPlaced?: boolean; answers?: Array<string | null>; enabled?: boolean; useQuestions?: boolean; silent?: boolean; box?: string | string[]; extra?: Record<string, unknown>; failFills?: number; types?: string | null } = {},
 ): Setup => {
-  const s: Setup = { entered: [], filled: [], closed: [], models: [], efforts: [], ids: [], events: [], logs: [], copied: [], toasts: [], prompts: [], opens: 0, clock: undefined }
+  const s: Setup = { entered: [], filled: [], closed: [], models: [], efforts: [], ids: [], events: [], logs: [], copied: [], toasts: [], prompts: [], classified: [], classifyLogs: [], opens: 0, clock: undefined }
   const answers = [...(options.answers ?? [])]
   s.clock = mock.clock(on, { now: 1000 })
   on('ui.toast', (_$, e) => {
@@ -61,6 +65,16 @@ const world = (
     return { value: { isCopied: options.isCopied ?? true } } as never
   })
   on('model.complete', (_$, e) => {
+    const call = e as { system?: string; model?: string; effort?: string; prompt?: string }
+    if (call.system === CLASSIFY_SYSTEM) {
+      s.classified.push({ model: call.model ?? 'none', effort: call.effort ?? 'none', prompt: call.prompt ?? '' })
+      const types = options.types === undefined ? JSON.stringify({ types: [] }) : options.types
+      return {
+        value: types === null
+          ? { isAnswered: false, reason: 'api-error', status: 500, error: 'server_error' }
+          : { isAnswered: true, text: types, usage: USAGE },
+      } as never
+    }
     s.models.push((e as { system?: string }).system?.slice(0, 6) ?? '')
     s.prompts.push((e as { prompt?: string }).prompt ?? '')
     s.efforts.push((e as { effort?: string }).effort ?? 'none')
@@ -73,7 +87,9 @@ const world = (
     } as never
   })
   on('ui.log', (_$, e) => {
-    s.logs.push((e as { text: string }).text)
+    const text = (e as { text: string }).text
+    if (text.startsWith('Prompt classify:')) s.classifyLogs.push(text)
+    else s.logs.push(text)
     return { value: undefined } as never
   })
   on('prompt.submit', (_$, e) => {
@@ -159,6 +175,7 @@ test('a pane that cannot be placed lets the prompt through', async ($, on) => {
   expect(result).toMatchObject({ text: LONG })
   expect(s.entered).toEqual([LONG])
   expect(s.models).toEqual([])
+  expect(s.classified).toEqual([])
 })
 
 test('nothing is intercepted while disabled, or for other origins and slash commands', async ($, on) => {
@@ -488,11 +505,12 @@ test('a silent run still rewrites when the questions call fails', async ($, on) 
   expect(s.filled).toEqual(['Draft after a failed ask.'])
 })
 
-test('use-questions false makes the silent run a single call', async ($, on) => {
+test('use-questions false makes the silent run one classify call and one rewrite call', async ($, on) => {
   const s = world($, on, { silent: true, useQuestions: false, answers: ['Single call draft.'], box: TRIGGERED })
   await submit($, TRIGGERED)
   await settle(s)
   expect(s.models).toHaveLength(1)
+  expect(s.classified).toHaveLength(1)
   expect(s.filled).toEqual(['Single call draft.'])
 })
 
@@ -557,6 +575,54 @@ test('model and effort from the settings reach every call and its log line', asy
   expect(s.ids).toEqual(['sonnet', 'sonnet'])
   expect(s.efforts).toEqual(['high', 'high'])
   expect(s.logs.filter(line => USAGE_LINE.test(line)).every(line => line.includes('sonnet high'))).toBe(true)
+})
+
+test('the prompt types from the classify call reach the rewrite input and the classify log row', async ($, on) => {
+  const s = world($, on, { useQuestions: false, types: JSON.stringify({ types: ['research', 'execute'] }), answers: ['Upgraded prompt.'] })
+  await submit($, LONG)
+  await settle(s)
+  expect(s.classified).toHaveLength(1)
+  expect(s.classified[0]?.prompt).toContain(`<prompt>${LONG}</prompt>`)
+  expect(s.prompts[0]).toContain('<types>research,execute</types>')
+  expect(s.classifyLogs).toEqual(['Prompt classify: haiku low · 0ms · research, execute'])
+})
+
+test('a classify call that fails logs failed and the rewrite runs without types', async ($, on) => {
+  const s = world($, on, { useQuestions: false, types: null, answers: ['Upgraded prompt.'] })
+  await submit($, LONG)
+  await settle(s)
+  const ui = await mountPane($)
+  expect((await ui.find({ type: 'Markdown' }))?.text).toContain('Upgraded prompt.')
+  expect(s.prompts[0]).not.toContain('<types>')
+  expect(s.classifyLogs).toEqual(['Prompt classify: haiku low · 0ms · failed'])
+})
+
+test('a classify call with no known type logs none and the rewrite runs without types', async ($, on) => {
+  const s = world($, on, { useQuestions: false, types: JSON.stringify({ types: ['plan'] }), answers: ['Upgraded prompt.'] })
+  await submit($, LONG)
+  await settle(s)
+  expect(s.prompts[0]).not.toContain('<types>')
+  expect(s.classifyLogs).toEqual(['Prompt classify: haiku low · 0ms · none'])
+})
+
+test('the classify call uses haiku low by default whatever model the upgrade calls use', async ($, on) => {
+  const s = world($, on, { extra: { model: 'opus', effort: 'high' }, answers: [QUESTION, 'Upgraded prompt.'] })
+  await submit($, LONG)
+  await settle(s)
+  await mountPane($)
+  await $.ui.press({ plugin: PLUGIN, key: 'q0o1', requestId: PANE })
+  expect(s.classified.map(c => `${c.model} ${c.effort}`)).toEqual(['haiku low'])
+  expect(s.ids).toEqual(['opus', 'opus'])
+})
+
+test('type-model and type-effort from the settings reach the classify call only', async ($, on) => {
+  const s = world($, on, { useQuestions: false, extra: { 'type-model': 'sonnet', 'type-effort': 'medium' }, answers: ['Upgraded prompt.'] })
+  await submit($, LONG)
+  await settle(s)
+  expect(s.classified.map(c => `${c.model} ${c.effort}`)).toEqual(['sonnet medium'])
+  expect(s.ids).toEqual(['sonnet'])
+  expect(s.efforts).toEqual(['low'])
+  expect(s.classifyLogs[0]).toMatch(/^Prompt classify: sonnet medium · /)
 })
 
 test('a model or effort that is not valid falls back to sonnet and low', async ($, on) => {

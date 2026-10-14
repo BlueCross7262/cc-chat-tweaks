@@ -21,6 +21,9 @@ import {
   squash,
   tookText,
   callLog,
+  CLASSIFY_LOG_PREFIX,
+  classifyTail,
+  parseTypes,
   withTook,
   revised,
   rewriteInput,
@@ -233,7 +236,7 @@ test('formats Haiku time in ms below a second and in seconds above', () => {
   expect(formatMs(2140)).toBe('2.1s')
   expect(tookText(EMPTY_FLOW)).toBe('')
   const flow = withTook(withTook(EMPTY_FLOW, 'ask', 2140), 'rewrite', 840)
-  expect(tookText(flow)).toBe('Haiku took questions 2.1s · rewrite 840ms')
+  expect(tookText(flow)).toBe('Took questions 2.1s · rewrite 840ms')
 })
 
 test('drops malformed questions and returns none on bad input', () => {
@@ -293,6 +296,39 @@ test('the rewrite input lists only the answered questions', () => {
   ])
   f = answer(f, 1, 'd')
   expect(rewriteInput(f)).toBe('<prompt>orig</prompt><answers>Q: two\nA: d</answers>')
+})
+
+test('the rewrite input carries the prompt types between the context and the prompt only when there are some', () => {
+  const f = { ...begin(EMPTY_FLOW, 'orig', 'user: earlier'), types: ['research', 'execute'] }
+  expect(rewriteInput(f)).toBe('<context>user: earlier</context><types>research,execute</types><prompt>orig</prompt><answers></answers>')
+  expect(rewriteInput({ ...f, types: [] })).not.toContain('<types>')
+  expect(rewriteInput({ ...f, types: undefined as unknown as string[] })).not.toContain('<types>')
+})
+
+test('the draft loses a types tag the model left in it', () => {
+  expect(unwrapDraft('<types>research</types>Find the cause.')).toBe('researchFind the cause.')
+  expect(unwrapDraft('Read <input><types>a</types></input> now.')).toBe('Read <input><types>a</types></input> now.')
+})
+
+test('prompt types keep known values once each in their order', () => {
+  expect(parseTypes('{"types":["execute","research"]}')).toEqual(['execute', 'research'])
+  expect(parseTypes('{"types":["research","plan","research",3,"discuss"]}')).toEqual(['research', 'discuss'])
+  expect(parseTypes('```json\n{"types":["discuss"]}\n```')).toEqual(['discuss'])
+  expect(parseTypes('{"types":[]}')).toEqual([])
+})
+
+test('prompt types are empty for no answer, broken JSON or a missing list', () => {
+  expect(parseTypes(null)).toEqual([])
+  expect(parseTypes('not json')).toEqual([])
+  expect(parseTypes('{"types":"research"}')).toEqual([])
+  expect(parseTypes('{}')).toEqual([])
+  expect(parseTypes('null')).toEqual([])
+})
+
+test('the classify log tail names the types, none for an empty list and failed for no answer', () => {
+  expect(classifyTail(['research', 'execute'])).toBe('research, execute')
+  expect(classifyTail([])).toBe('none')
+  expect(classifyTail(null)).toBe('failed')
 })
 
 test('revise keeps one level of undo', () => {
@@ -422,6 +458,15 @@ test('the call log is one row: model, effort, time and the original prompt', () 
 
   expect(callLog(call, 1900, 'ky_jira mcp 고장났어 ?', 2000)).toBe('Prompt Upgrade: sonnet low · 1.9s · ky_jira mcp 고장났어 ?')
   expect(callLog(call, 840, 'fix the login bug', 2000)).toBe('Prompt Upgrade: sonnet low · 840ms · fix the login bug')
+})
+
+test('the classify log row uses its own prefix and the type list as its tail', () => {
+  const call = { model: 'haiku', effort: 'low' }
+
+  expect(callLog(call, 600, classifyTail(['research', 'execute']), 2000, CLASSIFY_LOG_PREFIX)).toBe(
+    'Prompt classify: haiku low · 600ms · research, execute',
+  )
+  expect(callLog(call, 5000, classifyTail(null), 2000, CLASSIFY_LOG_PREFIX)).toBe('Prompt classify: haiku low · 5.0s · failed')
 })
 
 test('every run of white space in the original becomes one space and the row holds no line break', () => {

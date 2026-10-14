@@ -14,6 +14,8 @@ import {
   propOf,
   silentOffTriggersOf,
   silentTriggersOf,
+  TYPE_EFFORT_KEY,
+  TYPE_MODEL_KEY,
   unfoldedToolsOf,
   withMissingDefaults,
   type FlagKey,
@@ -83,6 +85,17 @@ test('effort is the first value among low, medium, high, xhigh and max', () => {
   expect(effortOf([prompt('effort', 'high')])).toBe('high')
   expect(effortOf([prompt('effort', ' max ')])).toBe('max')
   expect(effortOf([prompt('effort', 'LOW'), prompt('effort', 3), prompt('effort', 'ultra'), prompt('effort', 'xhigh')])).toBe('xhigh')
+})
+
+test('the type model and type effort are read from their own keys with the same rules', () => {
+  const both = up({ model: 'opus', effort: 'high', 'type-model': ' sonnet ', 'type-effort': 'medium' })
+
+  expect(modelOf([both], TYPE_MODEL_KEY)).toBe('sonnet')
+  expect(effortOf([both], TYPE_EFFORT_KEY)).toBe('medium')
+  expect(modelOf([both])).toBe('opus')
+  expect(effortOf([both])).toBe('high')
+  expect(modelOf([up({ model: 'opus' })], TYPE_MODEL_KEY)).toBeUndefined()
+  expect(effortOf([up({ 'type-effort': 'ultra' })], TYPE_EFFORT_KEY)).toBeUndefined()
 })
 
 test('the defaults when no source sets a key', () => {
@@ -188,7 +201,7 @@ test('adds only the missing switches with their default and keeps everything els
   }
   const { settings, added } = withMissingDefaults(existing)
 
-  expect(added).toEqual(['use-edit-summary', 'use-prompt-upgrade', 'use-questions', 'use-silent-upgrade', 'skip-silent-trigger', 'min-length', 'silent-triggers', 'silent-off-triggers', 'model', 'effort', 'unfolded-tools'])
+  expect(added).toEqual(['use-edit-summary', 'use-prompt-upgrade', 'use-questions', 'use-silent-upgrade', 'skip-silent-trigger', 'min-length', 'silent-triggers', 'silent-off-triggers', 'model', 'effort', 'type-model', 'type-effort', 'unfolded-tools'])
   expect(settings).toEqual({
     theme: 'dark',
     ccChatTweaks: {
@@ -208,6 +221,8 @@ test('adds only the missing switches with their default and keeps everything els
           'silent-off-triggers': ['---'],
           model: 'sonnet',
           effort: 'low',
+          'type-model': 'haiku',
+          'type-effort': 'low',
         },
       },
       other: 1,
@@ -218,8 +233,8 @@ test('adds only the missing switches with their default and keeps everything els
 })
 
 test('builds the whole section for an empty or malformed file', () => {
-  expect(withMissingDefaults({}).added).toHaveLength(12)
-  expect(withMissingDefaults(null).added).toHaveLength(12)
+  expect(withMissingDefaults({}).added).toHaveLength(14)
+  expect(withMissingDefaults(null).added).toHaveLength(14)
   expect(withMissingDefaults({ ccChatTweaks: 'x' }).settings).toEqual({
     ccChatTweaks: {
       chat: {
@@ -237,6 +252,8 @@ test('builds the whole section for an empty or malformed file', () => {
           'silent-off-triggers': ['---'],
           model: 'sonnet',
           effort: 'low',
+          'type-model': 'haiku',
+          'type-effort': 'low',
         },
       },
     },
@@ -280,6 +297,8 @@ test('describes every extra key with its value and the source it came from', () 
     { key: 'silent-off-triggers', value: ['---'], from: 'default' },
     { key: 'model', value: 'sonnet', from: 'local' },
     { key: 'effort', value: 'high', from: 'user' },
+    { key: 'type-model', value: 'haiku', from: 'default' },
+    { key: 'type-effort', value: 'low', from: 'default' },
     { key: 'unfolded-tools', value: ['AskUserQuestion', 'Skill', 'Agent'], from: 'default' },
   ])
   expect(describeExtras([['user', {}]])).toEqual([
@@ -288,6 +307,8 @@ test('describes every extra key with its value and the source it came from', () 
     { key: 'silent-off-triggers', value: ['---'], from: 'default' },
     { key: 'model', value: 'sonnet', from: 'default' },
     { key: 'effort', value: 'low', from: 'default' },
+    { key: 'type-model', value: 'haiku', from: 'default' },
+    { key: 'type-effort', value: 'low', from: 'default' },
     { key: 'unfolded-tools', value: ['AskUserQuestion', 'Skill', 'Agent'], from: 'default' },
   ])
   expect(describeExtras([['user', chat({ 'unfolded-tools': [] })]]).at(-1)).toEqual({ key: 'unfolded-tools', value: [], from: 'user' })
@@ -334,6 +355,8 @@ test('reports nothing to add when every switch is present', () => {
           'silent-off-triggers': [],
           model: 'sonnet',
           effort: 'high',
+          'type-model': 'sonnet',
+          'type-effort': 'medium',
         },
       },
     },

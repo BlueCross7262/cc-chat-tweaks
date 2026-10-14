@@ -18,8 +18,11 @@ export const EMPTY_FLOW: Flow = {
   runId: 0,
   notice: '',
   context: '',
+  types: [],
   took: { ask: 0, rewrite: 0, revise: 0 },
 }
+
+export const PROMPT_TYPES = ['research', 'discuss', 'execute'] as const
 
 const CONTEXT_TURNS = 6
 const CONTEXT_TURN_CLIP = 500
@@ -57,13 +60,26 @@ export const tookText = (flow: Flow): string => {
     flow.took.revise > 0 ? `last revision ${formatMs(flow.took.revise)}` : '',
   ].filter(part => part !== '')
 
-  return parts.length === 0 ? '' : `Haiku took ${parts.join(' · ')}`
+  return parts.length === 0 ? '' : `Took ${parts.join(' · ')}`
 }
 
 export const LOG_PREFIX = 'Prompt Upgrade:'
+export const CLASSIFY_LOG_PREFIX = 'Prompt classify:'
 
-export const callLog = (call: { model: string; effort: string }, ms: number, original: string, max: number): string => {
-  const head = `${LOG_PREFIX} ${call.model} ${call.effort} · ${formatMs(ms)}`
+export const classifyTail = (types: readonly string[] | null): string => {
+  if (types === null) return 'failed'
+
+  return types.length === 0 ? 'none' : types.join(', ')
+}
+
+export const callLog = (
+  call: { model: string; effort: string },
+  ms: number,
+  original: string,
+  max: number,
+  prefix: string = LOG_PREFIX,
+): string => {
+  const head = `${prefix} ${call.model} ${call.effort} · ${formatMs(ms)}`
   const body = original.replace(/\s+/g, ' ').trim()
 
   if (body === '') return head
@@ -220,6 +236,19 @@ export const parseQuestions = (raw: string | null): Question[] => {
   }
 }
 
+export const parseTypes = (raw: string | null): string[] => {
+  if (raw === null) return []
+  try {
+    const data = JSON.parse(stripFence(raw)) as { types?: unknown } | null
+    if (data === null || !Array.isArray(data.types)) return []
+    const known: readonly unknown[] = PROMPT_TYPES
+
+    return [...new Set(data.types.filter(value => known.includes(value)) as string[])]
+  } catch {
+    return []
+  }
+}
+
 export const normalizeCompletion = (r: unknown): string | null => {
   if (typeof r === 'string') return r.trim() === '' ? null : r
   if (typeof r !== 'object' || r === null) return null
@@ -304,10 +333,12 @@ export const rewriteInput = (flow: Flow): string => {
     })
     .filter((l): l is string => l !== null)
   const context = !flow.context ? '' : `<context>${flow.context}</context>`
-  return `${context}<prompt>${flow.original}</prompt><answers>${lines.join('\n\n')}</answers>`
+  const types = flow.types ?? []
+  const typed = types.length === 0 ? '' : `<types>${types.join(',')}</types>`
+  return `${context}${typed}<prompt>${flow.original}</prompt><answers>${lines.join('\n\n')}</answers>`
 }
 
-const WRAPPER_TAG = /<\/?(?:prompt|draft|answers|request|context)>/g
+const WRAPPER_TAG = /<\/?(?:prompt|draft|answers|request|context|types)>/g
 
 export const unwrapDraft = (raw: string): string =>
   raw

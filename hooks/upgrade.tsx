@@ -11,6 +11,9 @@ import type {
 import type { Flow, Phase } from '../types'
 import {
   callLog,
+  CLASSIFY_LOG_PREFIX,
+  classifyTail,
+  parseTypes,
   allAnswered,
   answer,
   answeredCount,
@@ -41,7 +44,7 @@ import {
   tookText,
   unwrapDraft,
 } from './upgrade-logic'
-import { CALLS, Q_SYSTEM, R_SYSTEM, REVISE_SYSTEM } from './upgrade-prompts'
+import { CALLS, CLASSIFY_SYSTEM, Q_SYSTEM, R_SYSTEM, REVISE_SYSTEM } from './upgrade-prompts'
 import {
   DEFAULT_SILENT_OFF_TRIGGERS,
   DEFAULT_SILENT_TRIGGERS,
@@ -54,6 +57,8 @@ import {
   SETTINGS_SOURCES,
   silentOffTriggersOf,
   silentTriggersOf,
+  TYPE_EFFORT_KEY,
+  TYPE_MODEL_KEY,
   type Flags,
 } from './settings'
 
@@ -90,21 +95,32 @@ const callWithSettings = async ($: EngineInterface, call: Call): Promise<Call> =
   }
 }
 
-const logCall = ($: EngineInterface, call: Call, ms: number, original: string): void => {
+const callWithTypeSettings = async ($: EngineInterface, call: Call): Promise<Call> => {
   try {
-    $.ui.log(callLog(call, ms, original, LOG_ROW_MAX))
+    const sources = (await readSources($)).map(([, settings]) => settings)
+
+    return {
+      ...call,
+      model: modelOf(sources, TYPE_MODEL_KEY) ?? call.model,
+      effort: effortOf(sources, TYPE_EFFORT_KEY) ?? call.effort,
+    }
+  } catch {
+    return call
+  }
+}
+
+const writeLog = ($: EngineInterface, row: string): void => {
+  try {
+    $.ui.log(row)
   } catch {
     return
   }
 }
 
-const callModel = async (
-  $: EngineInterface,
-  call: Call,
-  system: string,
-  prompt: string,
-): Promise<Timed> => {
-  const used = await callWithSettings($, call)
+const logCall = ($: EngineInterface, call: Call, ms: number, original: string): void =>
+  writeLog($, callLog(call, ms, original, LOG_ROW_MAX))
+
+const completeWith = async ($: EngineInterface, used: Call, system: string, prompt: string): Promise<Timed> => {
   const startedAt = await $.clock.now()
   let text: string | null = null
   try {
@@ -122,10 +138,44 @@ const callModel = async (
     text = null
   }
   const ms = Math.max(0, (await $.clock.now()) - startedAt)
-  logCall($, used, ms, (await getFlow($).catch(() => EMPTY_FLOW)).original)
 
   return { text, ms }
 }
+
+const callModel = async (
+  $: EngineInterface,
+  call: Call,
+  system: string,
+  prompt: string,
+): Promise<Timed> => {
+  const used = await callWithSettings($, call)
+  const done = await completeWith($, used, system, prompt)
+  logCall($, used, done.ms, (await getFlow($).catch(() => EMPTY_FLOW)).original)
+
+  return done
+}
+
+const classify = async ($: EngineInterface, flow: Flow): Promise<string[]> => {
+  try {
+    const used = await callWithTypeSettings($, CALLS.classify)
+    const done = await completeWith($, used, CLASSIFY_SYSTEM, askInput(flow))
+    const types = parseTypes(done.text)
+    writeLog($, callLog(used, done.ms, classifyTail(done.text === null ? null : types), LOG_ROW_MAX, CLASSIFY_LOG_PREFIX))
+
+    return types
+  } catch {
+    return []
+  }
+}
+
+const classifying = new Map<number, Promise<string[]>>()
+
+const startClassify = ($: EngineInterface, flow: Flow): void => {
+  classifying.clear()
+  classifying.set(flow.runId, classify($, flow))
+}
+
+const takeTypes = (id: number, fallback: string[]): Promise<string[]> => classifying.get(id) ?? Promise.resolve(fallback)
 
 const restoreText = async ($: EngineInterface, text: string): Promise<void> => {
   let isFilled = false
@@ -175,7 +225,10 @@ const startAsk = async ($: EngineInterface, id: number, useQuestions: boolean): 
 
 const startRewrite = async ($: EngineInterface, id: number): Promise<void> => {
   try {
-    const f = await setIf($, id, cur => toPhase(cur, 'rewriteLoading'))
+    const loading = await setIf($, id, cur => toPhase(cur, 'rewriteLoading'))
+    if (isStale(loading, id)) return
+    const types = await takeTypes(id, loading.types ?? [])
+    const f = await setIf($, id, cur => ({ ...cur, types }))
     if (isStale(f, id)) return
     const done = await callModel($, CALLS.rewrite, R_SYSTEM, rewriteInput(f))
     await setIf($, id, cur =>
@@ -705,6 +758,7 @@ const interceptOrPass = async ($: EngineInterface, e: PromptSubmitInput) => {
     const text = 'silent' in gate ? gate.text : e.text
     const started = await setFlow($, f => begin(f, text, context))
     if ('silent' in gate) {
+      startClassify($, started)
       runSilent($, started.runId, e.text, useQuestions).catch(() => undefined)
 
       return { drop: DROP_REASON }
@@ -715,6 +769,7 @@ const interceptOrPass = async ($: EngineInterface, e: PromptSubmitInput) => {
       await abandon($)
       return null
     }
+    startClassify($, started)
     startAsk($, started.runId, useQuestions).catch(() => undefined)
 
     // UNVERIFIED: what a dropped prompt leaves in the prompt box and the input history
@@ -790,10 +845,12 @@ export const registerUpgrade = (on: Parameters<Register>[0]): void => {
       const flow = await getFlow($)
       const flags = describeFlags(await readSources($))
       const used = await callWithSettings($, CALLS.rewrite)
+      const typed = await callWithTypeSettings($, CALLS.classify)
       return {
         text: [
           ...flags.map(f => `${labelOf(f.key)}: ${f.value} (${f.from})`),
           `model ${used.model}; effort ${used.effort}.`,
+          `type model ${typed.model}; type effort ${typed.effort}.`,
           `threshold ${minLen} characters (default ${MIN_LEN}); phase ${flow.phase}; probe ${probe ? 'on' : 'off'}.`,
         ].join('\n'),
       }

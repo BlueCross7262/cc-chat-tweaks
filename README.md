@@ -28,6 +28,8 @@ Tool folding and the Edit/Write summary are off until you turn them on. The prom
 | `prompt.prompt-upgrade` | `min-length` | `10` | Shortest prompt that is upgraded, in characters. |
 | `prompt.prompt-upgrade` | `model` | `sonnet` | The model of every upgrade call. An alias or a full model id. |
 | `prompt.prompt-upgrade` | `effort` | `low` | The effort of every upgrade call: `low`, `medium`, `high`, `xhigh` or `max`. |
+| `prompt.prompt-upgrade` | `type-model` | `haiku` | The model of the prompt type call. An alias or a full model id. |
+| `prompt.prompt-upgrade` | `type-effort` | `low` | The effort of the prompt type call: `low`, `medium`, `high`, `xhigh` or `max`. |
 
 ```json
 {
@@ -63,7 +65,7 @@ The prompt upgrade keys are read only from `ccChatTweaks.prompt.prompt-upgrade`.
 
 First it writes every key your user `settings.json` lacks, switches and value keys alike, with its default, so you can see and flip them. It never changes a value that is already there. It leaves a file that is not plain JSON alone and says so.
 
-Then it prints each switch and each value key (`unfolded-tools`, `min-length`, `silent-triggers`, `silent-off-triggers`, `model`, `effort`) by its path under `ccChatTweaks`, such as `chat.tool-fold.use`, with its value and the source it came from, the fold counters, the prompt upgrade phase and threshold, the environment and a list of checks.
+Then it prints each switch and each value key (`unfolded-tools`, `min-length`, `silent-triggers`, `silent-off-triggers`, `model`, `effort`, `type-model`, `type-effort`) by its path under `ccChatTweaks`, such as `chat.tool-fold.use`, with its value and the source it came from, the fold counters, the prompt upgrade phase and threshold, the environment and a list of checks.
 
 ## Features
 

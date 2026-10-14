@@ -23,6 +23,7 @@ export type Flow = {
   runId: number
   notice: string
   context: string
+  types: string[]
   took: { ask: number; rewrite: number; revise: number }
 }
 

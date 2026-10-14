@@ -8,7 +8,7 @@ It intercepts a prompt you submit, asks Haiku for up to three clarifying questio
 - A mod runs with your user permissions and has no sandbox.
 - While `use` is `true`, the mod sees every prompt you submit.
 - The prompt upgrade is on by default, so the mod sees your prompts until you set `use` to `false`.
-- Each upgraded prompt costs up to three model calls on your plan or API key. The default model is `sonnet`.
+- Each upgraded prompt costs up to four model calls on your plan or API key: one prompt type call and up to three upgrade calls. The default model is `haiku` for the prompt type call and `sonnet` for the others.
 - The mod sends prompt text to the model only through `$.model.complete`.
 - The mod makes no other network call and does not use `$.http`.
 - The mod stores no prompt text. The probe log keeps lengths and origin only.
@@ -43,6 +43,8 @@ A key that is absent uses its default.
 | `min-length` | `10` | Shortest prompt that is intercepted, in characters. A whole number from 1 to 10000. It beats the value set by `/prompt-upgrade threshold`. |
 | `model` | `sonnet` | The model of the question, rewrite and revise calls. An alias or a full model id, 1 to 100 characters after trimming. A blank or non-text value uses the default. |
 | `effort` | `low` | The effort of the same calls: `low`, `medium`, `high`, `xhigh` or `max`. Any other value uses the default. |
+| `type-model` | `haiku` | The model of the prompt type call. The rules of `model` apply. `model` does not change it. |
+| `type-effort` | `low` | The effort of the prompt type call. The rules of `effort` apply. `effort` does not change it. |
 
 ```json
 {
@@ -57,7 +59,9 @@ A key that is absent uses its default.
         "silent-off-triggers": ["---"],
         "min-length": 40,
         "model": "sonnet",
-        "effort": "low"
+        "effort": "low",
+        "type-model": "haiku",
+        "type-effort": "low"
       }
     }
   }
@@ -72,7 +76,7 @@ A `model` the engine refuses makes the call fail, and the flow ends with your or
 
 | Command | Effect |
 |---|---|
-| `/prompt-upgrade status` | Shows each switch with its value and source, the threshold and the current phase. |
+| `/prompt-upgrade status` | Shows each switch with its value and source, the model and effort of the upgrade calls and of the prompt type call, the threshold and the current phase. |
 | `/prompt-upgrade threshold <n>` | Sets the shortest prompt that is intercepted, in characters. The default is 10. The value lives in `$.store`. A `min-length` in settings beats it, and the reply says so. |
 | `/prompt-upgrade reset` | Closes the pane and puts the original prompt back in the prompt box. |
 | `/prompt-upgrade probe on \| off \| show \| clear` | Records a PoC sample per submit. See `prompt-upgrade-poc-results.md`. |
@@ -85,6 +89,10 @@ Your prompt > Questions > Rewrite > Review
 
 - A prompt typed at the prompt box is dropped and a pane opens.
 - Haiku also reads up to the last six messages of the conversation (500 characters each, 3000 in all), so a prompt such as "fix the code above" has something to refer to.
+- At the same time, one prompt type call sorts the prompt into `research`, `discuss` and `execute`, one or more in the order the prompt asks for them.
+  - It runs on every upgrade, with or without `use-questions`, and with the questions call when there is one.
+  - The rewrite waits for it. The rewrite uses the types only to order the sentences and to choose how each request is phrased. It adds no request that is not in your prompt.
+  - If the call fails or finds no known type, the rewrite goes on without types.
 - Haiku asks up to three questions with 3 to 5 options each.
   - Pick an option, type your own answer, or skip.
   - `나머지 건너뛰고 업그레이드` goes on with the answers so far.
@@ -154,18 +162,20 @@ The trigger (`+++` by default) at the start or the end of a prompt is what start
 Each model call writes one dim row to the transcript with `$.ui.log`. The row is not sent to the model, so it never enters the context.
 
 ```
+cc-chat-tweaks: Prompt classify: haiku low · 0.6s · research, execute
 cc-chat-tweaks: Prompt Upgrade: sonnet low · 1.9s · fix the login bug
 ```
 
 - The engine puts the plugin name `cc-chat-tweaks: ` in front of every row. The mod does not write it, and `$.ui.log` takes only the text and the sink, so the mod cannot remove it.
 - The row holds `Prompt Upgrade:`, the model alias and effort, the time, and the prompt you typed without the trigger, each part set off by ` · `.
 - The row does not name the call (`questions`, `rewrite` or `revise`).
+- The prompt type call writes its own row. It holds `Prompt classify:`, the model alias and effort, the time, and the types it found, each part set off by ` · `. It ends with `none` when the call found no known type and with `failed` when the call failed. It does not hold the prompt.
 - One log call is one row. A line break inside the text of a call is not drawn as a break, and shows as a garbled character. So the mod turns every run of spaces and line breaks in the prompt into one space, and never puts a line break in a log.
 - The whole row is cut at 2000 characters with `...`.
 - The empty line the engine draws between rows is the engine's own spacing. The mod writes no empty row.
 - The row shows no token count and no cost.
 - A failed call writes its row too. A row with no prompt text ends after the time.
-- A run with questions makes two model calls, so it writes two rows with the same prompt and different times.
+- A run with questions makes two upgrade calls, so it writes two `Prompt Upgrade:` rows with the same prompt and different times. Every run also writes one `Prompt classify:` row. It can come before or after the questions row.
 
 ## What is not intercepted
 
