@@ -137,21 +137,22 @@ The trigger (`+++` by default) at the start or the end of a prompt is what start
 
 ## Usage log
 
-Each Haiku call writes two logs to the transcript with `$.ui.log`. The logs are not sent to the model, so they never enter the context.
+Each model call writes dim rows to the transcript with `$.ui.log`. The rows are not sent to the model, so they never enter the context.
 
 ```
-Prompt Upgrade rewrite: sonnet low · 1.2s
-Prompt Upgrade original:
-fix the login bug
+cc-chat-tweaks: Prompt Upgrade rewrite: sonnet low · 1.2s
+cc-chat-tweaks: Prompt Upgrade original:
+cc-chat-tweaks: fix the login bug
 ```
 
-- The first log names the call (`questions`, `rewrite` or `revise`), the model alias and effort, and the time.
-- The second log is one text: the header `Prompt Upgrade original:`, a line break, then the prompt you typed without the trigger. The header and the prompt are not separate logs.
-- The prompt keeps its own line breaks.
-- The second log is cut at 2000 characters in all, header included, with `...` at the cut. The engine draws that much of one log call.
-- The logs show no token count and no cost.
-- A failed call writes its logs too.
-- A run with questions writes the two logs once per call, so the original appears again after each call log.
+- The engine puts the plugin name `cc-chat-tweaks: ` in front of every row. The mod does not write it, and `$.ui.log` takes only the text and the sink, so the mod cannot remove it.
+- The first row names the call (`questions`, `rewrite` or `revise`), the model alias and effort, and the time.
+- The next row is the header `Prompt Upgrade original:`. The prompt you typed, without the trigger, follows with one row per line.
+- One log call is one row. A line break inside the text of a call is not drawn as a break, and shows as a garbled character. So the mod writes one call for each row and never puts a line break in a log.
+- Blank lines of the prompt are left out, and the prompt part is cut at 2000 characters with `...`.
+- The rows show no token count and no cost.
+- A failed call writes its rows too.
+- A run with questions writes the rows once per call, so the original appears again after each call row.
 
 ## What is not intercepted
 

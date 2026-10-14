@@ -11,7 +11,7 @@ import type {
 import type { Flow, Phase } from '../types'
 import {
   callLine,
-  originalLog,
+  originalLines,
   allAnswered,
   answer,
   answeredCount,
@@ -91,7 +91,9 @@ const callWithSettings = async ($: EngineInterface, call: Call): Promise<Call> =
 const logCall = ($: EngineInterface, label: string, call: Call, ms: number, original: string): void => {
   try {
     $.ui.log(callLine(label, call, ms))
-    if (original.trim() !== '') $.ui.log(originalLog(original, LOG_ORIGINAL_MAX))
+    if (original.trim() !== '') {
+      for (const line of originalLines(original, LOG_ORIGINAL_MAX)) $.ui.log(line)
+    }
   } catch {
     return
   }

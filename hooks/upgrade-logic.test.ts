@@ -20,7 +20,7 @@ import {
   reset,
   tookText,
   callLine,
-  originalLog,
+  originalLines,
   withTook,
   revised,
   rewriteInput,
@@ -375,20 +375,21 @@ test('a resubmitted rewrite that ends with the trigger is not intercepted again'
   expect(gate({ silentTriggers: ['+++'], text: 'done +++', flow })).toMatchObject({ intercept: false, reason: 'resubmit' })
 })
 
-test('the original log is one text: a header line, a line break and the prompt', () => {
-  expect(originalLog('fix the login bug', 2000)).toBe('Prompt Upgrade original:\nfix the login bug')
-  expect(originalLog('  line one\n\nline two  \n', 2000)).toBe('Prompt Upgrade original:\nline one\n\nline two')
-  expect(originalLog('a\r\nb\rc', 2000)).toBe('Prompt Upgrade original:\na\nb\nc')
+test('the original lines are a header followed by one entry per line of the prompt, and no entry holds a line break', () => {
+  expect(originalLines('fix the login bug', 2000)).toEqual(['Prompt Upgrade original:', 'fix the login bug'])
+  expect(originalLines('  line one\n\nline two  \n', 2000)).toEqual(['Prompt Upgrade original:', 'line one', 'line two'])
+  expect(originalLines('a\r\nb\rc', 2000)).toEqual(['Prompt Upgrade original:', 'a', 'b', 'c'])
+  for (const entry of originalLines('a\r\nb\n\nc\rd', 2000)) expect(entry).not.toMatch(/[\r\n]/)
 })
 
-test('the original log is cut so the whole text stays within the limit', () => {
-  const log = originalLog('x'.repeat(5000), 2000)
+test('the original lines are cut so the prompt part stays within the limit', () => {
+  const lines = originalLines('x'.repeat(5000), 2000)
 
-  expect(log.startsWith('Prompt Upgrade original:\nxxx')).toBe(true)
-  expect(log.endsWith('xxx...')).toBe(true)
-  expect(log.length).toBe(2000)
-  expect(originalLog('abcdefghij', 25 + 6)).toBe('Prompt Upgrade original:\nabc...')
-  expect(originalLog('abcdef', 25 + 6)).toBe('Prompt Upgrade original:\nabcdef')
+  expect(lines).toHaveLength(2)
+  expect(lines[1]?.length).toBe(2000)
+  expect(lines[1]?.endsWith('xxx...')).toBe(true)
+  expect(originalLines('abcdefghij', 6)).toEqual(['Prompt Upgrade original:', 'abc...'])
+  expect(originalLines('abcdef', 6)).toEqual(['Prompt Upgrade original:', 'abcdef'])
 })
 
 test('the call line names the call, model, effort and time', () => {
