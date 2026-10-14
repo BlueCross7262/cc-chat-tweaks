@@ -302,8 +302,19 @@ const parkDraft = async ($: EngineInterface, draft: string): Promise<void> => {
   )
 }
 
-const runSilent = async ($: EngineInterface, id: number, typed: string): Promise<void> => {
+const askAndApplyRecommended = async ($: EngineInterface, id: number): Promise<void> => {
+  const f = await getFlow($)
+  if (isStale(f, id)) return
+  const asked = await callHaiku($, 'questions', CALLS.ask, Q_SYSTEM, askInput(f))
+  const questions = parseQuestions(asked.text)
+  await setIf($, id, cur =>
+    withRecommended(withQuestions(asked.text ? withTook(cur, 'ask', asked.ms) : cur, questions)),
+  )
+}
+
+const runSilent = async ($: EngineInterface, id: number, typed: string, useQuestions: boolean): Promise<void> => {
   try {
+    if (useQuestions) await askAndApplyRecommended($, id)
     await startRewrite($, id)
     const f = await getFlow($)
     if (isStale(f, id) || f.phase !== 'review') return
@@ -663,7 +674,7 @@ const interceptOrPass = async ($: EngineInterface, e: PromptSubmitInput) => {
     const text = 'silent' in gate ? gate.text : e.text
     const started = await setFlow($, f => begin(f, text, context))
     if ('silent' in gate) {
-      runSilent($, started.runId, e.text).catch(() => undefined)
+      runSilent($, started.runId, e.text, useQuestions).catch(() => undefined)
 
       return { drop: DROP_REASON }
     }

@@ -20,7 +20,7 @@ Every feature is off until you turn it on. Switches live under `ccChatTweaks` in
 | `chat` | `use-edit-summary` | `false` | Draw `Edit` and `Write` calls as one summary line. |
 | `prompt` | `use-prompt-upgrade` | `false` | Ask clarifying questions about your prompt and rewrite it before it is sent. |
 | `prompt` | `use-questions` | `true` | Option of `use-prompt-upgrade`. When `false`, the prompt is rewritten without questions. |
-| `prompt` | `use-silent-upgrade` | `true` | Option of `use-prompt-upgrade`. When `true`, no prompt opens the pane. Each one is upgraded without questions, and the draft is put in the prompt box without being sent. |
+| `prompt` | `use-silent-upgrade` | `true` | Option of `use-prompt-upgrade`. When `true`, no prompt opens the pane. Each one is upgraded, with the recommended answers to the questions applied when `use-questions` is `true`, and the draft is put in the prompt box without being sent. |
 | `prompt` | `silent-trigger` | `+++` | The trigger text for the silent upgrade. |
 | `prompt` | `min-length` | `10` | Shortest prompt that is upgraded, in characters. |
 | `prompt` | `model` | `haiku` | The model of every upgrade call. An alias or a full model id. |
