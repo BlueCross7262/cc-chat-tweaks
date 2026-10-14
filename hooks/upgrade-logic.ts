@@ -60,17 +60,18 @@ export const tookText = (flow: Flow): string => {
   return parts.length === 0 ? '' : `Haiku took ${parts.join(' · ')}`
 }
 
-export const callLine = (label: string, call: { model: string; effort: string }, ms: number): string =>
-  `Prompt Upgrade ${label}: ${call.model} ${call.effort} · ${formatMs(ms)}`
+export const LOG_PREFIX = 'Prompt Upgrade:'
 
-export const ORIGINAL_HEADER = 'Prompt Upgrade original:'
-
-export const originalLine = (original: string, max: number): string => {
+export const callLog = (call: { model: string; effort: string }, ms: number, original: string, max: number): string => {
+  const head = `${LOG_PREFIX} ${call.model} ${call.effort} · ${formatMs(ms)}`
   const body = original.replace(/\s+/g, ' ').trim()
-  const room = Math.max(0, max - ORIGINAL_HEADER.length - 1)
+
+  if (body === '') return head
+
+  const room = Math.max(0, max - head.length - 3)
   const shown = body.length <= room ? body : `${body.slice(0, Math.max(0, room - 3))}...`
 
-  return `${ORIGINAL_HEADER} ${shown}`
+  return `${head} · ${shown}`
 }
 
 export type GateInput = {

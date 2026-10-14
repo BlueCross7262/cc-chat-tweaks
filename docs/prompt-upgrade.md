@@ -141,22 +141,21 @@ The trigger (`+++` by default) at the start or the end of a prompt is what start
 
 ## Usage log
 
-Each model call writes dim rows to the transcript with `$.ui.log`. The rows are not sent to the model, so they never enter the context.
+Each model call writes one dim row to the transcript with `$.ui.log`. The row is not sent to the model, so it never enters the context.
 
 ```
-cc-chat-tweaks: Prompt Upgrade rewrite: sonnet low · 1.2s
-cc-chat-tweaks: Prompt Upgrade original: fix the login bug
+cc-chat-tweaks: Prompt Upgrade: sonnet low · 1.9s · fix the login bug
 ```
 
 - The engine puts the plugin name `cc-chat-tweaks: ` in front of every row. The mod does not write it, and `$.ui.log` takes only the text and the sink, so the mod cannot remove it.
-- The first row names the call (`questions`, `rewrite` or `revise`), the model alias and effort, and the time.
-- The next row is the header `Prompt Upgrade original:` and the prompt you typed, without the trigger, on the same row.
+- The row holds `Prompt Upgrade:`, the model alias and effort, the time, and the prompt you typed without the trigger, each part set off by ` · `.
+- The row does not name the call (`questions`, `rewrite` or `revise`).
 - One log call is one row. A line break inside the text of a call is not drawn as a break, and shows as a garbled character. So the mod turns every run of spaces and line breaks in the prompt into one space, and never puts a line break in a log.
 - The whole row is cut at 2000 characters with `...`.
 - The empty line the engine draws between rows is the engine's own spacing. The mod writes no empty row.
-- The rows show no token count and no cost.
-- A failed call writes its rows too.
-- A run with questions writes the rows once per call, so the original appears again after each call row.
+- The row shows no token count and no cost.
+- A failed call writes its row too. A row with no prompt text ends after the time.
+- A run with questions makes two model calls, so it writes two rows with the same prompt and different times.
 
 ## What is not intercepted
 

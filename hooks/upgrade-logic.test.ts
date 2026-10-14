@@ -20,8 +20,7 @@ import {
   reset,
   squash,
   tookText,
-  callLine,
-  originalLine,
+  callLog,
   withTook,
   revised,
   rewriteInput,
@@ -417,26 +416,38 @@ test('a resubmitted rewrite that ends with the trigger is not intercepted again'
   expect(gate({ silentTriggers: ['+++'], text: 'done +++', flow })).toMatchObject({ intercept: false, reason: 'resubmit' })
 })
 
-test('the original line is the header and the prompt on one row, with every run of white space as one space', () => {
-  expect(originalLine('fix the login bug', 2000)).toBe('Prompt Upgrade original: fix the login bug')
-  expect(originalLine('  line one\n\nline two  \n', 2000)).toBe('Prompt Upgrade original: line one line two')
-  expect(originalLine('a\r\nb\rc\t d', 2000)).toBe('Prompt Upgrade original: a b c d')
-  expect(originalLine('a\r\nb\n\nc\rd', 2000)).not.toMatch(/[\r\n]/)
+test('the call log is one row: model, effort, time and the original prompt', () => {
+  const call = { model: 'sonnet', effort: 'low' }
+
+  expect(callLog(call, 1900, 'ky_jira mcp 고장났어 ?', 2000)).toBe('Prompt Upgrade: sonnet low · 1.9s · ky_jira mcp 고장났어 ?')
+  expect(callLog(call, 840, 'fix the login bug', 2000)).toBe('Prompt Upgrade: sonnet low · 840ms · fix the login bug')
 })
 
-test('the original line is cut so the whole row stays within the limit', () => {
-  const line = originalLine('x'.repeat(5000), 2000)
+test('every run of white space in the original becomes one space and the row holds no line break', () => {
+  const call = { model: 'sonnet', effort: 'low' }
 
-  expect(line.length).toBe(2000)
-  expect(line.startsWith('Prompt Upgrade original: xxx')).toBe(true)
-  expect(line.endsWith('xxx...')).toBe(true)
-  expect(originalLine('abcdefghij', 25 + 6)).toBe('Prompt Upgrade original: abc...')
-  expect(originalLine('abcdef', 25 + 6)).toBe('Prompt Upgrade original: abcdef')
+  expect(callLog(call, 1900, '  line one\n\nline two  \n', 2000)).toBe('Prompt Upgrade: sonnet low · 1.9s · line one line two')
+  expect(callLog(call, 1900, 'a\r\nb\rc\t d', 2000)).toBe('Prompt Upgrade: sonnet low · 1.9s · a b c d')
+  expect(callLog(call, 1900, 'a\r\nb\n\nc\rd', 2000)).not.toMatch(/[\r\n]/)
 })
 
-test('the call line names the call, model, effort and time', () => {
-  const call = { model: 'haiku', effort: 'low' }
+test('a call log without an original is the call part alone', () => {
+  const call = { model: 'sonnet', effort: 'high' }
 
-  expect(callLine('rewrite', call, 840)).toBe('Prompt Upgrade rewrite: haiku low · 840ms')
-  expect(callLine('questions', call, 2100)).toBe('Prompt Upgrade questions: haiku low · 2.1s')
+  expect(callLog(call, 2100, '', 2000)).toBe('Prompt Upgrade: sonnet high · 2.1s')
+  expect(callLog(call, 2100, ' \n\t ', 2000)).toBe('Prompt Upgrade: sonnet high · 2.1s')
+})
+
+test('the call log is cut so the whole row stays within the limit', () => {
+  const call = { model: 'sonnet', effort: 'low' }
+  const row = callLog(call, 1900, 'x'.repeat(5000), 2000)
+
+  expect(row.length).toBe(2000)
+  expect(row.startsWith('Prompt Upgrade: sonnet low · 1.9s · xxx')).toBe(true)
+  expect(row.endsWith('xxx...')).toBe(true)
+
+  const head = 'Prompt Upgrade: sonnet low · 1.9s'
+
+  expect(callLog(call, 1900, 'abcdefghij', head.length + 3 + 6)).toBe(`${head} · abc...`)
+  expect(callLog(call, 1900, 'abcdef', head.length + 3 + 6)).toBe(`${head} · abcdef`)
 })

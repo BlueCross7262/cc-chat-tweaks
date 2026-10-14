@@ -3,8 +3,7 @@ import { expect, mock, test, type Engine } from 'claude-code/testing'
 
 const PLUGIN = 'cc-chat-tweaks'
 const PANE = 'prompt-upgrade'
-const USAGE_LINE = /^Prompt Upgrade (questions|rewrite|revise): /
-const ORIGINAL_LINE = /^Prompt Upgrade original: /
+const USAGE_LINE = /^Prompt Upgrade: /
 const LONG = 'please summarise the attached design document for me'
 const USAGE = { input_tokens: 1, output_tokens: 1 }
 
@@ -101,7 +100,7 @@ test('a long composer prompt is dropped, upgraded and resubmitted once', async (
   })
   const result = await submit($, LONG)
   await settle(s)
-  expect(s.logs.filter(line => !USAGE_LINE.test(line) && !ORIGINAL_LINE.test(line))).toEqual([])
+  expect(s.logs.filter(line => !USAGE_LINE.test(line))).toEqual([])
   expect(result).toMatchObject({ drop: expect.any(String) })
   expect(s.entered).toEqual([])
 
@@ -438,10 +437,7 @@ test('a silent run asks inside, applies the recommended answer and fills the dra
   expect(s.prompts[1]).toContain('Q: Which format?\nA: bullets')
   expect(s.filled).toEqual(['Draft with bullets.'])
   expect(s.entered).toEqual([])
-  expect(s.logs.filter(line => USAGE_LINE.test(line)).map(line => line.split(':')[0])).toEqual([
-    'Prompt Upgrade questions',
-    'Prompt Upgrade rewrite',
-  ])
+  expect(s.logs.filter(line => USAGE_LINE.test(line))).toHaveLength(2)
 })
 
 test('a silent run leaves a question without a recommended answer unanswered', async ($, on) => {
@@ -477,42 +473,29 @@ test('with use-silent-upgrade off the trigger is ordinary text and the pane path
   expect(s.opens).toBe(1)
 })
 
-test('every Haiku call writes one log line with model and time, and nothing goes to the prompt or the toasts', async ($, on) => {
+test('every model call writes one log row with the model, effort, time and the original prompt, and nothing goes to the prompt or the toasts', async ($, on) => {
   const s = world($, on, { answers: [QUESTION, 'Upgraded prompt.'] })
   await submit($, LONG)
   await settle(s)
   await mountPane($)
   await $.ui.press({ plugin: PLUGIN, key: 'q0o1', requestId: PANE })
-  const lines = s.logs.filter(line => USAGE_LINE.test(line))
-  expect(lines).toHaveLength(2)
-  expect(lines[0]).toMatch(/^Prompt Upgrade questions: sonnet low · \d+(ms|\.\ds)$/)
-  expect(lines[1]).toMatch(/^Prompt Upgrade rewrite: sonnet low · /)
+  const rows = s.logs.filter(line => USAGE_LINE.test(line))
+  expect(rows).toHaveLength(2)
+  for (const row of rows) expect(row).toMatch(new RegExp(`^Prompt Upgrade: sonnet low · \\d+(ms|\\.\\ds) · ${LONG}$`))
+  expect(s.logs).toHaveLength(2)
   expect(s.toasts).toEqual([])
   expect(s.entered).toEqual([])
 })
 
-test('the original prompt is logged on one row with its header, right after each call row', async ($, on) => {
-  const s = world($, on, { answers: [QUESTION, 'Upgraded prompt.'] })
-  await submit($, LONG)
-  await settle(s)
-  await mountPane($)
-  await $.ui.press({ plugin: PLUGIN, key: 'q0o1', requestId: PANE })
-  const calls = s.logs.flatMap((line, i) => (USAGE_LINE.test(line) ? [i] : []))
-  expect(calls).toHaveLength(2)
-  for (const i of calls) {
-    expect(s.logs[i + 1]).toBe(`Prompt Upgrade original: ${LONG}`)
-  }
-  expect(s.logs.filter(line => line === LONG || line === 'Prompt Upgrade original:')).toEqual([])
-})
-
-test('a multi-line original is logged on one row, its line breaks turned into spaces', async ($, on) => {
+test('a multi-line original is logged in the same row, its line breaks turned into spaces', async ($, on) => {
   const s = world($, on, { useQuestions: false, answers: ['Upgraded prompt.'] })
   const text = 'first line of a long prompt\nsecond line of a long prompt\n\nfourth line after a blank one'
   await submit($, text)
   await settle(s)
-  expect(s.logs.filter(entry => ORIGINAL_LINE.test(entry))).toEqual([
-    'Prompt Upgrade original: first line of a long prompt second line of a long prompt fourth line after a blank one',
-  ])
+  expect(s.logs).toHaveLength(1)
+  expect(s.logs[0]).toMatch(
+    /^Prompt Upgrade: sonnet low · \d+(ms|\.\ds) · first line of a long prompt second line of a long prompt fourth line after a blank one$/,
+  )
 })
 
 test('no log text holds a line break, because the engine draws one log as one row and breaks it into a garbled character', async ($, on) => {
@@ -529,7 +512,7 @@ test('a very long original is cut at 2000 characters in the log', async ($, on) 
   const s = world($, on, { useQuestions: false, answers: ['Upgraded prompt.'] })
   await submit($, 'x'.repeat(5000))
   await settle(s)
-  const row = s.logs.find(item => ORIGINAL_LINE.test(item)) ?? ''
+  const row = s.logs.find(item => USAGE_LINE.test(item)) ?? ''
   expect(row.length).toBe(2000)
   expect(row.endsWith('x...')).toBe(true)
 })
