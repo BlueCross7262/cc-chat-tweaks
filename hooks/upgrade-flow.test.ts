@@ -4,6 +4,7 @@ import { expect, mock, test, type Engine } from 'claude-code/testing'
 const PLUGIN = 'cc-chat-tweaks'
 const PANE = 'prompt-upgrade'
 const USAGE_LINE = /^Prompt Upgrade (questions|rewrite|revise): /
+const ORIGINAL_LINE = /^Prompt Upgrade original: /
 const LONG = 'please summarise the attached design document for me'
 const USAGE = { input_tokens: 1, output_tokens: 1 }
 
@@ -100,7 +101,7 @@ test('a long composer prompt is dropped, upgraded and resubmitted once', async (
   })
   const result = await submit($, LONG)
   await settle(s)
-  expect(s.logs.filter(line => !USAGE_LINE.test(line))).toEqual([])
+  expect(s.logs.filter(line => !USAGE_LINE.test(line) && !ORIGINAL_LINE.test(line))).toEqual([])
   expect(result).toMatchObject({ drop: expect.any(String) })
   expect(s.entered).toEqual([])
 
@@ -426,6 +427,28 @@ test('every Haiku call writes one log line with model and time, and nothing goes
   expect(lines[1]).toMatch(/^Prompt Upgrade rewrite: haiku low · /)
   expect(s.toasts).toEqual([])
   expect(s.entered).toEqual([])
+})
+
+test('the original prompt is logged on the line after each call line', async ($, on) => {
+  const s = world($, on, { answers: [QUESTION, 'Upgraded prompt.'] })
+  await submit($, LONG)
+  await settle(s)
+  await mountPane($)
+  await $.ui.press({ plugin: PLUGIN, key: 'q0o1', requestId: PANE })
+  const calls = s.logs.flatMap((line, i) => (USAGE_LINE.test(line) ? [i] : []))
+  expect(calls).toHaveLength(2)
+  for (const i of calls) expect(s.logs[i + 1]).toBe(`Prompt Upgrade original: ${LONG}`)
+})
+
+test('a long original is clipped and its line breaks become spaces in the log', async ($, on) => {
+  const s = world($, on, { useQuestions: false, answers: ['Upgraded prompt.'] })
+  const text = 'first line of a long prompt\n'.repeat(40)
+  await submit($, text)
+  await settle(s)
+  const line = s.logs.find(entry => ORIGINAL_LINE.test(entry)) ?? ''
+  expect(line).not.toContain('\n')
+  expect(line.endsWith('...')).toBe(true)
+  expect(line.length).toBeLessThan(300)
 })
 
 test('model and effort from the settings reach every call and its log line', async ($, on) => {

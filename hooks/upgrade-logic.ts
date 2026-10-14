@@ -62,6 +62,9 @@ export const tookText = (flow: Flow): string => {
 export const callLine = (label: string, call: { model: string; effort: string }, ms: number): string =>
   `Prompt Upgrade ${label}: ${call.model} ${call.effort} · ${formatMs(ms)}`
 
+export const originalLine = (original: string, max: number): string =>
+  `Prompt Upgrade original: ${clip(original.replace(/\s+/g, ' ').trim(), max)}`
+
 export type GateInput = {
   text: string
   originKind: string | undefined

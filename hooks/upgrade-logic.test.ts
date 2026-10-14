@@ -20,6 +20,7 @@ import {
   reset,
   tookText,
   callLine,
+  originalLine,
   withTook,
   revised,
   rewriteInput,
@@ -336,6 +337,12 @@ test('an empty trigger keeps the ordinary gate and a long prompt still takes the
 test('a resubmitted rewrite that ends with the trigger is not intercepted again', () => {
   const flow = { ...EMPTY_FLOW, pending: 'done +++' }
   expect(gate({ silentTrigger: '+++', text: 'done +++', flow })).toMatchObject({ intercept: false, reason: 'resubmit' })
+})
+
+test('the original line holds the prompt on one line and clips it', () => {
+  expect(originalLine('fix the login bug', 240)).toBe('Prompt Upgrade original: fix the login bug')
+  expect(originalLine('  line one\n\nline  two  ', 240)).toBe('Prompt Upgrade original: line one line two')
+  expect(originalLine('abcdef', 3)).toBe('Prompt Upgrade original: abc...')
 })
 
 test('the call line names the call, model, effort and time', () => {

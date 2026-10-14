@@ -126,15 +126,18 @@ The trigger (`+++` by default) at the start or the end of a prompt is what start
 
 ## Usage log
 
-Each Haiku call writes one dim line to the transcript with `$.ui.log`. The line is not sent to the model, so it never enters the context.
+Each Haiku call writes two dim lines to the transcript with `$.ui.log`. The lines are not sent to the model, so they never enter the context.
 
 ```
 Prompt Upgrade rewrite: haiku low · 1.2s
+Prompt Upgrade original: fix the login bug
 ```
 
-- The line names the call (`questions`, `rewrite` or `revise`), the model alias and effort, and the time.
-- The line shows no token count and no cost.
-- A failed call logs its line too.
+- The first line names the call (`questions`, `rewrite` or `revise`), the model alias and effort, and the time.
+- The second line holds the prompt you typed, without the trigger. Line breaks become spaces, and the text is cut at 240 characters with `...`.
+- The lines show no token count and no cost.
+- A failed call logs its lines too.
+- A run with questions writes the pair once per call, so the original appears again after each call line.
 
 ## What is not intercepted
 
