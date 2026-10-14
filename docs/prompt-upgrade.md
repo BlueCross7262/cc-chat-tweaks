@@ -79,9 +79,7 @@ Your prompt > Questions > Rewrite > Review
   - `나머지 건너뛰고 업그레이드` goes on with the answers so far.
   - `권장안으로 업그레이드` fills the open questions with the recommended options and goes on.
 - Haiku rewrites the prompt as prose with one sentence on each line.
-  - The mod also breaks the line after each sentence end that Haiku left on one line.
-  - Text inside `<input>` tags and code fences keeps its own line breaks.
-  - A dot after a number, a single letter or an abbreviation such as `e.g.` does not end a sentence.
+  - The mod does not break lines itself. The line breaks are what Haiku wrote.
   - Pasted material stays as it is, wrapped in `<input>` tags.
 - In the review you can:
 

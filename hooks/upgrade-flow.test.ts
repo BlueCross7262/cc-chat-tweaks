@@ -186,21 +186,6 @@ test('Skip the rest upgrades without answers', async ($, on) => {
   expect((await ui.find({ type: 'Markdown' }))?.text).toContain('Upgraded without answers.')
 })
 
-test('a draft is shown with one sentence on each line', async ($, on) => {
-  const s = world($, on, { answers: [JSON.stringify({ questions: [] }), 'First sentence. Second sentence.'] })
-  await submit($, LONG)
-  await settle(s)
-  const ui = await mountPane($)
-  expect((await ui.find({ type: 'Markdown' }))?.text).toBe('First sentence.\nSecond sentence.')
-})
-
-test('a silent draft is put in the prompt box with one sentence on each line', async ($, on) => {
-  const s = world($, on, { silent: true, answers: ['First sentence. Second sentence.'] })
-  await submit($, LONG)
-  await settle(s)
-  expect(s.filled).toEqual(['First sentence.\nSecond sentence.'])
-})
-
 test('a draft that Haiku wraps in prompt tags is shown without them', async ($, on) => {
   const s = world($, on, { answers: [JSON.stringify({ questions: [] }), '<prompt>Clean draft.</prompt>'] })
   await submit($, LONG)

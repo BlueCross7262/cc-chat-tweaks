@@ -19,7 +19,6 @@ import {
   buildContext,
   clip,
   decideGate,
-  formatDraft,
   EMPTY_FLOW,
   isStale,
   MIN_LEN,
@@ -39,6 +38,7 @@ import {
   withRecommended,
   withTook,
   tookText,
+  unwrapDraft,
 } from './upgrade-logic'
 import { CALLS, Q_SYSTEM, R_SYSTEM, REVISE_SYSTEM } from './upgrade-prompts'
 import {
@@ -177,7 +177,7 @@ const startRewrite = async ($: EngineInterface, id: number): Promise<void> => {
     await setIf($, id, cur =>
       done.text === null
         ? withDraft(cur, cur.original, FAILED_NOTICE)
-        : withTook(withDraft(cur, formatDraft(done.text)), 'rewrite', done.ms),
+        : withTook(withDraft(cur, unwrapDraft(done.text)), 'rewrite', done.ms),
     )
   } catch {
     await toOriginal($, id, FAILED_NOTICE)
@@ -210,7 +210,7 @@ const revise = async ($: EngineInterface, request: string): Promise<void> => {
     await setIf($, id, cur =>
       done.text === null
         ? { ...cur, phase: 'review', notice: REVISE_FAILED_NOTICE }
-        : withTook({ ...revised(cur, formatDraft(done.text)), phase: 'review', notice: '' }, 'revise', done.ms),
+        : withTook({ ...revised(cur, unwrapDraft(done.text)), phase: 'review', notice: '' }, 'revise', done.ms),
     )
   } catch {
     await setIf($, id, cur => ({ ...cur, phase: 'review', notice: REVISE_FAILED_NOTICE }))

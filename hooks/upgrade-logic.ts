@@ -264,30 +264,6 @@ export const unwrapDraft = (raw: string): string =>
     .join('')
     .trim()
 
-const PROTECTED_BLOCK = /```[\s\S]*?```|<input>[\s\S]*?<\/input>/g
-const SENTENCE_END = /([.!?。])[ \t]+(?=\S)/g
-const SENTENCE_END_BEFORE_BLOCK = /([.!?。])[ \t]+(?=\S|$)/g
-const NO_BREAK_BEFORE = /(?:^|[\s(])(?:\d+|[A-Za-z]|e\.g|i\.e|etc|vs|Mr|Mrs|Ms|Dr)$/
-
-const breakFree = (text: string, isBeforeBlock = false): string =>
-  text.replace(isBeforeBlock ? SENTENCE_END_BEFORE_BLOCK : SENTENCE_END, (match: string, mark: string, offset: number) =>
-    mark === '.' && NO_BREAK_BEFORE.test(text.slice(0, offset)) ? match : `${mark}\n`,
-  )
-
-export const breakSentences = (text: string): string => {
-  let out = ''
-  let last = 0
-  for (const block of text.matchAll(PROTECTED_BLOCK)) {
-    const start = block.index ?? 0
-    out += breakFree(text.slice(last, start), true) + block[0]
-    last = start + block[0].length
-  }
-
-  return out + breakFree(text.slice(last))
-}
-
-export const formatDraft = (raw: string): string => breakSentences(unwrapDraft(raw))
-
 export const reviseInput = (draft: string, request: string): string =>
   `<draft>${draft}</draft><request>${request}</request>`
 
