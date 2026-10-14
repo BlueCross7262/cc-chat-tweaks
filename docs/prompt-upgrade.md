@@ -110,7 +110,7 @@ The trigger (`+++` by default) at the start or the end of a prompt forces the si
 - If you typed something else in the prompt box meanwhile, the mod leaves the box alone and puts the draft on your clipboard. A toast says so.
 - If something unexpected fails after the prompt was taken, the text without the trigger is put back in the prompt box.
 - A prompt you send while the silent upgrade is still running passes through as it is, trigger included.
-- The `min-length` check and the terminal-surface check do not apply to a silent upgrade.
+- The `min-length` check and the terminal-surface check do not apply to a prompt with the trigger. The terminal-surface check does not apply to any silent upgrade.
 - A trigger on its own, a prompt with an attachment, and a prompt that starts with `/` (after the trigger) pass through with the trigger text in them.
 - A prompt you type within 5 minutes after `입력창에서 편집` passes through once, trigger included.
 - Not verified: what the prompt box and the up-arrow history hold after the mod takes the prompt. The original text, trigger included, is likely to be in the history.
