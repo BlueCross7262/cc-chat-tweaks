@@ -4,7 +4,7 @@ import {
   describeExtras,
   describeFlags,
   effortOf,
-  FLAG_GROUPS,
+  FLAG_PATHS,
   flagsOf,
   isFlagOn,
   minLengthOf,
@@ -14,7 +14,9 @@ import {
   type FlagKey,
 } from './settings'
 
-const minLength = (value: unknown) => ({ ccChatTweaks: { prompt: { 'min-length': value } } })
+const up = (group: Record<string, unknown>) => ({ ccChatTweaks: { prompt: { 'prompt-upgrade': group } } })
+
+const minLength = (value: unknown) => up({ 'min-length': value })
 
 test('min-length comes from the first source with a valid whole number from 1 to 10000', () => {
   expect(minLengthOf([])).toBeUndefined()
@@ -24,9 +26,12 @@ test('min-length comes from the first source with a valid whole number from 1 to
   expect(minLengthOf([{ ccChatTweaks: 'x' }, null, minLength(7)])).toBe(7)
 })
 
-const set = (key: FlagKey, value: unknown) => ({ ccChatTweaks: { [FLAG_GROUPS[key]]: { [key]: value } } })
+const nest = (path: readonly string[], leaf: Record<string, unknown>): Record<string, unknown> =>
+  path.reduceRight<Record<string, unknown>>((inner, name) => ({ [name]: inner }), leaf)
 
-const triggers = (value: unknown) => ({ ccChatTweaks: { prompt: { 'silent-triggers': value } } })
+const set = (key: FlagKey, value: unknown) => ({ ccChatTweaks: nest(FLAG_PATHS[key], { [key]: value }) })
+
+const triggers = (value: unknown) => up({ 'silent-triggers': value })
 
 test('silent-triggers is the first array with a valid entry, each entry a trimmed string of 1 to 32 characters', () => {
   expect(silentTriggersOf([])).toBeUndefined()
@@ -38,7 +43,7 @@ test('silent-triggers is the first array with a valid entry, each entry a trimme
   expect(silentTriggersOf([triggers('+++')])).toBeUndefined()
   expect(silentTriggersOf([triggers(5)])).toBeUndefined()
   expect(silentTriggersOf([triggers([]), triggers(['##'])])).toEqual(['##'])
-  expect(silentTriggersOf([{ ccChatTweaks: { prompt: { 'silent-trigger': '+++' } } }])).toBeUndefined()
+  expect(silentTriggersOf([up({ 'silent-trigger': '+++' })])).toBeUndefined()
 })
 
 test('silent-triggers keeps at most 10 entries', () => {
@@ -47,7 +52,7 @@ test('silent-triggers keeps at most 10 entries', () => {
   expect(silentTriggersOf([triggers(many)])).toEqual(many.slice(0, 10))
 })
 
-const prompt = (key: string, value: unknown) => ({ ccChatTweaks: { prompt: { [key]: value } } })
+const prompt = (key: string, value: unknown) => up({ [key]: value })
 
 test('model is the first trimmed string of 1 to 100 characters', () => {
   expect(modelOf([])).toBeUndefined()
@@ -70,15 +75,21 @@ test('every feature switch is off and the option is on when no source sets it', 
   expect(isFlagOn([], 'use-questions')).toBe(true)
   expect(isFlagOn([], 'use-silent-upgrade')).toBe(true)
   expect(isFlagOn([], 'skip-silent-trigger')).toBe(false)
-  expect(isFlagOn([{ ccChatTweaks: { prompt: { 'skip-silent-trigger': true } } }], 'skip-silent-trigger')).toBe(true)
+  expect(isFlagOn([up({ 'skip-silent-trigger': true })], 'skip-silent-trigger')).toBe(true)
   expect(isFlagOn([{ ccChatTweaks: { chat: { 'skip-silent-trigger': true } } }], 'skip-silent-trigger')).toBe(false)
   expect(isFlagOn([{}, { ccChatTweaks: {} }, { ccChatTweaks: { chat: {} } }], 'use-tool-fold')).toBe(false)
 })
 
-test('the prompt switches live under ccChatTweaks.prompt and are not read from ccChatTweaks.chat', () => {
-  expect(FLAG_GROUPS['use-prompt-upgrade']).toBe('prompt')
-  expect(FLAG_GROUPS['use-questions']).toBe('prompt')
-  expect(isFlagOn([{ ccChatTweaks: { prompt: { 'use-prompt-upgrade': true } } }], 'use-prompt-upgrade')).toBe(true)
+test('the prompt upgrade keys live under ccChatTweaks.prompt.prompt-upgrade and are read from nowhere else', () => {
+  for (const key of ['use-prompt-upgrade', 'use-questions', 'use-silent-upgrade', 'skip-silent-trigger'] as const) {
+    expect(FLAG_PATHS[key]).toEqual(['prompt', 'prompt-upgrade'])
+  }
+  expect(FLAG_PATHS['use-tool-fold']).toEqual(['chat'])
+  expect(isFlagOn([up({ 'use-prompt-upgrade': true })], 'use-prompt-upgrade')).toBe(true)
+  expect(isFlagOn([{ ccChatTweaks: { prompt: { 'use-prompt-upgrade': true } } }], 'use-prompt-upgrade')).toBe(false)
+  expect(isFlagOn([{ ccChatTweaks: { 'prompt-upgrade': { 'use-prompt-upgrade': true } } }], 'use-prompt-upgrade')).toBe(false)
+  expect(minLengthOf([{ ccChatTweaks: { prompt: { 'min-length': 40 } } }])).toBeUndefined()
+  expect(modelOf([{ ccChatTweaks: { prompt: { model: 'sonnet' } } }])).toBeUndefined()
   expect(isFlagOn([{ ccChatTweaks: { chat: { 'use-prompt-upgrade': true } } }], 'use-prompt-upgrade')).toBe(false)
   expect(isFlagOn([{ ccChatTweaks: { chat: { 'use-questions': false } } }], 'use-questions')).toBe(true)
 })
@@ -127,7 +138,10 @@ test('names the source each switch comes from', () => {
 })
 
 test('adds only the missing switches with their default and keeps everything else', () => {
-  const existing = { theme: 'dark', ccChatTweaks: { chat: { 'use-tool-fold': true }, other: 1 } }
+  const existing = {
+    theme: 'dark',
+    ccChatTweaks: { chat: { 'use-tool-fold': true }, prompt: { later: { 'a-future-key': 1 } }, other: 1 },
+  }
   const { settings, added } = withMissingDefaults(existing)
 
   expect(added).toEqual(['use-edit-summary', 'use-prompt-upgrade', 'use-questions', 'use-silent-upgrade', 'skip-silent-trigger', 'min-length', 'silent-triggers', 'model', 'effort'])
@@ -136,19 +150,23 @@ test('adds only the missing switches with their default and keeps everything els
     ccChatTweaks: {
       chat: { 'use-tool-fold': true, 'use-edit-summary': false },
       prompt: {
-        'use-prompt-upgrade': false,
-        'use-questions': true,
-        'use-silent-upgrade': true,
-        'skip-silent-trigger': false,
-        'min-length': 10,
-        'silent-triggers': ['+++'],
-        model: 'haiku',
-        effort: 'low',
+        later: { 'a-future-key': 1 },
+        'prompt-upgrade': {
+          'use-prompt-upgrade': false,
+          'use-questions': true,
+          'use-silent-upgrade': true,
+          'skip-silent-trigger': false,
+          'min-length': 10,
+          'silent-triggers': ['+++'],
+          model: 'haiku',
+          effort: 'low',
+        },
       },
       other: 1,
     },
   })
   expect(existing.ccChatTweaks.chat).toEqual({ 'use-tool-fold': true })
+  expect(existing.ccChatTweaks.prompt).toEqual({ later: { 'a-future-key': 1 } })
 })
 
 test('builds the whole section for an empty or malformed file', () => {
@@ -158,33 +176,48 @@ test('builds the whole section for an empty or malformed file', () => {
     ccChatTweaks: {
       chat: { 'use-tool-fold': false, 'use-edit-summary': false },
       prompt: {
-        'use-prompt-upgrade': false,
-        'use-questions': true,
-        'use-silent-upgrade': true,
-        'skip-silent-trigger': false,
-        'min-length': 10,
-        'silent-triggers': ['+++'],
-        model: 'haiku',
-        effort: 'low',
+        'prompt-upgrade': {
+          'use-prompt-upgrade': false,
+          'use-questions': true,
+          'use-silent-upgrade': true,
+          'skip-silent-trigger': false,
+          'min-length': 10,
+          'silent-triggers': ['+++'],
+          model: 'haiku',
+          effort: 'low',
+        },
       },
     },
   })
 })
 
+test('the old location is left alone and its keys are not read', () => {
+  const old = { ccChatTweaks: { prompt: { 'use-prompt-upgrade': true, model: 'sonnet' } } }
+  const { settings, added } = withMissingDefaults(old)
+  const prompt = (settings.ccChatTweaks as { prompt: Record<string, unknown> }).prompt
+
+  expect(added).toContain('use-prompt-upgrade')
+  expect(prompt['use-prompt-upgrade']).toBe(true)
+  expect(prompt.model).toBe('sonnet')
+  expect((prompt['prompt-upgrade'] as Record<string, unknown>)['use-prompt-upgrade']).toBe(false)
+  expect(isFlagOn([settings], 'use-prompt-upgrade')).toBe(false)
+})
+
 test('the default trigger list written to a file is a copy, so editing it leaves the default alone', () => {
-  const first = withMissingDefaults({}).settings as { ccChatTweaks: { prompt: { 'silent-triggers': string[] } } }
+  type Written = { ccChatTweaks: { prompt: { 'prompt-upgrade': { 'silent-triggers': string[] } } } }
+  const first = withMissingDefaults({}).settings as Written
 
-  first.ccChatTweaks.prompt['silent-triggers'].push('>>')
-  const second = withMissingDefaults({}).settings as { ccChatTweaks: { prompt: { 'silent-triggers': string[] } } }
+  first.ccChatTweaks.prompt['prompt-upgrade']['silent-triggers'].push('>>')
+  const second = withMissingDefaults({}).settings as Written
 
-  expect(second.ccChatTweaks.prompt['silent-triggers']).toEqual(['+++'])
+  expect(second.ccChatTweaks.prompt['prompt-upgrade']['silent-triggers']).toEqual(['+++'])
 })
 
 test('describes every extra key with its value and the source it came from', () => {
   const report = describeExtras([
     ['policy', {}],
-    ['local', { ccChatTweaks: { prompt: { model: 'sonnet', 'silent-triggers': ['>>'] } } }],
-    ['user', { ccChatTweaks: { prompt: { model: 'opus', effort: 'high', 'min-length': 40 } } }],
+    ['local', up({ model: 'sonnet', 'silent-triggers': ['>>'] })],
+    ['user', up({ model: 'opus', effort: 'high', 'min-length': 40 })],
   ])
 
   expect(report).toEqual([
@@ -206,14 +239,16 @@ test('reports nothing to add when every switch is present', () => {
     ccChatTweaks: {
       chat: { 'use-tool-fold': true, 'use-edit-summary': false },
       prompt: {
-        'use-prompt-upgrade': false,
-        'use-questions': true,
-        'use-silent-upgrade': false,
-        'skip-silent-trigger': true,
-        'min-length': 25,
-        'silent-triggers': ['##', '>>'],
-        model: 'sonnet',
-        effort: 'high',
+        'prompt-upgrade': {
+          'use-prompt-upgrade': false,
+          'use-questions': true,
+          'use-silent-upgrade': false,
+          'skip-silent-trigger': true,
+          'min-length': 25,
+          'silent-triggers': ['##', '>>'],
+          model: 'sonnet',
+          effort: 'high',
+        },
       },
     },
   }

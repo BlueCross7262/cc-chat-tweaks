@@ -777,7 +777,7 @@ export const registerUpgrade = (on: Parameters<Register>[0]): void => {
       await $.store.set(KEY_MIN_LEN, n)
       const fixed = minLengthOf((await readSources($)).map(([, settings]) => settings))
       if (fixed !== undefined) {
-        return { text: `Threshold ${n} characters saved, but ccChatTweaks.prompt.min-length (${fixed}) in settings takes precedence.` }
+        return { text: `Threshold ${n} characters saved, but ccChatTweaks.prompt.prompt-upgrade.min-length (${fixed}) in settings takes precedence.` }
       }
       return { text: `Threshold ${n} characters.` }
     }

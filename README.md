@@ -12,20 +12,20 @@ Answer `y` to add the marketplace, then pick a scope.
 
 ## Settings
 
-Every feature is off until you turn it on. Switches live under `ccChatTweaks` in any settings file (`settings.json`, `settings.local.json`, project or user). The tool-call tweaks sit in the `chat` group and the prompt upgrade in the `prompt` group. A boolean in a higher-precedence source wins. A key that is absent uses its default.
+Every feature is off until you turn it on. Switches live under `ccChatTweaks` in any settings file (`settings.json`, `settings.local.json`, project or user). The tool-call tweaks sit in `ccChatTweaks.chat` and the prompt upgrade in `ccChatTweaks.prompt.prompt-upgrade`. A later prompt feature gets its own group under `ccChatTweaks.prompt`. A boolean in a higher-precedence source wins. A key that is absent uses its default.
 
 | Group | Key | Default | Feature |
 |---|---|---|---|
 | `chat` | `use-tool-fold` | `false` | Fold consecutive tool calls into one line. |
 | `chat` | `use-edit-summary` | `false` | Draw `Edit` and `Write` calls as one summary line. |
-| `prompt` | `use-prompt-upgrade` | `false` | Ask clarifying questions about your prompt and rewrite it before it is sent. |
-| `prompt` | `use-questions` | `true` | Option of `use-prompt-upgrade`. When `false`, the prompt is rewritten without questions. |
-| `prompt` | `use-silent-upgrade` | `true` | Option of `use-prompt-upgrade`. When `true`, the pane never opens, and only a prompt with the trigger is upgraded. The recommended answers to the questions are applied when `use-questions` is `true`, and the draft is put in the prompt box without being sent. |
-| `prompt` | `skip-silent-trigger` | `false` | Option of `use-silent-upgrade`. When `true`, the trigger check is skipped and every prompt of `min-length` or more is upgraded without the pane. |
-| `prompt` | `silent-triggers` | `["+++"]` | The trigger texts for the silent upgrade, as an array of strings. |
-| `prompt` | `min-length` | `10` | Shortest prompt that is upgraded, in characters. |
-| `prompt` | `model` | `haiku` | The model of every upgrade call. An alias or a full model id. |
-| `prompt` | `effort` | `low` | The effort of every upgrade call: `low`, `medium`, `high`, `xhigh` or `max`. |
+| `prompt.prompt-upgrade` | `use-prompt-upgrade` | `false` | Ask clarifying questions about your prompt and rewrite it before it is sent. |
+| `prompt.prompt-upgrade` | `use-questions` | `true` | Option of `use-prompt-upgrade`. When `false`, the prompt is rewritten without questions. |
+| `prompt.prompt-upgrade` | `use-silent-upgrade` | `true` | Option of `use-prompt-upgrade`. When `true`, the pane never opens, and only a prompt with the trigger is upgraded. The recommended answers to the questions are applied when `use-questions` is `true`, and the draft is put in the prompt box without being sent. |
+| `prompt.prompt-upgrade` | `skip-silent-trigger` | `false` | Option of `use-silent-upgrade`. When `true`, the trigger check is skipped and every prompt of `min-length` or more is upgraded without the pane. |
+| `prompt.prompt-upgrade` | `silent-triggers` | `["+++"]` | The trigger texts for the silent upgrade, as an array of strings. |
+| `prompt.prompt-upgrade` | `min-length` | `10` | Shortest prompt that is upgraded, in characters. |
+| `prompt.prompt-upgrade` | `model` | `haiku` | The model of every upgrade call. An alias or a full model id. |
+| `prompt.prompt-upgrade` | `effort` | `low` | The effort of every upgrade call: `low`, `medium`, `high`, `xhigh` or `max`. |
 
 ```json
 {
@@ -35,14 +35,16 @@ Every feature is off until you turn it on. Switches live under `ccChatTweaks` in
       "use-edit-summary": false
     },
     "prompt": {
-      "use-prompt-upgrade": false,
-      "use-questions": true
+      "prompt-upgrade": {
+        "use-prompt-upgrade": false,
+        "use-questions": true
+      }
     }
   }
 }
 ```
 
-The prompt switches are not read from the `chat` group. A `use-prompt-upgrade` or `use-questions` left there from an earlier version has no effect.
+The prompt upgrade keys are read only from `ccChatTweaks.prompt.prompt-upgrade`. Keys left in `ccChatTweaks.prompt` or `ccChatTweaks.chat` by an earlier version have no effect, and neither does the old `silent-trigger` key. `/tweaks-doctor` writes the new group with defaults and leaves the old keys where they are, so move your values by hand.
 
 ## Doctor
 

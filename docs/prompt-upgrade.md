@@ -21,8 +21,11 @@ Run `/reload-plugins` after you edit a file.
 ## Settings
 
 The feature is off until you turn it on.
-Switches live under `ccChatTweaks.prompt` in any settings file (`settings.json`, `settings.local.json`, project or user). The tool-call tweaks use the `ccChatTweaks.chat` group.
-The prompt keys are not read from `ccChatTweaks.chat`.
+Switches live under `ccChatTweaks.prompt.prompt-upgrade` in any settings file (`settings.json`, `settings.local.json`, project or user). The tool-call tweaks use the `ccChatTweaks.chat` group.
+Other prompt features can get their own group under `ccChatTweaks.prompt`.
+The prompt upgrade keys are read only from `ccChatTweaks.prompt.prompt-upgrade`.
+Keys left in `ccChatTweaks.prompt` or `ccChatTweaks.chat` by an earlier version have no effect.
+`/tweaks-doctor` leaves those old keys where they are, so move your values by hand.
 A boolean in a higher-precedence source wins.
 A key that is absent uses its default.
 `/tweaks-doctor` writes the missing keys with their defaults.
@@ -42,14 +45,16 @@ A key that is absent uses its default.
 {
   "ccChatTweaks": {
     "prompt": {
-      "use-prompt-upgrade": true,
-      "use-questions": true,
-      "use-silent-upgrade": true,
-      "skip-silent-trigger": false,
-      "silent-triggers": ["+++"],
-      "min-length": 40,
-      "model": "haiku",
-      "effort": "low"
+      "prompt-upgrade": {
+        "use-prompt-upgrade": true,
+        "use-questions": true,
+        "use-silent-upgrade": true,
+        "skip-silent-trigger": false,
+        "silent-triggers": ["+++"],
+        "min-length": 40,
+        "model": "haiku",
+        "effort": "low"
+      }
     }
   }
 }

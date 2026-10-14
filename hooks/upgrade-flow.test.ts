@@ -38,7 +38,7 @@ const world = (
   })
   const group = { 'use-prompt-upgrade': options.enabled ?? true, 'use-questions': options.useQuestions ?? true, 'use-silent-upgrade': options.silent ?? false, ...options.extra }
   mock.store(on, {})
-  on('settings.read', (_$, e) => ({ value: (e as { source?: string }).source === 'user' ? { ccChatTweaks: { prompt: group } } : {} }) as never)
+  on('settings.read', (_$, e) => ({ value: (e as { source?: string }).source === 'user' ? { ccChatTweaks: { prompt: { 'prompt-upgrade': group } } } : {} }) as never)
   on('session.surfaces', () => ({ value: ['terminal'] }) as never)
   on('prompt.read', () => ({ value: { text: options.box ?? '', cursor: 0 } }) as never)
   on('ui.open', () => (s.opens++, { value: options.isPlaced === false ? { isPlaced: false, reason: 'narrow' } : { isPlaced: true } }) as never)

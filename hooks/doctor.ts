@@ -1,4 +1,4 @@
-import { GROUPS, isFeatureKey, type ExtraReport, type FlagKey } from './settings'
+import { GROUP_PATHS, isFeatureKey, pathText, type ExtraReport, type FlagKey } from './settings'
 
 export type FlagReport = {
   key: FlagKey
@@ -57,7 +57,7 @@ export const checksOf = (input: DoctorInput): string[] => {
 
   if (!input.flags.some(report => report.value && isFeatureKey(report.key))) {
     checks.push(
-      '[info] Every feature is off, so the mod draws nothing. Set a use-* switch to true in settings.json to turn it on (use-tool-fold and use-edit-summary under ccChatTweaks.chat, use-prompt-upgrade under ccChatTweaks.prompt).',
+      '[info] Every feature is off, so the mod draws nothing. Set a use-* switch to true in settings.json to turn it on (use-tool-fold and use-edit-summary under ccChatTweaks.chat, use-prompt-upgrade under ccChatTweaks.prompt.prompt-upgrade).',
     )
   }
 
@@ -75,7 +75,7 @@ export const formatReport = (input: DoctorInput): string => {
   return [
     'cc-chat-tweaks doctor',
     '',
-    `settings (${GROUPS.map(group => `ccChatTweaks.${group}`).join(', ')})`,
+    `settings (${GROUP_PATHS.map(pathText).join(', ')})`,
     ...input.flags.map(report => flag(report, width)),
     ...input.extras.map(report => extra(report, width)),
     '',

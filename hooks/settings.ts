@@ -12,16 +12,21 @@ export const FLAG_DEFAULTS = {
 
 export type FlagKey = keyof typeof FLAG_DEFAULTS
 
-export const FLAG_GROUPS: Record<FlagKey, string> = {
-  'use-tool-fold': 'chat',
-  'use-edit-summary': 'chat',
-  'use-prompt-upgrade': 'prompt',
-  'use-questions': 'prompt',
-  'use-silent-upgrade': 'prompt',
-  'skip-silent-trigger': 'prompt',
+export const CHAT_PATH: readonly string[] = ['chat']
+export const PROMPT_UPGRADE_PATH: readonly string[] = ['prompt', 'prompt-upgrade']
+
+export const FLAG_PATHS: Record<FlagKey, readonly string[]> = {
+  'use-tool-fold': CHAT_PATH,
+  'use-edit-summary': CHAT_PATH,
+  'use-prompt-upgrade': PROMPT_UPGRADE_PATH,
+  'use-questions': PROMPT_UPGRADE_PATH,
+  'use-silent-upgrade': PROMPT_UPGRADE_PATH,
+  'skip-silent-trigger': PROMPT_UPGRADE_PATH,
 }
 
-export const GROUPS: readonly string[] = [...new Set(Object.values(FLAG_GROUPS))]
+export const GROUP_PATHS: readonly (readonly string[])[] = [CHAT_PATH, PROMPT_UPGRADE_PATH]
+
+export const pathText = (path: readonly string[]): string => [SETTINGS_NAMESPACE, ...path].join('.')
 
 export const OPTION_KEYS: readonly FlagKey[] = ['use-questions', 'use-silent-upgrade', 'skip-silent-trigger']
 
@@ -32,12 +37,20 @@ export type Flags = Record<FlagKey, boolean>
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
-const groupOf = (source: unknown, key: FlagKey): Record<string, unknown> | undefined => {
-  const namespace = isRecord(source) ? source[SETTINGS_NAMESPACE] : undefined
-  const group = isRecord(namespace) ? namespace[FLAG_GROUPS[key]] : undefined
+const groupAt = (source: unknown, path: readonly string[]): Record<string, unknown> | undefined => {
+  let node: unknown = isRecord(source) ? source[SETTINGS_NAMESPACE] : undefined
 
-  return isRecord(group) ? group : undefined
+  for (const name of path) {
+    node = isRecord(node) ? node[name] : undefined
+  }
+
+  return isRecord(node) ? node : undefined
 }
+
+const groupOf = (source: unknown, key: FlagKey): Record<string, unknown> | undefined =>
+  groupAt(source, FLAG_PATHS[key])
+
+const upgradeValueOf = (source: unknown, key: string): unknown => groupAt(source, PROMPT_UPGRADE_PATH)?.[key]
 
 export const isFlagOn = (sources: readonly unknown[], key: FlagKey): boolean => {
   for (const source of sources) {
@@ -106,15 +119,35 @@ export const withMissingDefaults = (
   const namespace: Record<string, unknown> = isRecord(root[SETTINGS_NAMESPACE])
     ? { ...(root[SETTINGS_NAMESPACE] as Record<string, unknown>) }
     : {}
-  const groups: Record<string, Record<string, unknown>> = {}
+  const copies = new Set<unknown>([namespace])
   const added: AddedKey[] = []
 
-  for (const name of GROUPS) {
-    groups[name] = isRecord(namespace[name]) ? { ...(namespace[name] as Record<string, unknown>) } : {}
+  const groupIn = (path: readonly string[]): Record<string, unknown> => {
+    let node = namespace
+
+    for (const name of path) {
+      const child = node[name]
+
+      if (isRecord(child) && copies.has(child)) {
+        node = child
+      } else {
+        const copy: Record<string, unknown> = isRecord(child) ? { ...child } : {}
+
+        copies.add(copy)
+        node[name] = copy
+        node = copy
+      }
+    }
+
+    return node
+  }
+
+  for (const path of GROUP_PATHS) {
+    groupIn(path)
   }
 
   for (const key of flagKeys) {
-    const group = groups[FLAG_GROUPS[key]] as Record<string, unknown>
+    const group = groupIn(FLAG_PATHS[key])
 
     if (group[key] === undefined) {
       group[key] = FLAG_DEFAULTS[key]
@@ -122,17 +155,13 @@ export const withMissingDefaults = (
     }
   }
 
-  const promptGroup = groups.prompt as Record<string, unknown>
+  const upgradeGroup = groupIn(PROMPT_UPGRADE_PATH)
 
   for (const key of Object.keys(EXTRA_DEFAULTS) as ExtraKey[]) {
-    if (promptGroup[key] === undefined) {
-      promptGroup[key] = copyOf(EXTRA_DEFAULTS[key])
+    if (upgradeGroup[key] === undefined) {
+      upgradeGroup[key] = copyOf(EXTRA_DEFAULTS[key])
       added.push(key)
     }
-  }
-
-  for (const name of GROUPS) {
-    namespace[name] = groups[name]
   }
 
   root[SETTINGS_NAMESPACE] = namespace
@@ -144,9 +173,7 @@ const hasFlag = (source: unknown, key: FlagKey): boolean => typeof groupOf(sourc
 
 export const minLengthOf = (sources: readonly unknown[]): number | undefined => {
   for (const source of sources) {
-    const namespace = isRecord(source) ? source[SETTINGS_NAMESPACE] : undefined
-    const group = isRecord(namespace) ? namespace.prompt : undefined
-    const value = isRecord(group) ? group[MIN_LENGTH_KEY] : undefined
+    const value = upgradeValueOf(source, MIN_LENGTH_KEY)
 
     if (typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 10000) return value
   }
@@ -156,9 +183,7 @@ export const minLengthOf = (sources: readonly unknown[]): number | undefined => 
 
 export const silentTriggersOf = (sources: readonly unknown[]): string[] | undefined => {
   for (const source of sources) {
-    const namespace = isRecord(source) ? source[SETTINGS_NAMESPACE] : undefined
-    const group = isRecord(namespace) ? namespace.prompt : undefined
-    const value = isRecord(group) ? group[SILENT_TRIGGERS_KEY] : undefined
+    const value = upgradeValueOf(source, SILENT_TRIGGERS_KEY)
 
     if (!Array.isArray(value)) continue
     const triggers = [
@@ -180,9 +205,7 @@ export type Effort = (typeof EFFORTS)[number]
 
 export const modelOf = (sources: readonly unknown[]): string | undefined => {
   for (const source of sources) {
-    const namespace = isRecord(source) ? source[SETTINGS_NAMESPACE] : undefined
-    const group = isRecord(namespace) ? namespace.prompt : undefined
-    const value = isRecord(group) ? group[MODEL_KEY] : undefined
+    const value = upgradeValueOf(source, MODEL_KEY)
 
     if (typeof value === 'string' && value.trim().length >= 1 && value.trim().length <= 100) return value.trim()
   }
@@ -192,9 +215,7 @@ export const modelOf = (sources: readonly unknown[]): string | undefined => {
 
 export const effortOf = (sources: readonly unknown[]): Effort | undefined => {
   for (const source of sources) {
-    const namespace = isRecord(source) ? source[SETTINGS_NAMESPACE] : undefined
-    const group = isRecord(namespace) ? namespace.prompt : undefined
-    const value = isRecord(group) ? group[EFFORT_KEY] : undefined
+    const value = upgradeValueOf(source, EFFORT_KEY)
 
     if (typeof value === 'string' && (EFFORTS as readonly string[]).includes(value.trim())) return value.trim() as Effort
   }
