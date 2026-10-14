@@ -319,10 +319,10 @@ const withHeader = (
         <Text color={header.isPending ? 'suggestion' : header.failed > 0 ? FAILED_COLOR : 'success'}>
           {isDotOn ? ROW_MARK : '  '}
         </Text>
-        <Text>{headerText(header)}</Text>
-        {failedSeparator(header) !== '' ? <Text>{failedSeparator(header)}</Text> : null}
+        <Text dimColor>{headerText(header)}</Text>
+        {failedSeparator(header) !== '' ? <Text dimColor>{failedSeparator(header)}</Text> : null}
         {header.failed > 0 ? <Text color={FAILED_COLOR}> {header.failed} failed</Text> : null}
-        {hasChanges(header) ? <Text> …</Text> : null}
+        {hasChanges(header) ? <Text dimColor> …</Text> : null}
         {header.added > 0 ? <Text color="green"> +{header.added}</Text> : null}
         {header.removed > 0 ? <Text color="red"> -{header.removed}</Text> : null}
       </Box>
