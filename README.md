@@ -21,6 +21,7 @@ Every feature is off until you turn it on. Switches live under `ccChatTweaks` in
 | `prompt` | `use-prompt-upgrade` | `false` | Ask clarifying questions about your prompt and rewrite it before it is sent. |
 | `prompt` | `use-questions` | `true` | Option of `use-prompt-upgrade`. When `false`, the prompt is rewritten without questions. |
 | `prompt` | `use-silent-upgrade` | `true` | Option of `use-prompt-upgrade`. When `true`, the pane never opens, and only a prompt with the trigger is upgraded. The recommended answers to the questions are applied when `use-questions` is `true`, and the draft is put in the prompt box without being sent. |
+| `prompt` | `skip-silent-trigger` | `false` | Option of `use-silent-upgrade`. When `true`, the trigger check is skipped and every prompt of `min-length` or more is upgraded without the pane. |
 | `prompt` | `silent-trigger` | `+++` | The trigger text for the silent upgrade. |
 | `prompt` | `min-length` | `10` | Shortest prompt that is upgraded, in characters. |
 | `prompt` | `model` | `haiku` | The model of every upgrade call. An alias or a full model id. |

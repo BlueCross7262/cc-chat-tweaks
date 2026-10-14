@@ -43,6 +43,7 @@ const base: GateInput = {
   minLen: MIN_LEN,
   silentTrigger: '',
   isSilent: false,
+  skipTrigger: false,
   now: 1000,
   flow: EMPTY_FLOW,
 }
@@ -327,6 +328,23 @@ test('with the silent switch on only the trigger starts an upgrade, and a prompt
   expect(gate({ ...on, text: '+++ short' })).toEqual({ intercept: true, silent: true, text: 'short' })
   expect(gate({ ...on, text: '/compact now please do it' })).toMatchObject({ intercept: false, reason: 'slash' })
   expect(gate({ ...on, originKind: 'peer' })).toMatchObject({ intercept: false, reason: 'origin' })
+})
+
+test('skip-silent-trigger upgrades every long prompt without the pane and keeps the other checks', () => {
+  const on = { isSilent: true, skipTrigger: true, silentTrigger: '+++' }
+
+  expect(gate({ ...on })).toEqual({ intercept: true, silent: true, text: base.text })
+  expect(gate({ ...on, surfaces: [] })).toEqual({ intercept: true, silent: true, text: base.text })
+  expect(gate({ ...on, text: base.text + ' +++' })).toEqual({ intercept: true, silent: true, text: base.text })
+  expect(gate({ ...on, text: 'short' })).toMatchObject({ intercept: false, reason: 'short' })
+  expect(gate({ ...on, text: '+++ short' })).toEqual({ intercept: true, silent: true, text: 'short' })
+  expect(gate({ ...on, text: '/compact now please do it' })).toMatchObject({ intercept: false, reason: 'slash' })
+  expect(gate({ ...on, originKind: 'peer' })).toMatchObject({ intercept: false, reason: 'origin' })
+  expect(gate({ ...on, now: 4000, flow: { ...EMPTY_FLOW, skipUntil: 5000 } })).toMatchObject({ intercept: false, reason: 'manual-edit' })
+})
+
+test('skip-silent-trigger does nothing while the silent switch is off', () => {
+  expect(gate({ isSilent: false, skipTrigger: true })).toEqual({ intercept: true })
 })
 
 test('an empty trigger keeps the ordinary gate and a long prompt still takes the pane path', () => {

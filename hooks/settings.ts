@@ -7,6 +7,7 @@ export const FLAG_DEFAULTS = {
   'use-prompt-upgrade': false,
   'use-questions': true,
   'use-silent-upgrade': true,
+  'skip-silent-trigger': false,
 } as const
 
 export type FlagKey = keyof typeof FLAG_DEFAULTS
@@ -17,11 +18,12 @@ export const FLAG_GROUPS: Record<FlagKey, string> = {
   'use-prompt-upgrade': 'prompt',
   'use-questions': 'prompt',
   'use-silent-upgrade': 'prompt',
+  'skip-silent-trigger': 'prompt',
 }
 
 export const GROUPS: readonly string[] = [...new Set(Object.values(FLAG_GROUPS))]
 
-export const OPTION_KEYS: readonly FlagKey[] = ['use-questions', 'use-silent-upgrade']
+export const OPTION_KEYS: readonly FlagKey[] = ['use-questions', 'use-silent-upgrade', 'skip-silent-trigger']
 
 export const isFeatureKey = (key: FlagKey): boolean => !OPTION_KEYS.includes(key)
 
@@ -190,4 +192,5 @@ export const flagsOf = (sources: readonly unknown[]): Flags => ({
   'use-prompt-upgrade': isFlagOn(sources, 'use-prompt-upgrade'),
   'use-questions': isFlagOn(sources, 'use-questions'),
   'use-silent-upgrade': isFlagOn(sources, 'use-silent-upgrade'),
+  'skip-silent-trigger': isFlagOn(sources, 'skip-silent-trigger'),
 })

@@ -630,6 +630,7 @@ const settingsOf = async ($: EngineInterface) => {
     isEnabled: flags['use-prompt-upgrade'],
     useQuestions: flags['use-questions'],
     isSilent: flags['use-prompt-upgrade'] && flags['use-silent-upgrade'],
+    skipTrigger: flags['skip-silent-trigger'],
     minLen: minLengthOf(sources) ?? parseMinLen(await $.store.get(KEY_MIN_LEN)),
     silentTrigger:
       flags['use-prompt-upgrade'] && flags['use-silent-upgrade'] ? (silentTriggerOf(sources) ?? DEFAULT_SILENT_TRIGGER) : '',
@@ -657,7 +658,7 @@ const readContext = async ($: EngineInterface): Promise<string> => {
 }
 
 const interceptOrPass = async ($: EngineInterface, e: PromptSubmitInput) => {
-  const { isEnabled, useQuestions, isSilent, minLen, silentTrigger } = await settingsOf($)
+  const { isEnabled, useQuestions, isSilent, skipTrigger, minLen, silentTrigger } = await settingsOf($)
   const flow = await getFlow($)
   const gate = decideGate({
     text: e.text,
@@ -669,6 +670,7 @@ const interceptOrPass = async ($: EngineInterface, e: PromptSubmitInput) => {
     minLen,
     silentTrigger,
     isSilent,
+    skipTrigger,
     now: await $.clock.now(),
     flow,
   })

@@ -58,6 +58,9 @@ test('every feature switch is off and the option is on when no source sets it', 
   expect(isFlagOn([], 'use-prompt-upgrade')).toBe(false)
   expect(isFlagOn([], 'use-questions')).toBe(true)
   expect(isFlagOn([], 'use-silent-upgrade')).toBe(true)
+  expect(isFlagOn([], 'skip-silent-trigger')).toBe(false)
+  expect(isFlagOn([{ ccChatTweaks: { prompt: { 'skip-silent-trigger': true } } }], 'skip-silent-trigger')).toBe(true)
+  expect(isFlagOn([{ ccChatTweaks: { chat: { 'skip-silent-trigger': true } } }], 'skip-silent-trigger')).toBe(false)
   expect(isFlagOn([{}, { ccChatTweaks: {} }, { ccChatTweaks: { chat: {} } }], 'use-tool-fold')).toBe(false)
 })
 
@@ -97,6 +100,7 @@ test('reads every flag at once', () => {
     'use-prompt-upgrade': true,
     'use-questions': true,
     'use-silent-upgrade': true,
+    'skip-silent-trigger': false,
   })
 })
 
@@ -115,7 +119,7 @@ test('adds only the missing switches with their default and keeps everything els
   const existing = { theme: 'dark', ccChatTweaks: { chat: { 'use-tool-fold': true }, other: 1 } }
   const { settings, added } = withMissingDefaults(existing)
 
-  expect(added).toEqual(['use-edit-summary', 'use-prompt-upgrade', 'use-questions', 'use-silent-upgrade', 'min-length', 'silent-trigger', 'model', 'effort'])
+  expect(added).toEqual(['use-edit-summary', 'use-prompt-upgrade', 'use-questions', 'use-silent-upgrade', 'skip-silent-trigger', 'min-length', 'silent-trigger', 'model', 'effort'])
   expect(settings).toEqual({
     theme: 'dark',
     ccChatTweaks: {
@@ -124,6 +128,7 @@ test('adds only the missing switches with their default and keeps everything els
         'use-prompt-upgrade': false,
         'use-questions': true,
         'use-silent-upgrade': true,
+        'skip-silent-trigger': false,
         'min-length': 10,
         'silent-trigger': '+++',
         model: 'haiku',
@@ -136,8 +141,8 @@ test('adds only the missing switches with their default and keeps everything els
 })
 
 test('builds the whole section for an empty or malformed file', () => {
-  expect(withMissingDefaults({}).added).toHaveLength(9)
-  expect(withMissingDefaults(null).added).toHaveLength(9)
+  expect(withMissingDefaults({}).added).toHaveLength(10)
+  expect(withMissingDefaults(null).added).toHaveLength(10)
   expect(withMissingDefaults({ ccChatTweaks: 'x' }).settings).toEqual({
     ccChatTweaks: {
       chat: { 'use-tool-fold': false, 'use-edit-summary': false },
@@ -145,6 +150,7 @@ test('builds the whole section for an empty or malformed file', () => {
         'use-prompt-upgrade': false,
         'use-questions': true,
         'use-silent-upgrade': true,
+        'skip-silent-trigger': false,
         'min-length': 10,
         'silent-trigger': '+++',
         model: 'haiku',
@@ -162,6 +168,7 @@ test('reports nothing to add when every switch is present', () => {
         'use-prompt-upgrade': false,
         'use-questions': true,
         'use-silent-upgrade': false,
+        'skip-silent-trigger': true,
         'min-length': 25,
         'silent-trigger': '##',
         model: 'sonnet',

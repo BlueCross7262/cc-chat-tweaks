@@ -364,6 +364,37 @@ test('with use-silent-upgrade on a prompt without the trigger passes through wit
   expect(s.entered).toEqual([LONG])
 })
 
+test('skip-silent-trigger upgrades a prompt without the trigger, with no pane and nothing sent', async ($, on) => {
+  const s = world($, on, {
+    silent: true,
+    useQuestions: false,
+    extra: { 'skip-silent-trigger': true },
+    answers: ['Always silent draft.'],
+  })
+  const result = await submit($, LONG)
+  await settle(s)
+  expect(result).toMatchObject({ drop: expect.any(String) })
+  expect(s.opens).toBe(0)
+  expect(s.models).toHaveLength(1)
+  expect(s.prompts[0]).toContain(LONG)
+  expect(s.filled).toEqual(['Always silent draft.'])
+  expect(s.entered).toEqual([])
+})
+
+test('skip-silent-trigger still passes a short prompt', async ($, on) => {
+  const s = world($, on, { silent: true, extra: { 'skip-silent-trigger': true }, answers: ['Unused.'] })
+  expect(await submit($, 'too short')).toMatchObject({ text: 'too short' })
+  expect(s.models).toEqual([])
+})
+
+test('skip-silent-trigger does nothing while use-silent-upgrade is false', async ($, on) => {
+  const s = world($, on, { silent: false, extra: { 'skip-silent-trigger': true }, answers: [QUESTION] })
+  const result = await submit($, LONG)
+  await settle(s)
+  expect(result).toMatchObject({ drop: expect.any(String) })
+  expect(s.opens).toBe(1)
+})
+
 const RECOMMENDED_QUESTION = JSON.stringify({ questions: [{ q: 'Which format?', options: ['table', 'bullets', 'prose'], recommended: 1 }] })
 
 test('a silent run asks inside, applies the recommended answer and fills the draft', async ($, on) => {
