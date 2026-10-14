@@ -1,9 +1,9 @@
 import type { Call, Change, Run, RunState } from '../types'
 import { countOutput, type EditOutput } from './edit-counts'
+import { DEFAULT_UNFOLDED_TOOLS } from './settings'
 
 export const FOLD_MIN_CALLS = 1
 
-const UNFOLDED_TOOLS = ['AskUserQuestion', 'Skill', 'Agent']
 const MAX_RUNS = 60
 const MAX_IDS = 400
 const TALLY_SHOWN = 4
@@ -143,11 +143,11 @@ const addCall = (runs: Run[], call: Call): Run[] => {
     : [...runs, { id: call.id, calls: [call], isClosed: false }]
 }
 
-const withResponse = (state: RunState, blocks: Block[]): RunState => {
+const withResponse = (state: RunState, blocks: Block[], unfolded: readonly string[]): RunState => {
   let runs = state.runs
 
   for (const block of blocks) {
-    if (block.type === 'tool_use' && UNFOLDED_TOOLS.includes(block.name ?? '')) {
+    if (block.type === 'tool_use' && unfolded.includes(block.name ?? '')) {
       runs = closeLast(runs)
     } else if (block.type === 'tool_use' && typeof block.id === 'string') {
       runs = addCall(runs, { id: block.id, name: block.name ?? 'tool' })
@@ -188,7 +188,11 @@ export const closeOpenRun = (stored: RunState): RunState => {
 export const closeRunOnTurnEnd = (stored: RunState, agentId: string | undefined): RunState =>
   agentId === undefined ? closeOpenRun(stored) : stored
 
-export const applyRow = (stored: RunState, row: AppendedRow): RunState => {
+export const applyRow = (
+  stored: RunState,
+  row: AppendedRow,
+  unfolded: readonly string[] = DEFAULT_UNFOLDED_TOOLS,
+): RunState => {
   const state = normalizeState(stored)
 
   if (row.agentId !== undefined) {
@@ -200,7 +204,7 @@ export const applyRow = (stored: RunState, row: AppendedRow): RunState => {
   }
 
   if (row.door === 'response') {
-    return withResponse(state, blocksOf(row.content))
+    return withResponse(state, blocksOf(row.content), unfolded)
   }
 
   if (row.door === 'tool-result') {
@@ -230,8 +234,12 @@ export type RowProps = {
   isInterrupted: boolean
 }
 
-export const isStreamingRow = (stored: RunState, props: RowProps): boolean =>
-  !UNFOLDED_TOOLS.includes(props.tool) &&
+export const isStreamingRow = (
+  stored: RunState,
+  props: RowProps,
+  unfolded: readonly string[] = DEFAULT_UNFOLDED_TOOLS,
+): boolean =>
+  !unfolded.includes(props.tool) &&
   props.output === undefined &&
   !props.isErrored &&
   !props.isInterrupted &&

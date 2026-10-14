@@ -90,13 +90,25 @@ export const SILENT_TRIGGERS_KEY = 'silent-triggers'
 export const MAX_SILENT_TRIGGERS = 10
 export const MODEL_KEY = 'model'
 export const EFFORT_KEY = 'effort'
+export const UNFOLDED_TOOLS_KEY = 'unfolded-tools'
+export const DEFAULT_UNFOLDED_TOOLS: readonly string[] = ['AskUserQuestion', 'Skill', 'Agent']
+export const MAX_UNFOLDED_TOOLS = 50
 
 const EXTRA_DEFAULTS = {
   [MIN_LENGTH_KEY]: DEFAULT_MIN_LENGTH,
   [SILENT_TRIGGERS_KEY]: DEFAULT_SILENT_TRIGGERS,
   [MODEL_KEY]: DEFAULT_MODEL,
   [EFFORT_KEY]: DEFAULT_EFFORT,
+  [UNFOLDED_TOOLS_KEY]: DEFAULT_UNFOLDED_TOOLS,
 } as const
+
+const EXTRA_PATHS: Record<keyof typeof EXTRA_DEFAULTS, readonly string[]> = {
+  [MIN_LENGTH_KEY]: PROMPT_UPGRADE_PATH,
+  [SILENT_TRIGGERS_KEY]: PROMPT_UPGRADE_PATH,
+  [MODEL_KEY]: PROMPT_UPGRADE_PATH,
+  [EFFORT_KEY]: PROMPT_UPGRADE_PATH,
+  [UNFOLDED_TOOLS_KEY]: CHAT_PATH,
+}
 
 export type ExtraKey = keyof typeof EXTRA_DEFAULTS
 
@@ -155,11 +167,11 @@ export const withMissingDefaults = (
     }
   }
 
-  const upgradeGroup = groupIn(PROMPT_UPGRADE_PATH)
-
   for (const key of Object.keys(EXTRA_DEFAULTS) as ExtraKey[]) {
-    if (upgradeGroup[key] === undefined) {
-      upgradeGroup[key] = copyOf(EXTRA_DEFAULTS[key])
+    const group = groupIn(EXTRA_PATHS[key])
+
+    if (group[key] === undefined) {
+      group[key] = copyOf(EXTRA_DEFAULTS[key])
       added.push(key)
     }
   }
@@ -223,12 +235,34 @@ export const effortOf = (sources: readonly unknown[]): Effort | undefined => {
   return undefined
 }
 
+export const unfoldedToolsOf = (sources: readonly unknown[]): string[] | undefined => {
+  for (const source of sources) {
+    const value = groupAt(source, CHAT_PATH)?.[UNFOLDED_TOOLS_KEY]
+
+    if (!Array.isArray(value)) continue
+    if (value.length === 0) return []
+    const tools = [
+      ...new Set(
+        value
+          .filter((item): item is string => typeof item === 'string')
+          .map(item => item.trim())
+          .filter(item => item.length >= 1 && item.length <= 100),
+      ),
+    ].slice(0, MAX_UNFOLDED_TOOLS)
+
+    if (tools.length > 0) return tools
+  }
+
+  return undefined
+}
+
 export type ExtraReport = { key: ExtraKey; value: number | string | string[]; from: string }
 
 const extraReader = (key: ExtraKey): ((sources: readonly unknown[]) => number | string | string[] | undefined) => {
   if (key === MIN_LENGTH_KEY) return minLengthOf
   if (key === SILENT_TRIGGERS_KEY) return silentTriggersOf
   if (key === MODEL_KEY) return modelOf
+  if (key === UNFOLDED_TOOLS_KEY) return unfoldedToolsOf
 
   return effortOf
 }

@@ -1,6 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 
 import {
+  DEFAULT_UNFOLDED_TOOLS,
   describeExtras,
   describeFlags,
   effortOf,
@@ -10,6 +11,7 @@ import {
   minLengthOf,
   modelOf,
   silentTriggersOf,
+  unfoldedToolsOf,
   withMissingDefaults,
   type FlagKey,
 } from './settings'
@@ -144,11 +146,11 @@ test('adds only the missing switches with their default and keeps everything els
   }
   const { settings, added } = withMissingDefaults(existing)
 
-  expect(added).toEqual(['use-edit-summary', 'use-prompt-upgrade', 'use-questions', 'use-silent-upgrade', 'skip-silent-trigger', 'min-length', 'silent-triggers', 'model', 'effort'])
+  expect(added).toEqual(['use-edit-summary', 'use-prompt-upgrade', 'use-questions', 'use-silent-upgrade', 'skip-silent-trigger', 'min-length', 'silent-triggers', 'model', 'effort', 'unfolded-tools'])
   expect(settings).toEqual({
     theme: 'dark',
     ccChatTweaks: {
-      chat: { 'use-tool-fold': true, 'use-edit-summary': false },
+      chat: { 'use-tool-fold': true, 'use-edit-summary': false, 'unfolded-tools': ['AskUserQuestion', 'Skill', 'Agent'] },
       prompt: {
         later: { 'a-future-key': 1 },
         'prompt-upgrade': {
@@ -170,11 +172,11 @@ test('adds only the missing switches with their default and keeps everything els
 })
 
 test('builds the whole section for an empty or malformed file', () => {
-  expect(withMissingDefaults({}).added).toHaveLength(10)
-  expect(withMissingDefaults(null).added).toHaveLength(10)
+  expect(withMissingDefaults({}).added).toHaveLength(11)
+  expect(withMissingDefaults(null).added).toHaveLength(11)
   expect(withMissingDefaults({ ccChatTweaks: 'x' }).settings).toEqual({
     ccChatTweaks: {
-      chat: { 'use-tool-fold': false, 'use-edit-summary': false },
+      chat: { 'use-tool-fold': false, 'use-edit-summary': false, 'unfolded-tools': ['AskUserQuestion', 'Skill', 'Agent'] },
       prompt: {
         'prompt-upgrade': {
           'use-prompt-upgrade': false,
@@ -225,19 +227,47 @@ test('describes every extra key with its value and the source it came from', () 
     { key: 'silent-triggers', value: ['>>'], from: 'local' },
     { key: 'model', value: 'sonnet', from: 'local' },
     { key: 'effort', value: 'high', from: 'user' },
+    { key: 'unfolded-tools', value: ['AskUserQuestion', 'Skill', 'Agent'], from: 'default' },
   ])
   expect(describeExtras([['user', {}]])).toEqual([
     { key: 'min-length', value: 10, from: 'default' },
     { key: 'silent-triggers', value: ['+++'], from: 'default' },
     { key: 'model', value: 'haiku', from: 'default' },
     { key: 'effort', value: 'low', from: 'default' },
+    { key: 'unfolded-tools', value: ['AskUserQuestion', 'Skill', 'Agent'], from: 'default' },
   ])
+  expect(describeExtras([['user', chat({ 'unfolded-tools': [] })]]).at(-1)).toEqual({ key: 'unfolded-tools', value: [], from: 'user' })
+})
+
+const chat = (group: Record<string, unknown>) => ({ ccChatTweaks: { chat: group } })
+
+test('unfolded-tools is the first array of tool names, an empty array is a valid choice and the default list is the old hard-coded one', () => {
+  expect(DEFAULT_UNFOLDED_TOOLS).toEqual(['AskUserQuestion', 'Skill', 'Agent'])
+  expect(unfoldedToolsOf([])).toBeUndefined()
+  expect(unfoldedToolsOf([chat({ 'unfolded-tools': ['Bash', ' Read '] })])).toEqual(['Bash', 'Read'])
+  expect(unfoldedToolsOf([chat({ 'unfolded-tools': [] })])).toEqual([])
+  expect(unfoldedToolsOf([chat({ 'unfolded-tools': ['  ', 5, null, 'x'.repeat(101)] })])).toBeUndefined()
+  expect(unfoldedToolsOf([chat({ 'unfolded-tools': ['Bash', 'Bash', ' Bash'] })])).toEqual(['Bash'])
+  expect(unfoldedToolsOf([chat({ 'unfolded-tools': 'Bash' })])).toBeUndefined()
+  expect(unfoldedToolsOf([chat({ 'unfolded-tools': 5 })])).toBeUndefined()
+  expect(unfoldedToolsOf([chat({ 'unfolded-tools': ['  '] }), chat({ 'unfolded-tools': ['Skill'] })])).toEqual(['Skill'])
+  expect(unfoldedToolsOf([up({ 'unfolded-tools': ['Bash'] })])).toBeUndefined()
+  expect(unfoldedToolsOf([chat({ 'unfolded-tools': Array.from({ length: 60 }, (_, i) => `t${i}`) })])).toHaveLength(50)
+})
+
+test('the default unfolded list written to a file is a copy', () => {
+  type Written = { ccChatTweaks: { chat: { 'unfolded-tools': string[] } } }
+  const first = withMissingDefaults({}).settings as Written
+
+  first.ccChatTweaks.chat['unfolded-tools'].push('Bash')
+  expect((withMissingDefaults({}).settings as Written).ccChatTweaks.chat['unfolded-tools']).toEqual(['AskUserQuestion', 'Skill', 'Agent'])
+  expect(DEFAULT_UNFOLDED_TOOLS).toEqual(['AskUserQuestion', 'Skill', 'Agent'])
 })
 
 test('reports nothing to add when every switch is present', () => {
   const full = {
     ccChatTweaks: {
-      chat: { 'use-tool-fold': true, 'use-edit-summary': false },
+      chat: { 'use-tool-fold': true, 'use-edit-summary': false, 'unfolded-tools': ['Bash'] },
       prompt: {
         'prompt-upgrade': {
           'use-prompt-upgrade': false,

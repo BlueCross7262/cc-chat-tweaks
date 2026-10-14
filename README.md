@@ -18,6 +18,7 @@ Every feature is off until you turn it on. Switches live under `ccChatTweaks` in
 |---|---|---|---|
 | `chat` | `use-tool-fold` | `false` | Fold consecutive tool calls into one line. |
 | `chat` | `use-edit-summary` | `false` | Draw `Edit` and `Write` calls as one summary line. |
+| `chat` | `unfolded-tools` | `["AskUserQuestion", "Skill", "Agent"]` | Option of `use-tool-fold`. The tools that are never folded. Each keeps its own row and ends the run before it. |
 | `prompt.prompt-upgrade` | `use-prompt-upgrade` | `false` | Ask clarifying questions about your prompt and rewrite it before it is sent. |
 | `prompt.prompt-upgrade` | `use-questions` | `true` | Option of `use-prompt-upgrade`. When `false`, the prompt is rewritten without questions. |
 | `prompt.prompt-upgrade` | `use-silent-upgrade` | `true` | Option of `use-prompt-upgrade`. When `true`, the pane never opens, and only a prompt with the trigger is upgraded. The recommended answers to the questions are applied when `use-questions` is `true`, and the draft is put in the prompt box without being sent. |
@@ -32,7 +33,8 @@ Every feature is off until you turn it on. Switches live under `ccChatTweaks` in
   "ccChatTweaks": {
     "chat": {
       "use-tool-fold": true,
-      "use-edit-summary": false
+      "use-edit-summary": false,
+      "unfolded-tools": ["AskUserQuestion", "Skill", "Agent"]
     },
     "prompt": {
       "prompt-upgrade": {
@@ -54,7 +56,7 @@ The prompt upgrade keys are read only from `ccChatTweaks.prompt.prompt-upgrade`.
 
 First it writes every key your user `settings.json` lacks, switches and value keys alike, with its default, so you can see and flip them. It never changes a value that is already there. It leaves a file that is not plain JSON alone and says so.
 
-Then it prints each switch and each value key (`min-length`, `silent-triggers`, `model`, `effort`) with its value and the source it came from, the fold counters, the prompt upgrade phase and threshold, the environment and a list of checks.
+Then it prints each switch and each value key (`unfolded-tools`, `min-length`, `silent-triggers`, `model`, `effort`) with its value and the source it came from, the fold counters, the prompt upgrade phase and threshold, the environment and a list of checks.
 
 ## Features
 
@@ -73,7 +75,11 @@ Consecutive tool calls with no assistant message between them fold into one line
 - Every run folds, even a single call: `● Called 1 time Edit ... +3 -1`. A failed call folds in too: its row and error text are hidden, and the header adds an orange `N failed` count.
 - A call row is not drawn while the model is still writing the call. The folded line appears when the call is stored. A call that is in no run, such as one made by a subagent, stays hidden until it has a result.
 - Calls made by subagents are not folded.
-- `AskUserQuestion`, `Skill` and `Agent` are never folded. Each keeps its own row and ends the run before it.
+- The tools in `unfolded-tools` are never folded. The default is `AskUserQuestion`, `Skill` and `Agent`. Each keeps its own row and ends the run before it.
+  - The names are the exact tool names, with the same letter case, such as `Bash` or `mcp__serena__find_symbol`. A name that matches no tool does nothing.
+  - Each entry is 1 to 100 characters after trimming. A blank or non-text entry is dropped, a repeated entry counts once, and only the first 50 entries are used.
+  - An empty array `[]` means every tool folds. An array with no valid entry uses the default list. The list in the highest-precedence source wins and is not merged with the others.
+  - The list is read on every tool call, so a change applies to the next call. Runs already stored keep the grouping they got.
 - Rows inside a folded line cannot be opened from the line. Use the full transcript (`ctrl+o`).
 - Clicking a folded line for `Grep`, MCP tools and other calls the engine groups can still select the row (a blank line below, an inverted background). The engine draws that, and a plugin cannot turn it off.
 

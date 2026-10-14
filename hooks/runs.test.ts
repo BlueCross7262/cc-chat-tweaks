@@ -22,8 +22,8 @@ const response = (...blocks: unknown[]): AppendedRow => ({ door: 'response', con
 const use = (id: string, name = 'Read') => ({ type: 'tool_use', id, name })
 const text = (value: string) => ({ type: 'text', text: value })
 
-const feed = (rows: AppendedRow[], from: RunState = EMPTY_RUN_STATE): RunState =>
-  rows.reduce(applyRow, from)
+const feed = (rows: AppendedRow[], from: RunState = EMPTY_RUN_STATE, unfolded?: readonly string[]): RunState =>
+  rows.reduce((state, row) => applyRow(state, row, unfolded), from)
 
 test('tool calls without a message between them join one run', () => {
   const state = feed([response(use('a')), response(use('b', 'Edit')), response(use('c'))])
@@ -169,6 +169,21 @@ test('AskUserQuestion, Skill and Agent rows are never hidden', () => {
   expect(isStreamingRow(EMPTY_RUN_STATE, rowOf('q', { tool: 'AskUserQuestion' }))).toBe(false)
   expect(isStreamingRow(EMPTY_RUN_STATE, rowOf('s', { tool: 'Skill' }))).toBe(false)
   expect(isStreamingRow(EMPTY_RUN_STATE, rowOf('g', { tool: 'Agent' }))).toBe(false)
+})
+
+test('the unfolded list decides which tools close a run, and the default is AskUserQuestion, Skill and Agent', () => {
+  const rows = [response(use('a'), use('g', 'Agent'), use('c'))]
+
+  expect(feed(rows).runs.map(run => run.calls.map(call => call.id))).toEqual([['a'], ['c']])
+  expect(feed(rows, EMPTY_RUN_STATE, []).runs.map(run => run.calls.map(call => call.id))).toEqual([['a', 'g', 'c']])
+  expect(feed([response(use('a', 'Read'), use('b', 'Edit'))], EMPTY_RUN_STATE, ['Read']).runs.map(run => run.calls.map(call => call.id))).toEqual([['b']])
+  expect(feed([response(use('a', 'Bash'), use('b', 'Edit'))], EMPTY_RUN_STATE, ['Bash']).runs.map(run => run.calls.map(call => call.id))).toEqual([['b']])
+})
+
+test('the unfolded list also decides which rows are never hidden while streaming', () => {
+  expect(isStreamingRow(EMPTY_RUN_STATE, rowOf('g', { tool: 'Agent' }), [])).toBe(true)
+  expect(isStreamingRow(EMPTY_RUN_STATE, rowOf('r', { tool: 'Read' }), ['Read'])).toBe(false)
+  expect(isStreamingRow(EMPTY_RUN_STATE, rowOf('r', { tool: 'Read' }))).toBe(true)
 })
 
 test('a call that is in no run stays an ordinary row', () => {

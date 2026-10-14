@@ -35,12 +35,14 @@ import { formatReport, versionText, type DoctorInput } from './doctor'
 import { COMMAND as UPGRADE_COMMAND, COMMAND_HELP, KEY_MIN_LEN, registerUpgrade } from './upgrade'
 import { EMPTY_FLOW, MIN_LEN, parseMinLen } from './upgrade-logic'
 import {
+  DEFAULT_UNFOLDED_TOOLS,
   describeExtras,
   describeFlags,
   defaultOf,
   flagsOf,
   minLengthOf,
   SETTINGS_SOURCES,
+  unfoldedToolsOf,
   withMissingDefaults,
   type Flags,
 } from './settings'
@@ -63,6 +65,16 @@ type SettingsReader = {
 
 const readFlags = async ($: SettingsReader): Promise<Flags> =>
   flagsOf(await Promise.all(SETTINGS_SOURCES.map(source => $.settings.read({ source }))))
+
+const readUnfolded = async ($: SettingsReader): Promise<readonly string[]> => {
+  try {
+    const sources = await Promise.all(SETTINGS_SOURCES.map(source => $.settings.read({ source })))
+
+    return unfoldedToolsOf(sources) ?? DEFAULT_UNFOLDED_TOOLS
+  } catch {
+    return DEFAULT_UNFOLDED_TOOLS
+  }
+}
 
 const messageOf = (error: unknown): string =>
   error instanceof Error ? error.message : String(error)
@@ -110,11 +122,15 @@ export const register: Register = on => {
   on('session.append', async ($, e, next) => {
     try {
       const current = await read($, runsAtom)
-      const updated = applyRow(current, {
-        door: e.door,
-        agentId: e.agentId,
-        content: e.message.content,
-      })
+      const updated = applyRow(
+        current,
+        {
+          door: e.door,
+          agentId: e.agentId,
+          content: e.message.content,
+        },
+        await readUnfolded($),
+      )
 
       if (updated !== current) {
         await update($, runsAtom, () => updated)
@@ -160,7 +176,7 @@ export const register: Register = on => {
   on('ui.render', { component: 'ToolUse' }, async ($, e, next) => {
     const flags = await readFlags($)
 
-    if (flags['use-tool-fold'] && isStreamingRow(await read($, runsAtom), e.props)) {
+    if (flags['use-tool-fold'] && isStreamingRow(await read($, runsAtom), e.props, await readUnfolded($))) {
       const { Box } = $.ui.resolve(e)
 
       return <Box key={`streaming-${e.props.tool_use_id}`} />
