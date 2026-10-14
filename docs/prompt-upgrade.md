@@ -124,7 +124,7 @@ The trigger (`+++` by default) at the start or the end of a prompt is what start
   - It works with `skip-silent-trigger` `true` too, which is its main use.
   - It skips the `min-length` check and beats an open manual-edit pass.
   - If the prompt has both an off trigger and a trigger, the off trigger wins and both are removed.
-  - An off trigger on its own and a prompt that starts with `/` (after the triggers) pass through with the text in them. So does a prompt with an attachment.
+  - An off trigger on its own and a prompt that starts with `/` or `!` (after the triggers) pass through with the text in them. So does a prompt with an attachment.
   - The prompt is sent as a plugin prompt, so `@file` mentions are not expanded again.
 
 - The trigger is removed. Repeated triggers at an edge go too. A trigger in the middle stays.
@@ -145,7 +145,7 @@ The trigger (`+++` by default) at the start or the end of a prompt is what start
 - If something unexpected fails after the prompt was taken, the text without the trigger is put back in the prompt box.
 - A prompt you send while the silent upgrade is still running passes through as it is, trigger included.
 - The `min-length` check and the terminal-surface check do not apply to a prompt with the trigger. The terminal-surface check does not apply to any silent upgrade.
-- A trigger on its own, a prompt with an attachment, and a prompt that starts with `/` (after the trigger) pass through with the trigger text in them.
+- A trigger on its own, a prompt with an attachment, and a prompt that starts with `/` or `!` (after the trigger) pass through with the trigger text in them.
 - A prompt you type after `입력창에서 편집` or after a silent draft passes through once when it holds the same characters as the draft, or within 5 minutes when it holds other characters. A prompt with the trigger is not passed this way. It is upgraded again.
 - Not verified: what the prompt box and the up-arrow history hold after the mod takes the prompt. The original text, trigger included, is likely to be in the history.
 
@@ -175,6 +175,7 @@ cc-chat-tweaks: Prompt Upgrade: sonnet low · 1.9s · fix the login bug
 - You typed it while a turn was running.
 - It carries an image or another attachment.
 - It starts with `/`.
+- It starts with `!`, which makes it a shell command.
 - It is shorter than the threshold.
 - No terminal surface is attached.
 - A flow is already running.

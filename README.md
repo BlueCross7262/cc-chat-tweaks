@@ -116,7 +116,7 @@ A prompt you type at the prompt box and send is held back, and a pane opens with
 - Haiku rewrites the prompt as prose with one sentence on each line and keeps pasted material as it is, wrapped in `<input>` tags.
 - In the review you can ask for a change to the draft, undo it, edit the draft in the prompt box, send the draft, send the original, or cancel.
 - Each upgraded prompt costs up to three model calls on your plan or API key. The default model is `sonnet`.
-- Prompts typed while a turn runs, prompts with attachments, slash commands and short prompts pass through unchanged. So does every prompt when the pane cannot be placed or Haiku does not answer.
+- Prompts typed while a turn runs, prompts with attachments, slash commands, shell commands that start with `!` and short prompts pass through unchanged. So does every prompt when the pane cannot be placed or Haiku does not answer.
 - `/prompt-upgrade status | threshold <n> | reset | probe on|off|show|clear` shows and tunes the feature.
 
 Details, controls and limits: [docs/prompt-upgrade.md](docs/prompt-upgrade.md). Proof-of-concept results: [docs/prompt-upgrade-poc-results.md](docs/prompt-upgrade-poc-results.md).

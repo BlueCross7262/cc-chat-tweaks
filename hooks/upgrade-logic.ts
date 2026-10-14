@@ -153,6 +153,7 @@ const decideRest = (g: GateInput, text: string, clearSkip: boolean): Gate => {
   const isOff = parseTrigger(text, g.offTriggers) !== null
   const cleaned = isOff ? parseTrigger(text, [...g.offTriggers, ...g.silentTriggers]) : stripped
   if ((cleaned ?? text).startsWith('/')) return pass('slash')
+  if ((cleaned ?? text).startsWith('!')) return pass('shell')
   if (isOff) {
     if (cleaned === null || cleaned === '') return pass('trigger-only')
     return { intercept: true, off: true, text: cleaned }

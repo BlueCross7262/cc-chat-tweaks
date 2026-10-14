@@ -475,6 +475,16 @@ test('the off trigger on its own, with a slash command or with an attachment pas
   expect(gate({ ...off, hasAttachments: true, text: `${base.text} ---` })).toMatchObject({ intercept: false, reason: 'attachments' })
 })
 
+test('a shell command that starts with ! passes on every path, with or without a trigger', () => {
+  const shell = 'ls -la /some/long/path to list the files'
+
+  expect(gate({ text: `!${shell}` })).toMatchObject({ intercept: false, reason: 'shell' })
+  expect(gate({ ...off, text: `!${shell}` })).toMatchObject({ intercept: false, reason: 'shell' })
+  expect(gate({ ...off, text: `+++ !${shell}` })).toMatchObject({ intercept: false, reason: 'shell' })
+  expect(gate({ ...off, text: `--- !${shell}` })).toMatchObject({ intercept: false, reason: 'shell' })
+  expect(gate({ ...off, text: `${shell} !` })).toMatchObject({ intercept: true })
+})
+
 test('with no off trigger the text is ordinary', () => {
   expect(gate({ ...off, offTriggers: [], skipTrigger: false, text: `${base.text} ---` })).toMatchObject({ intercept: false, reason: 'no-trigger' })
 })
