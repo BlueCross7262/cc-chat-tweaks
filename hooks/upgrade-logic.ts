@@ -97,7 +97,9 @@ export const decideGate = (g: GateInput): Gate => {
     return { intercept: false, reason: 'resubmit', clearPending: true }
   }
   if (g.flow.skipUntil > 0) {
-    if (g.now < g.flow.skipUntil) return { intercept: false, reason: 'manual-edit', clearSkip: true }
+    if (g.now < g.flow.skipUntil && parseTrigger(text, g.silentTrigger) === null) {
+      return { intercept: false, reason: 'manual-edit', clearSkip: true }
+    }
     return decideRest(g, text, true)
   }
   return decideRest(g, text, false)

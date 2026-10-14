@@ -311,6 +311,20 @@ test('the draft a silent run puts in the prompt box passes the next submit once'
   expect(await submit($, LONG)).toMatchObject({ drop: expect.any(String) })
 })
 
+test('the trigger typed after a silent draft upgrades the draft again instead of sending it', async ($, on) => {
+  const s = world($, on, { silent: true, answers: ['First draft.', 'Second draft.'], box: TRIGGERED })
+  await submit($, TRIGGERED)
+  await settle(s)
+  expect(s.filled).toEqual(['First draft.'])
+  const again = await submit($, 'First draft, with a change. +++')
+  await settle(s)
+  expect(again).toMatchObject({ drop: expect.any(String) })
+  expect(s.models).toHaveLength(2)
+  expect(s.prompts[1]).toContain('First draft, with a change.')
+  expect(s.prompts[1]).not.toContain('+++')
+  expect(s.entered).toEqual([])
+})
+
 test('a silent run whose Haiku call fails puts the original without the trigger in the prompt box and says so', async ($, on) => {
   const s = world($, on, { silent: true, answers: [null], box: TRIGGERED })
   await submit($, TRIGGERED)

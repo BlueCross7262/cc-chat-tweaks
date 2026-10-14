@@ -108,6 +108,19 @@ test('the manual-edit pass is spent once and expires', () => {
   expect(gate({ now: 6000, flow })).toEqual({ intercept: true })
 })
 
+test('a prompt with the trigger is upgraded again while a manual-edit pass is open, and the pass stays', () => {
+  const flow = { ...EMPTY_FLOW, skipUntil: 5000 }
+  const on = { isSilent: true, silentTrigger: '+++', now: 4000, flow }
+
+  expect(gate({ ...on, text: base.text + ' +++' })).toEqual({ intercept: true, silent: true, text: base.text })
+  expect(gate({ ...on, text: base.text })).toEqual({ intercept: false, reason: 'manual-edit', clearSkip: true })
+  expect(gate({ isSilent: false, silentTrigger: '', now: 4000, flow, text: base.text + ' +++' })).toEqual({
+    intercept: false,
+    reason: 'manual-edit',
+    clearSkip: true,
+  })
+})
+
 test('an expired manual-edit pass is cleared even when the prompt passes for another reason', () => {
   const flow = { ...EMPTY_FLOW, skipUntil: 5000 }
   expect(gate({ now: 6000, flow, isEnabled: false })).toEqual({

@@ -105,14 +105,14 @@ The trigger (`+++` by default) at the start or the end of a prompt forces the si
 - Haiku rewrites the prompt once, with no questions, and the mod puts the result in the prompt box. It does not send it.
 - You read the draft in the prompt box, edit it if you want, and press Enter yourself.
 - The pane is not opened, so there is no review pane. Use the normal path when you want to revise the draft with Haiku.
-- The next prompt you submit within 5 minutes passes through once, so the draft goes out without a second upgrade.
+- The next prompt you submit within 5 minutes passes through once, so the draft goes out without a second upgrade. A prompt with the trigger is upgraded again instead, and the pass stays open.
 - If Haiku fails, the prompt box gets the prompt as you wrote it, without the trigger, and a toast says so.
 - If you typed something else in the prompt box meanwhile, the mod leaves the box alone and puts the draft on your clipboard. A toast says so.
 - If something unexpected fails after the prompt was taken, the text without the trigger is put back in the prompt box.
 - A prompt you send while the silent upgrade is still running passes through as it is, trigger included.
 - The `min-length` check and the terminal-surface check do not apply to a prompt with the trigger. The terminal-surface check does not apply to any silent upgrade.
 - A trigger on its own, a prompt with an attachment, and a prompt that starts with `/` (after the trigger) pass through with the trigger text in them.
-- A prompt you type within 5 minutes after `입력창에서 편집` passes through once, trigger included.
+- A prompt you type within 5 minutes after `입력창에서 편집` passes through once. A prompt with the trigger is not passed this way. It is upgraded again.
 - Not verified: what the prompt box and the up-arrow history hold after the mod takes the prompt. The original text, trigger included, is likely to be in the history.
 
 ## Usage log
