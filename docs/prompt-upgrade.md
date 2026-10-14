@@ -31,7 +31,7 @@ A key that is absent uses its default.
 |---|---|---|
 | `use-prompt-upgrade` | `false` | Intercept your prompts and upgrade them. |
 | `use-questions` | `true` | Ask Haiku for clarifying questions. When `false`, the mod rewrites the prompt at once. |
-| `use-silent-upgrade` | `true` | Option of `use-prompt-upgrade`. A prompt that starts or ends with the trigger is upgraded without the pane, and the draft is put in the prompt box without being sent. |
+| `use-silent-upgrade` | `true` | Option of `use-prompt-upgrade`. When `true`, no prompt opens the pane. Each one is upgraded without questions, and the draft is put in the prompt box without being sent. When `false`, the pane runs and the trigger is ordinary text. |
 | `silent-trigger` | `+++` | The trigger text. 1 to 32 characters after trimming. A blank or non-text value uses the default. |
 | `min-length` | `10` | Shortest prompt that is intercepted, in characters. A whole number from 1 to 10000. It beats the value set by `/prompt-upgrade threshold`. |
 | `model` | `haiku` | The model of the question, rewrite and revise calls. An alias or a full model id, 1 to 100 characters after trimming. A blank or non-text value uses the default. |
@@ -97,7 +97,9 @@ Press Tab to move to a button, or click it.
 
 ## Silent upgrade
 
-Put the trigger (`+++` by default) at the start or the end of a prompt to skip the pane.
+While `use-silent-upgrade` is `true`, no prompt opens the pane. Every prompt that would be intercepted is upgraded silently. The `min-length` check still applies to a prompt without the trigger, so a short prompt passes through.
+
+The trigger (`+++` by default) at the start or the end of a prompt forces the silent upgrade past the `min-length` check.
 
 - The trigger is removed. Repeated triggers at an edge go too. A trigger in the middle stays.
 - Haiku rewrites the prompt once, with no questions, and the mod puts the result in the prompt box. It does not send it.

@@ -71,6 +71,7 @@ export type GateInput = {
   isEnabled: boolean
   minLen: number
   silentTrigger: string
+  isSilent: boolean
   now: number
   flow: Flow
 }
@@ -118,6 +119,7 @@ const decideRest = (g: GateInput, text: string, clearSkip: boolean): Gate => {
     return { intercept: true, silent: true, text: stripped }
   }
   if (text.length < g.minLen) return pass('short')
+  if (g.isSilent) return { intercept: true, silent: true, text }
   if (!g.surfaces.includes('terminal')) return pass('no-terminal')
   return { intercept: true }
 }

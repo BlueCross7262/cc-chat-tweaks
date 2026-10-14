@@ -35,7 +35,7 @@ const world = (
     s.toasts.push((e as { text: string }).text)
     return { value: undefined } as never
   })
-  const group = { 'use-prompt-upgrade': options.enabled ?? true, 'use-questions': options.useQuestions ?? true, 'use-silent-upgrade': options.silent ?? true, ...options.extra }
+  const group = { 'use-prompt-upgrade': options.enabled ?? true, 'use-questions': options.useQuestions ?? true, 'use-silent-upgrade': options.silent ?? false, ...options.extra }
   mock.store(on, {})
   on('settings.read', (_$, e) => ({ value: (e as { source?: string }).source === 'user' ? { ccChatTweaks: { prompt: group } } : {} }) as never)
   on('session.surfaces', () => ({ value: ['terminal'] }) as never)
@@ -290,7 +290,7 @@ test('use-questions false skips the question step', async ($, on) => {
 const TRIGGERED = '+++ ' + LONG
 
 test('a trailing or leading trigger upgrades silently: no pane, no questions, no trigger sent to Haiku, nothing sent', async ($, on) => {
-  const s = world($, on, { answers: ['Silently upgraded prompt.'], box: TRIGGERED })
+  const s = world($, on, { silent: true, answers: ['Silently upgraded prompt.'], box: TRIGGERED })
   const result = await submit($, TRIGGERED)
   await settle(s)
   expect(result).toMatchObject({ drop: expect.any(String) })
@@ -303,7 +303,7 @@ test('a trailing or leading trigger upgrades silently: no pane, no questions, no
 })
 
 test('the draft a silent run puts in the prompt box passes the next submit once', async ($, on) => {
-  const s = world($, on, { answers: ['Silently upgraded prompt.', JSON.stringify({ questions: [] })], box: TRIGGERED })
+  const s = world($, on, { silent: true, answers: ['Silently upgraded prompt.', JSON.stringify({ questions: [] })], box: TRIGGERED })
   await submit($, TRIGGERED)
   await settle(s)
   const edited = await submit($, 'Silently upgraded prompt, then changed by hand.')
@@ -312,7 +312,7 @@ test('the draft a silent run puts in the prompt box passes the next submit once'
 })
 
 test('a silent run whose Haiku call fails puts the original without the trigger in the prompt box and says so', async ($, on) => {
-  const s = world($, on, { answers: [null], box: TRIGGERED })
+  const s = world($, on, { silent: true, answers: [null], box: TRIGGERED })
   await submit($, TRIGGERED)
   await settle(s)
   expect(s.filled).toEqual([LONG])
@@ -321,7 +321,7 @@ test('a silent run whose Haiku call fails puts the original without the trigger 
 })
 
 test('a silent run does not overwrite what the person typed meanwhile and puts the draft on the clipboard', async ($, on) => {
-  const s = world($, on, { answers: ['Silently upgraded prompt.'], box: 'something typed later' })
+  const s = world($, on, { silent: true, answers: ['Silently upgraded prompt.'], box: 'something typed later' })
   await submit($, TRIGGERED)
   await settle(s)
   expect(s.filled).toEqual([])
@@ -331,11 +331,22 @@ test('a silent run does not overwrite what the person typed meanwhile and puts t
 })
 
 test('a prompt submitted while a silent run is working passes through untouched', async ($, on) => {
-  const s = world($, on, { answers: ['Silently upgraded prompt.'], box: TRIGGERED })
+  const s = world($, on, { silent: true, answers: ['Silently upgraded prompt.'], box: TRIGGERED })
   await submit($, TRIGGERED)
   const second = await submit($, '+++ another long prompt typed meanwhile')
   await settle(s)
   expect(second).toMatchObject({ text: '+++ another long prompt typed meanwhile' })
+})
+
+test('with use-silent-upgrade on a prompt without the trigger opens no pane and fills the draft', async ($, on) => {
+  const s = world($, on, { silent: true, answers: ['Silently upgraded prompt.'] })
+  const result = await submit($, LONG)
+  await settle(s)
+  expect(result).toMatchObject({ drop: expect.any(String) })
+  expect(s.opens).toBe(0)
+  expect(s.models).toHaveLength(1)
+  expect(s.filled).toEqual(['Silently upgraded prompt.'])
+  expect(s.entered).toEqual([])
 })
 
 test('with use-silent-upgrade off the trigger is ordinary text and the pane path runs', async ($, on) => {
