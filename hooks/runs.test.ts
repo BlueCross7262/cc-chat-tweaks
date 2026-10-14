@@ -8,6 +8,7 @@ import {
   closeRunOnTurnEnd,
   diffCounts,
   EMPTY_RUN_STATE,
+  hasChanges,
   hasMoreNames,
   headerText,
   isStreamingRow,
@@ -16,6 +17,7 @@ import {
   recordChange,
   viewOf,
   type AppendedRow,
+  type Header,
   type RowProps,
 } from './runs'
 
@@ -295,6 +297,42 @@ test('sorts capitalised names first, then lowercase names, each a to z', () => {
   }))
 
   expect(namesOf(calls)).toBe('Edit, Read, find_symbol, replace_content')
+})
+
+const headerOf = (names: string[], over: Partial<Header> = {}): Header => ({
+  run: { id: 'a', calls: [], isClosed: true },
+  count: 7,
+  isPending: false,
+  calls: names.map((name, index) => ({ id: String(index), name })),
+  failed: 0,
+  added: 0,
+  removed: 0,
+  ...over,
+})
+
+const MANY = ['Bash', 'Bash', 'Edit', 'Grep', 'Read', 'Glob', 'Write']
+
+test('a cut name list ends with an ellipsis only when nothing follows it', () => {
+  expect(headerText(headerOf(MANY))).toBe('Called 7 times Bash, Edit, Grep, Read, …')
+  expect(headerText(headerOf(MANY, { failed: 2 }))).toBe('Called 7 times Bash, Edit, Grep, Read,')
+  expect(headerText(headerOf(MANY, { added: 13, removed: 5 }))).toBe('Called 7 times Bash, Edit, Grep, Read,')
+  expect(headerText(headerOf(MANY, { failed: 2, added: 13 }))).toBe('Called 7 times Bash, Edit, Grep, Read,')
+  expect(headerText(headerOf(MANY, { removed: 5 }))).toBe('Called 7 times Bash, Edit, Grep, Read,')
+})
+
+test('a name list that is not cut never gets a trailing comma', () => {
+  expect(headerText(headerOf(['Edit', 'Read', 'replace_content']))).toBe('Called 7 times Edit, Read, replace_content')
+  expect(headerText(headerOf(['Edit', 'Read', 'replace_content'], { failed: 2, added: 13, removed: 5 }))).toBe(
+    'Called 7 times Edit, Read, replace_content',
+  )
+  expect(headerText(headerOf(['Bash', 'Edit', 'Grep', 'Read'], { added: 1 }))).toBe('Called 7 times Bash, Edit, Grep, Read')
+})
+
+test('the header has changes when lines were added or removed', () => {
+  expect(hasChanges(headerOf(['Edit']))).toBe(false)
+  expect(hasChanges(headerOf(['Edit'], { added: 1 }))).toBe(true)
+  expect(hasChanges(headerOf(['Edit'], { removed: 1 }))).toBe(true)
+  expect(hasChanges(headerOf(['Edit'], { failed: 3 }))).toBe(false)
 })
 
 test('a trailing comma after the last tool name is dropped', () => {

@@ -22,7 +22,7 @@ import {
   changeOf,
   closeRunOnTurnEnd,
   EMPTY_RUN_STATE,
-  hasMoreNames,
+  hasChanges,
   hasPending,
   headerText,
   isStreamingRow,
@@ -308,8 +308,6 @@ const withHeader = (
     return row ?? <Box key={`hidden-${stamp}`} />
   }
 
-  const hasChanges = header.added > 0 || header.removed > 0
-
   return (
     <Box
       key={`run-box-${stamp}-${header.added}-${header.removed}-${header.failed}`}
@@ -322,7 +320,7 @@ const withHeader = (
         </Text>
         <Text>{headerText(header)}</Text>
         {header.failed > 0 ? <Text color={FAILED_COLOR}> {header.failed} failed</Text> : null}
-        {hasChanges && !hasMoreNames(header.calls) ? <Text> …</Text> : null}
+        {hasChanges(header) ? <Text> …</Text> : null}
         {header.added > 0 ? <Text color="green"> +{header.added}</Text> : null}
         {header.removed > 0 ? <Text color="red"> -{header.removed}</Text> : null}
       </Box>

@@ -305,17 +305,26 @@ const entriesOf = (calls: readonly Call[]): [string, number][] => {
 
 export const hasMoreNames = (calls: readonly Call[]): boolean => entriesOf(calls).length > TALLY_SHOWN
 
-export const namesOf = (calls: readonly Call[]): string => {
+export const namesOf = (calls: readonly Call[], hasTail = false): string => {
   const entries = entriesOf(calls)
   const shown = entries
     .slice(0, TALLY_SHOWN)
     .map(([label]) => label)
     .sort((left, right) => (left < right ? -1 : left > right ? 1 : 0))
 
+  if (hasMoreNames(calls) && hasTail) {
+    return `${shown.join(', ')},`
+  }
+
   const names = hasMoreNames(calls) ? `${shown.join(', ')}, …` : shown.join(', ')
 
   return names.replace(/[,\s]+$/, '')
 }
 
-export const headerText = (header: Header): string =>
-  `${header.isPending ? 'Calling' : 'Called'} ${header.count} ${header.count === 1 ? 'time' : 'times'} ${namesOf(header.calls)}`
+export const hasChanges = (header: Header): boolean => header.added > 0 || header.removed > 0
+
+export const headerText = (header: Header): string => {
+  const hasTail = header.failed > 0 || hasChanges(header)
+
+  return `${header.isPending ? 'Calling' : 'Called'} ${header.count} ${header.count === 1 ? 'time' : 'times'} ${namesOf(header.calls, hasTail)}`
+}
