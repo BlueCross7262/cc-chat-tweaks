@@ -318,15 +318,6 @@ const finish = async ($: EngineInterface, text: string): Promise<void> => {
   if (!isCleared) await clearBox($)
 }
 
-const sendAsIs = async ($: EngineInterface, text: string): Promise<void> => {
-  try {
-    await $.clock.sleep(BOX_SETTLE_MS).catch(() => undefined)
-    await finish($, text)
-  } catch {
-    await restoreText($, text)
-  }
-}
-
 const recoverSilent = async ($: EngineInterface, id: number): Promise<void> => {
   try {
     const f = await getFlow($)
@@ -648,7 +639,6 @@ const KEY_LOG = 'probe-log'
 const LOG_LIMIT = 30
 const PANE_ROWS = 20
 const DROP_REASON = 'Prompt Upgrade is working on your prompt.'
-const OFF_DROP_REASON = 'Prompt Upgrade is off for this prompt and sends it as it is.'
 
 type Sample = {
   at: number
@@ -748,11 +738,7 @@ const interceptOrPass = async ($: EngineInterface, e: PromptSubmitInput) => {
     now: await $.clock.now(),
     flow,
   })
-  if (gate.intercept && 'off' in gate) {
-    sendAsIs($, gate.text).catch(() => undefined)
-
-    return { drop: OFF_DROP_REASON }
-  }
+  if (gate.intercept && 'off' in gate) return { rewrite: gate.text }
   if (gate.intercept) {
     const context = await readContext($)
     const text = 'silent' in gate ? gate.text : e.text
@@ -804,14 +790,16 @@ export const registerUpgrade = (on: Parameters<Register>[0]): void => {
     } catch (cause) {
       await abandon($, cause)
     }
+    let rewritten: string | null = null
     try {
-      const dropped = await interceptOrPass($, e)
-      if (dropped !== null) return dropped
+      const outcome = await interceptOrPass($, e)
+      if (outcome?.drop !== undefined) return { drop: outcome.drop }
+      rewritten = outcome?.rewrite ?? null
     } catch (cause) {
       await abandon($, cause)
     }
 
-    return next(e)
+    return next(rewritten === null ? e : { ...e, text: rewritten })
   })
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {

@@ -11,6 +11,7 @@ const USAGE = { input_tokens: 1, output_tokens: 1 }
 
 type Setup = {
   entered: string[]
+  origins: string[]
   filled: string[]
   closed: string[]
   models: string[]
@@ -32,7 +33,7 @@ const world = (
   on: On,
   options: { isFilled?: boolean; isCopied?: boolean; isPlaced?: boolean; answers?: Array<string | null>; enabled?: boolean; useQuestions?: boolean; silent?: boolean; box?: string | string[]; extra?: Record<string, unknown>; failFills?: number; types?: string | null } = {},
 ): Setup => {
-  const s: Setup = { entered: [], filled: [], closed: [], models: [], efforts: [], ids: [], events: [], logs: [], copied: [], toasts: [], prompts: [], classified: [], classifyLogs: [], opens: 0, clock: undefined }
+  const s: Setup = { entered: [], origins: [], filled: [], closed: [], models: [], efforts: [], ids: [], events: [], logs: [], copied: [], toasts: [], prompts: [], classified: [], classifyLogs: [], opens: 0, clock: undefined }
   const answers = [...(options.answers ?? [])]
   s.clock = mock.clock(on, { now: 1000 })
   on('ui.toast', (_$, e) => {
@@ -94,6 +95,7 @@ const world = (
   })
   on('prompt.submit', (_$, e) => {
     s.entered.push((e as { text: string }).text)
+    s.origins.push((e as { origin?: { kind: string } }).origin?.kind ?? 'none')
     s.events.push(`submit:${(e as { text: string }).text}`)
     return { text: (e as { text: string }).text } as never
   })
@@ -314,10 +316,13 @@ test('the off trigger sends the prompt as it is without a model call, even when 
   const s = world($, on, { silent: true, extra: { 'skip-silent-trigger': true }, answers: ['Never used.'] })
   const result = await submit($, `${LONG} ---`)
   await settle(s)
-  expect(result).toMatchObject({ drop: expect.any(String) })
+  expect(result).toMatchObject({ text: LONG })
+  expect(result).not.toHaveProperty('drop')
   expect(s.opens).toBe(0)
   expect(s.models).toHaveLength(0)
   expect(s.entered).toEqual([LONG])
+  expect(s.origins).toEqual(['composer'])
+  expect(s.filled).toEqual([])
 })
 
 test('the off trigger is ordinary text while the silent upgrade is off', async ($, on) => {

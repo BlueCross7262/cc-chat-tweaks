@@ -391,7 +391,7 @@ test('a text message closes the run so a finished run reads Called', () => {
   expect(header && headerText(header)).toBe('Called 2 times Read')
 })
 
-test('the header shows the summed call time right after the count and omits it when there is none', () => {
+test('the header shows the call time right after the count and omits it when there is none', () => {
   expect(headerText(headerOf(['Edit', 'Read'], { count: 3, ms: 3400 }))).toBe('Called 3 times in 3.4s Edit, Read')
   expect(headerText(headerOf(['Edit'], { count: 1, ms: 840 }))).toBe('Called 1 time in 840ms Edit')
   expect(headerText(headerOf(['Edit'], { count: 2, ms: 0 }))).toBe('Called 2 times in 0ms Edit')
@@ -403,23 +403,51 @@ test('the header shows the summed call time right after the count and omits it w
 const closedRun = (...ids: string[]): RunState =>
   feed([response(...ids.map(id => use(id))), resultFor(...ids), response(text('done'))])
 
-test('the header time is the sum of every call time of the run', () => {
-  const state = recordTime(recordTime(closedRun('a', 'b'), { id: 'a', ms: 1000 }), { id: 'b', ms: 2400 })
+test('the header time runs from the first call start to the last call end', () => {
+  const state = recordTime(
+    recordTime(closedRun('a', 'b'), { id: 'a', start: 1000, end: 2000 }),
+    { id: 'b', start: 1500, end: 3400 },
+  )
 
-  expect(viewOf(state, ['a']).header?.ms).toBe(3400)
+  expect(viewOf(state, ['a']).header?.ms).toBe(2400)
+})
+
+test('calls that ran at the same time count once, and a gap between calls counts', () => {
+  const parallel = recordTime(
+    recordTime(closedRun('a', 'b'), { id: 'a', start: 1000, end: 2250 }),
+    { id: 'b', start: 1000, end: 2250 },
+  )
+  const gap = recordTime(
+    recordTime(closedRun('a', 'b'), { id: 'a', start: 1000, end: 2000 }),
+    { id: 'b', start: 5000, end: 6000 },
+  )
+
+  expect(viewOf(parallel, ['a']).header?.ms).toBe(1250)
+  expect(viewOf(gap, ['a']).header?.ms).toBe(5000)
 })
 
 test('the header has no time while a call is still pending or when one call has no recorded time', () => {
   const open = feed([response(use('a'), use('b')), resultFor('a')])
+  const timed = (state: RunState) =>
+    recordTime(recordTime(state, { id: 'a', start: 0, end: 1 }), { id: 'b', start: 0, end: 1 })
 
-  expect(viewOf(recordTime(recordTime(open, { id: 'a', ms: 1 }), { id: 'b', ms: 1 }), ['a']).header?.ms).toBeNull()
-  expect(viewOf(recordTime(closedRun('a', 'b'), { id: 'a', ms: 1000 }), ['a']).header?.ms).toBeNull()
+  expect(viewOf(timed(open), ['a']).header?.ms).toBeNull()
+  expect(viewOf(recordTime(closedRun('a', 'b'), { id: 'a', start: 0, end: 1000 }), ['a']).header?.ms).toBeNull()
   expect(viewOf(closedRun('a', 'b'), ['a']).header?.ms).toBeNull()
+})
+
+test('a time stored by an older version without a start and an end gives no header time', () => {
+  const stored = { ...closedRun('a', 'b'), times: [{ id: 'a', ms: 100 }, { id: 'b', ms: 200 }] } as unknown as RunState
+
+  expect(viewOf(stored, ['a']).header?.ms).toBeNull()
 })
 
 test('a failed call counts in the time, and the later record of one call wins', () => {
   const failed = applyRow(closedRun('a', 'b'), { door: 'tool-result', content: [{ type: 'tool_result', tool_use_id: 'b', is_error: true }] })
-  const timed = recordTime(recordTime(recordTime(failed, { id: 'a', ms: 100 }), { id: 'b', ms: 200 }), { id: 'b', ms: 500 })
+  const timed = recordTime(
+    recordTime(recordTime(failed, { id: 'a', start: 1000, end: 1100 }), { id: 'b', start: 1100, end: 1300 }),
+    { id: 'b', start: 1100, end: 1600 },
+  )
 
   expect(viewOf(timed, ['a']).header?.failed).toBe(1)
   expect(viewOf(timed, ['a']).header?.ms).toBe(600)
@@ -427,32 +455,33 @@ test('a failed call counts in the time, and the later record of one call wins', 
 
 test('recorded times keep the newest 400 and leave the other lists alone', () => {
   const state = Array.from({ length: 450 }, (_, i) => i).reduce(
-    (acc, i) => recordTime(acc, { id: `t${i}`, ms: i }),
+    (acc, i) => recordTime(acc, { id: `t${i}`, start: i, end: i + 1 }),
     EMPTY_RUN_STATE,
   )
 
   expect(state.times).toHaveLength(400)
-  expect(state.times[0]).toEqual({ id: 't50', ms: 50 })
-  expect(state.times.at(-1)).toEqual({ id: 't449', ms: 449 })
+  expect(state.times[0]).toEqual({ id: 't50', start: 50, end: 51 })
+  expect(state.times.at(-1)).toEqual({ id: 't449', start: 449, end: 450 })
   expect(state.runs).toEqual([])
 })
 
 test('a state stored by an older version without the times list reads as empty and keeps its other lists', () => {
   const legacy = { runs: [], failed: ['x'], done: ['y'], changes: [] } as unknown as RunState
 
-  expect(recordTime(legacy, { id: 'a', ms: 5 })).toEqual({ runs: [], failed: ['x'], done: ['y'], changes: [], times: [{ id: 'a', ms: 5 }] })
+  expect(recordTime(legacy, { id: 'a', start: 1, end: 6 })).toEqual({ runs: [], failed: ['x'], done: ['y'], changes: [], times: [{ id: 'a', start: 1, end: 6 }] })
   expect(closeOpenRun(legacy).times).toEqual([])
   expect(closeOpenRun(EMPTY_RUN_STATE)).toBe(EMPTY_RUN_STATE)
 })
 
 test('a tool event gives a time only for the main thread and only when the engine reports a duration', () => {
-  expect(timingOf({ tool_use_id: 'a', duration_ms: 1200 })).toEqual({ id: 'a', ms: 1200 })
-  expect(timingOf({ tool_use_id: 'a', duration_ms: 0 })).toEqual({ id: 'a', ms: 0 })
-  expect(timingOf({ tool_use_id: 'a', duration_ms: 1200, agent_id: 'sub-1' })).toBeNull()
-  expect(timingOf({ tool_use_id: 'a' })).toBeNull()
-  expect(timingOf({ tool_use_id: '', duration_ms: 5 })).toBeNull()
-  expect(timingOf({ tool_use_id: 'a', duration_ms: -1 })).toBeNull()
-  expect(timingOf({ tool_use_id: 'a', duration_ms: Number.NaN })).toBeNull()
+  expect(timingOf({ tool_use_id: 'a', duration_ms: 1200 }, 5000)).toEqual({ id: 'a', start: 3800, end: 5000 })
+  expect(timingOf({ tool_use_id: 'a', duration_ms: 0 }, 5000)).toEqual({ id: 'a', start: 5000, end: 5000 })
+  expect(timingOf({ tool_use_id: 'a', duration_ms: 1200, agent_id: 'sub-1' }, 5000)).toBeNull()
+  expect(timingOf({ tool_use_id: 'a' }, 5000)).toBeNull()
+  expect(timingOf({ tool_use_id: '', duration_ms: 5 }, 5000)).toBeNull()
+  expect(timingOf({ tool_use_id: 'a', duration_ms: -1 }, 5000)).toBeNull()
+  expect(timingOf({ tool_use_id: 'a', duration_ms: Number.NaN }, 5000)).toBeNull()
+  expect(timingOf({ tool_use_id: 'a', duration_ms: 5 }, Number.NaN)).toBeNull()
 })
 
 test('the post tool events reach the time hooks and are passed on without a change', async ($, on) => {

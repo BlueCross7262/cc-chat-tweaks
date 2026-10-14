@@ -133,7 +133,7 @@ The trigger (`+++` by default) at the start or the end of a prompt is what start
   - It skips the `min-length` check and beats an open manual-edit pass.
   - If the prompt has both an off trigger and a trigger, the off trigger wins and both are removed.
   - An off trigger on its own and a prompt that starts with `/` or `!` (after the triggers) pass through with the text in them. So does a prompt with an attachment.
-  - The prompt is sent as a plugin prompt, so `@file` mentions are not expanded again.
+  - The prompt enters as the prompt you typed, with the trigger removed. The mod does not drop it and does not submit it a second time.
 
 - The trigger is removed. Repeated triggers at an edge go too. A trigger in the middle stays.
 - With `use-questions` `true`, Haiku first writes the questions, and the mod answers each one with its recommended option. A question with no recommended option stays unanswered. Nothing is shown and you are not asked. This costs one more Haiku call.
@@ -155,7 +155,9 @@ The trigger (`+++` by default) at the start or the end of a prompt is what start
 - The `min-length` check and the terminal-surface check do not apply to a prompt with the trigger. The terminal-surface check does not apply to any silent upgrade.
 - A trigger on its own, a prompt with an attachment, and a prompt that starts with `/` or `!` (after the trigger) pass through with the trigger text in them.
 - A prompt you type after `입력창에서 편집` or after a silent draft passes through once when it holds the same characters as the draft, or within 5 minutes when it holds other characters. A prompt with the trigger is not passed this way. It is upgraded again.
-- Not verified: what the prompt box and the up-arrow history hold after the mod takes the prompt. The original text, trigger included, is likely to be in the history.
+- Not verified: what the prompt box and the up-arrow history hold after the mod takes the prompt.
+  - A prompt with an off trigger enters as the prompt you typed, so the history is expected to hold it. Check it in a real session.
+  - The paths that drop the prompt and submit it again as a plugin prompt may leave nothing in the history. The pane `이 프롬프트 보내기` and `원문 그대로 보내기` are such paths.
 
 ## Usage log
 

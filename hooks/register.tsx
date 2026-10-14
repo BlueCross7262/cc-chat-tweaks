@@ -89,7 +89,7 @@ const recordDuration = async (
   event: { tool_use_id: string; duration_ms?: number; agent_id?: string },
 ): Promise<void> => {
   try {
-    const timing = timingOf(event)
+    const timing = timingOf(event, await $.clock.now())
 
     if (timing !== null) {
       await update($, runsAtom, state => recordTime(state, timing))

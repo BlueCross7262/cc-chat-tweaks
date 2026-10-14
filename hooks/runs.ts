@@ -101,14 +101,20 @@ export const recordTime = (stored: RunState, timing: Timing): RunState => {
   return { ...state, times: [...state.times, timing].slice(-MAX_IDS) }
 }
 
-export const timingOf = (event: { tool_use_id: string; duration_ms?: number; agent_id?: string }): Timing | null =>
+export const timingOf = (
+  event: { tool_use_id: string; duration_ms?: number; agent_id?: string },
+  end: number,
+): Timing | null =>
   event.agent_id === undefined &&
   event.tool_use_id !== '' &&
+  Number.isFinite(end) &&
   typeof event.duration_ms === 'number' &&
   Number.isFinite(event.duration_ms) &&
   event.duration_ms >= 0
-    ? { id: event.tool_use_id, ms: event.duration_ms }
+    ? { id: event.tool_use_id, start: end - event.duration_ms, end }
     : null
+
+const isSpan = (timing: Timing): boolean => Number.isFinite(timing.start) && Number.isFinite(timing.end)
 
 type Block = {
   type?: string
@@ -287,10 +293,11 @@ export const viewOf = (stored: RunState, ids: readonly string[]): RowView => {
       (sum, change) => ({ added: sum.added + change.added, removed: sum.removed + change.removed }),
       { added: 0, removed: 0 },
     )
-  const timed = new Map(state.times.map(timing => [timing.id, timing.ms]))
-  const ms = isPending || folded.some(call => !timed.has(call.id))
+  const timed = new Map(state.times.filter(isSpan).map(timing => [timing.id, timing]))
+  const spans = folded.map(call => timed.get(call.id))
+  const ms = isPending || spans.some(span => span === undefined)
     ? null
-    : folded.reduce((sum, call) => sum + (timed.get(call.id) ?? 0), 0)
+    : Math.max(...spans.map(span => span?.end ?? 0)) - Math.min(...spans.map(span => span?.start ?? 0))
   const header: Header | null =
     firstId !== undefined && ids.includes(firstId)
       ? {
