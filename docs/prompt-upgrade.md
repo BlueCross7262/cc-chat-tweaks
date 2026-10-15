@@ -96,6 +96,7 @@ Your prompt > Questions > Rewrite > Review
   - It runs on every upgrade, with or without `use-questions`, and with the questions call when there is one.
   - The rewrite waits for it. The rewrite uses the types only to order the sentences and to choose how each request is phrased. It adds no request that is not in your prompt.
   - If the call fails or finds no known type, the rewrite goes on without types.
+  - When the types hold `research` or `discuss` and the prompt has Korean characters, the mod adds two fixed lines to the end of the draft. They ask Claude to put its questions through AskUserQuestion with the recommended option first. With no types, with `execute` only, or with a prompt that has no Korean characters, the mod adds nothing.
 - Haiku asks up to three questions with 3 to 5 options each.
   - Pick an option, type your own answer, or skip.
   - `나머지 건너뛰고 업그레이드` goes on with the answers so far.

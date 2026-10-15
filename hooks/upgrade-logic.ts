@@ -364,6 +364,21 @@ export const unwrapDraft = (raw: string): string =>
     .join('')
     .trim()
 
+const QUESTION_TYPES: readonly string[] = ['research', 'discuss']
+const HANGUL = /[ㄱ-ㆎ가-힣]/
+const QUESTION_TAIL = [
+  '대화 중에 선택지가 생기면 AskUserQuestion 도구로 나에게 권장안과 함께 질문한다.',
+  '권장 보기는 선택지 목록의 맨 앞에 둔다.',
+].join('\n')
+
+export const withQuestionLines = (draft: string, original: string, types: readonly string[]): string => {
+  if (!types.some(type => QUESTION_TYPES.includes(type))) return draft
+  if (!HANGUL.test(original)) return draft
+  if (draft.endsWith(QUESTION_TAIL)) return draft
+
+  return `${draft}\n${QUESTION_TAIL}`
+}
+
 export const reviseInput = (draft: string, request: string): string =>
   `<draft>${draft}</draft><request>${request}</request>`
 

@@ -41,6 +41,7 @@ import {
   toPhase,
   undo,
   withDraft,
+  withQuestionLines,
   hasRecommended,
   withQuestions,
   withRecommended,
@@ -225,7 +226,7 @@ const startRewrite = async ($: EngineInterface, id: number): Promise<void> => {
     await setIf($, id, cur =>
       done.text === null
         ? withDraft(cur, cur.original, FAILED_NOTICE)
-        : withTook(withDraft(cur, unwrapDraft(done.text)), 'rewrite', done.ms),
+        : withTook(withDraft(cur, withQuestionLines(unwrapDraft(done.text), cur.original, types)), 'rewrite', done.ms),
     )
   } catch {
     await toOriginal($, id, FAILED_NOTICE)
