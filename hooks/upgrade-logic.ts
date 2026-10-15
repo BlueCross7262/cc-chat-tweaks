@@ -102,7 +102,9 @@ export const answerLog = (flow: Flow, max: number): string | null => {
   })
   if (pairs.length === 0) return null
 
-  return clip(`${ANSWER_LOG_PREFIX} ${pairs.join(' · ')}`, max)
+  const row = `${ANSWER_LOG_PREFIX} ${pairs.join(' · ')}`
+
+  return row.length <= max ? row : `${row.slice(0, Math.max(0, max - 3))}...`
 }
 
 export type GateInput = {
