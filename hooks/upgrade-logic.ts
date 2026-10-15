@@ -376,7 +376,7 @@ export const withQuestionLines = (draft: string, original: string, types: readon
   if (!HANGUL.test(original)) return draft
   if (draft.endsWith(QUESTION_TAIL)) return draft
 
-  return `${draft}\n${QUESTION_TAIL}`
+  return `${draft}\n\n${QUESTION_TAIL}`
 }
 
 export const reviseInput = (draft: string, request: string): string =>

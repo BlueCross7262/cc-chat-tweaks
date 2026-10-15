@@ -333,8 +333,8 @@ test('prompt types are empty for no answer, broken JSON or a missing list', () =
 const QUESTION_TAIL = '대화 중에 선택지가 생기면 AskUserQuestion 도구로 나에게 권장안과 함께 질문한다.\n권장 보기는 선택지 목록의 맨 앞에 둔다.'
 
 test('the two question lines end the draft when the prompt holds hangul and the types hold research or discuss', () => {
-  expect(withQuestionLines('원인을 찾는다.', '원인을 찾아 줘', ['research'])).toBe(`원인을 찾는다.\n${QUESTION_TAIL}`)
-  expect(withQuestionLines('두 안을 비교한다.', '두 안을 비교해 줘', ['execute', 'discuss'])).toBe(`두 안을 비교한다.\n${QUESTION_TAIL}`)
+  expect(withQuestionLines('원인을 찾는다.', '원인을 찾아 줘', ['research'])).toBe(`원인을 찾는다.\n\n${QUESTION_TAIL}`)
+  expect(withQuestionLines('두 안을 비교한다.', '두 안을 비교해 줘', ['execute', 'discuss'])).toBe(`두 안을 비교한다.\n\n${QUESTION_TAIL}`)
 })
 
 test('the two question lines are left out for execute only types, no types or a prompt without hangul', () => {
@@ -344,7 +344,7 @@ test('the two question lines are left out for execute only types, no types or a 
 })
 
 test('the two question lines are not added to a draft that already ends with them', () => {
-  const draft = `원인을 찾는다.\n${QUESTION_TAIL}`
+  const draft = `원인을 찾는다.\n\n${QUESTION_TAIL}`
   expect(withQuestionLines(draft, '원인을 찾아 줘', ['research'])).toBe(draft)
 })
 
