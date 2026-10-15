@@ -494,6 +494,23 @@ test('a silent run asks inside, applies the recommended answer and fills the dra
   expect(s.logs.filter(line => line.startsWith('Prompt answer: '))).toEqual(['Prompt answer: Which format? → bullets'])
 })
 
+test('a silent run writes one answer row for each recommended answer it applies', async ($, on) => {
+  const two = JSON.stringify({
+    questions: [
+      { q: 'Which format?', options: ['table', 'bullets', 'prose'], recommended: 1 },
+      { q: 'How long?', options: ['short', 'long'] },
+      { q: 'Which language?', options: ['English', 'Korean'], recommended: 0 },
+    ],
+  })
+  const s = world($, on, { silent: true, answers: [two, 'Draft with two answers.'], box: TRIGGERED })
+  await submit($, TRIGGERED)
+  await settle(s)
+  expect(s.logs.filter(line => line.startsWith('Prompt answer: '))).toEqual([
+    'Prompt answer: Which format? → bullets',
+    'Prompt answer: Which language? → English',
+  ])
+})
+
 test('a silent run leaves a question without a recommended answer unanswered', async ($, on) => {
   const s = world($, on, { silent: true, answers: [QUESTION, 'Draft without answers.'], box: TRIGGERED })
   await submit($, TRIGGERED)
@@ -501,6 +518,7 @@ test('a silent run leaves a question without a recommended answer unanswered', a
   expect(s.models).toHaveLength(2)
   expect(s.prompts[1]).not.toContain('Q: ')
   expect(s.filled).toEqual(['Draft without answers.'])
+  expect(s.logs.filter(line => line.startsWith('Prompt answer: '))).toEqual([])
 })
 
 test('a silent run still rewrites when the questions call fails', async ($, on) => {

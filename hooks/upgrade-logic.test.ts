@@ -21,7 +21,7 @@ import {
   squash,
   tookText,
   callLog,
-  answerLog,
+  answerLogs,
   ASK_LOG_PREFIX,
   CLASSIFY_LOG_PREFIX,
   REVISE_LOG_PREFIX,
@@ -472,7 +472,7 @@ test('the ask, rewrite and revise calls each write a row with their own prefix',
   expect(callLog(call, 1900, 'fix the login bug', 2000, REVISE_LOG_PREFIX)).toBe('Prompt revise: sonnet low · 1.9s · fix the login bug')
 })
 
-test('the answer log row lists each answered question with its answer and skips the unanswered ones', () => {
+test('the answer log writes one row for each answered question and skips the unanswered ones', () => {
   const flow = {
     ...EMPTY_FLOW,
     questions: [
@@ -483,14 +483,20 @@ test('the answer log row lists each answered question with its answer and skips 
     answers: { '0': 'bullets', '2': 'Korean' },
   }
 
-  expect(answerLog(flow, 2000)).toBe('Prompt answer: Which format? → bullets · Which language? → Korean')
+  expect(answerLogs(flow, 2000)).toEqual(['Prompt answer: Which format? → bullets', 'Prompt answer: Which language? → Korean'])
 })
 
-test('the answer log row is absent when no question has an answer and is cut at the limit', () => {
+test('the answer log has no row when no question has an answer, and each row is cut at the limit', () => {
   const flow = { ...EMPTY_FLOW, questions: [{ q: 'Which format?', options: ['bullets', 'table'] }], answers: {} }
 
-  expect(answerLog(flow, 2000)).toBeNull()
-  expect(answerLog({ ...flow, answers: { '0': 'x'.repeat(5000) } }, 100)?.length).toBe(100)
+  expect(answerLogs(flow, 2000)).toEqual([])
+  expect(answerLogs({ ...EMPTY_FLOW, questions: [], answers: {} }, 2000)).toEqual([])
+
+  const cut = answerLogs({ ...flow, answers: { '0': 'x'.repeat(5000) } }, 100)
+
+  expect(cut).toHaveLength(1)
+  expect(cut[0]?.length).toBe(100)
+  expect(cut[0]?.endsWith('xxx...')).toBe(true)
 })
 
 test('the classify log row uses its own prefix and the type list as its tail', () => {

@@ -10,7 +10,7 @@ import type {
 
 import type { Flow, Phase } from '../types'
 import {
-  answerLog,
+  answerLogs,
   ASK_LOG_PREFIX,
   callLog,
   CLASSIFY_LOG_PREFIX,
@@ -364,8 +364,7 @@ const askAndApplyRecommended = async ($: EngineInterface, id: number): Promise<v
     withRecommended(withQuestions(asked.text ? withTook(cur, 'ask', asked.ms) : cur, questions)),
   )
   if (isStale(next, id)) return
-  const row = answerLog(next, LOG_ROW_MAX)
-  if (row !== null) writeLog($, row)
+  for (const row of answerLogs(next, LOG_ROW_MAX)) writeLog($, row)
 }
 
 const runSilent = async ($: EngineInterface, id: number, typed: string, useQuestions: boolean): Promise<void> => {

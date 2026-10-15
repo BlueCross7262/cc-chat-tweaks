@@ -93,18 +93,17 @@ export const callLog = (
   return `${head} · ${shown}`
 }
 
-export const answerLog = (flow: Flow, max: number): string | null => {
+export const answerLogs = (flow: Flow, max: number): string[] => {
   const oneLine = (text: string): string => text.replace(/\s+/g, ' ').trim()
-  const pairs = flow.questions.flatMap((q, i) => {
+
+  return flow.questions.flatMap((q, i) => {
     const picked = flow.answers[String(i)]
+    if (picked === undefined) return []
 
-    return picked === undefined ? [] : [`${oneLine(q.q)} → ${oneLine(picked)}`]
+    const row = `${ANSWER_LOG_PREFIX} ${oneLine(q.q)} → ${oneLine(picked)}`
+
+    return [row.length <= max ? row : `${row.slice(0, Math.max(0, max - 3))}...`]
   })
-  if (pairs.length === 0) return null
-
-  const row = `${ANSWER_LOG_PREFIX} ${pairs.join(' · ')}`
-
-  return row.length <= max ? row : `${row.slice(0, Math.max(0, max - 3))}...`
 }
 
 export type GateInput = {
