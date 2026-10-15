@@ -21,7 +21,11 @@ import {
   squash,
   tookText,
   callLog,
+  answerLog,
+  ASK_LOG_PREFIX,
   CLASSIFY_LOG_PREFIX,
+  REVISE_LOG_PREFIX,
+  REWRITE_LOG_PREFIX,
   classifyTail,
   parseTypes,
   withTook,
@@ -456,8 +460,37 @@ test('a resubmitted rewrite that ends with the trigger is not intercepted again'
 test('the call log is one row: model, effort, time and the original prompt', () => {
   const call = { model: 'sonnet', effort: 'low' }
 
-  expect(callLog(call, 1900, 'ky_jira mcp 고장났어 ?', 2000)).toBe('Prompt Upgrade: sonnet low · 1.9s · ky_jira mcp 고장났어 ?')
-  expect(callLog(call, 840, 'fix the login bug', 2000)).toBe('Prompt Upgrade: sonnet low · 840ms · fix the login bug')
+  expect(callLog(call, 1900, 'ky_jira mcp 고장났어 ?', 2000, REWRITE_LOG_PREFIX)).toBe('Prompt rewrite: sonnet low · 1.9s · ky_jira mcp 고장났어 ?')
+  expect(callLog(call, 840, 'fix the login bug', 2000, REWRITE_LOG_PREFIX)).toBe('Prompt rewrite: sonnet low · 840ms · fix the login bug')
+})
+
+test('the ask, rewrite and revise calls each write a row with their own prefix', () => {
+  const call = { model: 'sonnet', effort: 'low' }
+
+  expect(callLog(call, 1900, 'fix the login bug', 2000, ASK_LOG_PREFIX)).toBe('Prompt ask: sonnet low · 1.9s · fix the login bug')
+  expect(callLog(call, 1900, 'fix the login bug', 2000, REWRITE_LOG_PREFIX)).toBe('Prompt rewrite: sonnet low · 1.9s · fix the login bug')
+  expect(callLog(call, 1900, 'fix the login bug', 2000, REVISE_LOG_PREFIX)).toBe('Prompt revise: sonnet low · 1.9s · fix the login bug')
+})
+
+test('the answer log row lists each answered question with its answer and skips the unanswered ones', () => {
+  const flow = {
+    ...EMPTY_FLOW,
+    questions: [
+      { q: 'Which format?', options: ['bullets', 'table'], recommended: 0 },
+      { q: 'How long?', options: ['short', 'long'] },
+      { q: 'Which\nlanguage?', options: ['Korean', 'English'], recommended: 0 },
+    ],
+    answers: { '0': 'bullets', '2': 'Korean' },
+  }
+
+  expect(answerLog(flow, 2000)).toBe('Prompt answer: Which format? → bullets · Which language? → Korean')
+})
+
+test('the answer log row is absent when no question has an answer and is cut at the limit', () => {
+  const flow = { ...EMPTY_FLOW, questions: [{ q: 'Which format?', options: ['bullets', 'table'] }], answers: {} }
+
+  expect(answerLog(flow, 2000)).toBeNull()
+  expect(answerLog({ ...flow, answers: { '0': 'x'.repeat(5000) } }, 100)?.length).toBe(100)
 })
 
 test('the classify log row uses its own prefix and the type list as its tail', () => {
@@ -472,30 +505,30 @@ test('the classify log row uses its own prefix and the type list as its tail', (
 test('every run of white space in the original becomes one space and the row holds no line break', () => {
   const call = { model: 'sonnet', effort: 'low' }
 
-  expect(callLog(call, 1900, '  line one\n\nline two  \n', 2000)).toBe('Prompt Upgrade: sonnet low · 1.9s · line one line two')
-  expect(callLog(call, 1900, 'a\r\nb\rc\t d', 2000)).toBe('Prompt Upgrade: sonnet low · 1.9s · a b c d')
-  expect(callLog(call, 1900, 'a\r\nb\n\nc\rd', 2000)).not.toMatch(/[\r\n]/)
+  expect(callLog(call, 1900, '  line one\n\nline two  \n', 2000, REWRITE_LOG_PREFIX)).toBe('Prompt rewrite: sonnet low · 1.9s · line one line two')
+  expect(callLog(call, 1900, 'a\r\nb\rc\t d', 2000, REWRITE_LOG_PREFIX)).toBe('Prompt rewrite: sonnet low · 1.9s · a b c d')
+  expect(callLog(call, 1900, 'a\r\nb\n\nc\rd', 2000, REWRITE_LOG_PREFIX)).not.toMatch(/[\r\n]/)
 })
 
 test('a call log without an original is the call part alone', () => {
   const call = { model: 'sonnet', effort: 'high' }
 
-  expect(callLog(call, 2100, '', 2000)).toBe('Prompt Upgrade: sonnet high · 2.1s')
-  expect(callLog(call, 2100, ' \n\t ', 2000)).toBe('Prompt Upgrade: sonnet high · 2.1s')
+  expect(callLog(call, 2100, '', 2000, REWRITE_LOG_PREFIX)).toBe('Prompt rewrite: sonnet high · 2.1s')
+  expect(callLog(call, 2100, ' \n\t ', 2000, REWRITE_LOG_PREFIX)).toBe('Prompt rewrite: sonnet high · 2.1s')
 })
 
 test('the call log is cut so the whole row stays within the limit', () => {
   const call = { model: 'sonnet', effort: 'low' }
-  const row = callLog(call, 1900, 'x'.repeat(5000), 2000)
+  const row = callLog(call, 1900, 'x'.repeat(5000), 2000, REWRITE_LOG_PREFIX)
 
   expect(row.length).toBe(2000)
-  expect(row.startsWith('Prompt Upgrade: sonnet low · 1.9s · xxx')).toBe(true)
+  expect(row.startsWith('Prompt rewrite: sonnet low · 1.9s · xxx')).toBe(true)
   expect(row.endsWith('xxx...')).toBe(true)
 
-  const head = 'Prompt Upgrade: sonnet low · 1.9s'
+  const head = 'Prompt rewrite: sonnet low · 1.9s'
 
-  expect(callLog(call, 1900, 'abcdefghij', head.length + 3 + 6)).toBe(`${head} · abc...`)
-  expect(callLog(call, 1900, 'abcdef', head.length + 3 + 6)).toBe(`${head} · abcdef`)
+  expect(callLog(call, 1900, 'abcdefghij', head.length + 3 + 6, REWRITE_LOG_PREFIX)).toBe(`${head} · abc...`)
+  expect(callLog(call, 1900, 'abcdef', head.length + 3 + 6, REWRITE_LOG_PREFIX)).toBe(`${head} · abcdef`)
 })
 
 const off = { isSilent: true, skipTrigger: true, silentTriggers: ['+++'], offTriggers: ['---'] }

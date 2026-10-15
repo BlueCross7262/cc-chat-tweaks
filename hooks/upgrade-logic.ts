@@ -63,8 +63,11 @@ export const tookText = (flow: Flow): string => {
   return parts.length === 0 ? '' : `Took ${parts.join(' · ')}`
 }
 
-export const LOG_PREFIX = 'Prompt Upgrade:'
+export const ASK_LOG_PREFIX = 'Prompt ask:'
+export const REWRITE_LOG_PREFIX = 'Prompt rewrite:'
+export const REVISE_LOG_PREFIX = 'Prompt revise:'
 export const CLASSIFY_LOG_PREFIX = 'Prompt classify:'
+export const ANSWER_LOG_PREFIX = 'Prompt answer:'
 
 export const classifyTail = (types: readonly string[] | null): string => {
   if (types === null) return 'failed'
@@ -77,7 +80,7 @@ export const callLog = (
   ms: number,
   original: string,
   max: number,
-  prefix: string = LOG_PREFIX,
+  prefix: string,
 ): string => {
   const head = `${prefix} ${call.model} ${call.effort} · ${formatMs(ms)}`
   const body = original.replace(/\s+/g, ' ').trim()
@@ -88,6 +91,18 @@ export const callLog = (
   const shown = body.length <= room ? body : `${body.slice(0, Math.max(0, room - 3))}...`
 
   return `${head} · ${shown}`
+}
+
+export const answerLog = (flow: Flow, max: number): string | null => {
+  const oneLine = (text: string): string => text.replace(/\s+/g, ' ').trim()
+  const pairs = flow.questions.flatMap((q, i) => {
+    const picked = flow.answers[String(i)]
+
+    return picked === undefined ? [] : [`${oneLine(q.q)} → ${oneLine(picked)}`]
+  })
+  if (pairs.length === 0) return null
+
+  return clip(`${ANSWER_LOG_PREFIX} ${pairs.join(' · ')}`, max)
 }
 
 export type GateInput = {

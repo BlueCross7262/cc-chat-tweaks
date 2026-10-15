@@ -165,19 +165,20 @@ Each model call writes one dim row to the transcript with `$.ui.log`. The row is
 
 ```
 cc-chat-tweaks: Prompt classify: haiku low · 0.6s · research, execute
-cc-chat-tweaks: Prompt Upgrade: sonnet low · 1.9s · fix the login bug
+cc-chat-tweaks: Prompt rewrite: sonnet low · 1.9s · fix the login bug
 ```
 
 - The engine puts the plugin name `cc-chat-tweaks: ` in front of every row. The mod does not write it, and `$.ui.log` takes only the text and the sink, so the mod cannot remove it.
-- The row holds `Prompt Upgrade:`, the model alias and effort, the time, and the prompt you typed without the trigger, each part set off by ` · `.
-- The row does not name the call (`questions`, `rewrite` or `revise`).
+- The row holds a call prefix, the model alias and effort, the time, and the prompt you typed without the trigger, each part set off by ` · `.
+- The prefix names the call: `Prompt ask:` for the questions call, `Prompt rewrite:` for the rewrite call, and `Prompt revise:` for the revise call.
+- A silent run applies the recommended answers on its own and writes one `Prompt answer:` row for them. The row lists each question with its answer, as `question → answer`, set off by ` · `. A question with no recommended answer is left out, and a run with no applied answer writes no row. The pane path writes no such row, because you pick the answers there.
 - The prompt type call writes its own row. It holds `Prompt classify:`, the model alias and effort, the time, and the types it found, each part set off by ` · `. It ends with `none` when the call found no known type and with `failed` when the call failed. It does not hold the prompt.
 - One log call is one row. A line break inside the text of a call is not drawn as a break, and shows as a garbled character. So the mod turns every run of spaces and line breaks in the prompt into one space, and never puts a line break in a log.
 - The whole row is cut at 2000 characters with `...`.
 - The empty line the engine draws between rows is the engine's own spacing. The mod writes no empty row.
 - The row shows no token count and no cost.
 - A failed call writes its row too. A row with no prompt text ends after the time.
-- A run with questions makes two upgrade calls, so it writes two `Prompt Upgrade:` rows with the same prompt and different times. Every run also writes one `Prompt classify:` row. It can come before or after the questions row.
+- A run with questions makes two upgrade calls, so it writes a `Prompt ask:` row and a `Prompt rewrite:` row with the same prompt and different times. Every run also writes one `Prompt classify:` row. It can come before or after the questions row.
 
 ## What is not intercepted
 

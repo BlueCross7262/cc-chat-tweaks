@@ -10,8 +10,12 @@ import type {
 
 import type { Flow, Phase } from '../types'
 import {
+  answerLog,
+  ASK_LOG_PREFIX,
   callLog,
   CLASSIFY_LOG_PREFIX,
+  REVISE_LOG_PREFIX,
+  REWRITE_LOG_PREFIX,
   classifyTail,
   parseTypes,
   allAnswered,
@@ -117,8 +121,8 @@ const writeLog = ($: EngineInterface, row: string): void => {
   }
 }
 
-const logCall = ($: EngineInterface, call: Call, ms: number, original: string): void =>
-  writeLog($, callLog(call, ms, original, LOG_ROW_MAX))
+const logCall = ($: EngineInterface, call: Call, ms: number, original: string, prefix: string): void =>
+  writeLog($, callLog(call, ms, original, LOG_ROW_MAX, prefix))
 
 const completeWith = async ($: EngineInterface, used: Call, system: string, prompt: string): Promise<Timed> => {
   const startedAt = await $.clock.now()
@@ -147,10 +151,11 @@ const callModel = async (
   call: Call,
   system: string,
   prompt: string,
+  logPrefix: string,
 ): Promise<Timed> => {
   const used = await callWithSettings($, call)
   const done = await completeWith($, used, system, prompt)
-  logCall($, used, done.ms, (await getFlow($).catch(() => EMPTY_FLOW)).original)
+  logCall($, used, done.ms, (await getFlow($).catch(() => EMPTY_FLOW)).original, logPrefix)
 
   return done
 }
@@ -211,7 +216,7 @@ const startAsk = async ($: EngineInterface, id: number, useQuestions: boolean): 
   try {
     const f = await getFlow($)
     if (isStale(f, id)) return
-    const asked = useQuestions ? await callModel($, CALLS.ask, Q_SYSTEM, askInput(f)) : null
+    const asked = useQuestions ? await callModel($, CALLS.ask, Q_SYSTEM, askInput(f), ASK_LOG_PREFIX) : null
     const questions = parseQuestions(asked?.text ?? null)
     const next = await setIf($, id, cur =>
       withQuestions(asked?.text ? withTook(cur, 'ask', asked.ms) : cur, questions),
@@ -230,7 +235,7 @@ const startRewrite = async ($: EngineInterface, id: number): Promise<void> => {
     const types = await takeTypes(id, loading.types ?? [])
     const f = await setIf($, id, cur => ({ ...cur, types }))
     if (isStale(f, id)) return
-    const done = await callModel($, CALLS.rewrite, R_SYSTEM, rewriteInput(f))
+    const done = await callModel($, CALLS.rewrite, R_SYSTEM, rewriteInput(f), REWRITE_LOG_PREFIX)
     await setIf($, id, cur =>
       done.text === null
         ? withDraft(cur, cur.original, FAILED_NOTICE)
@@ -263,7 +268,7 @@ const revise = async ($: EngineInterface, request: string): Promise<void> => {
   const id = f.runId
   await setIf($, id, cur => ({ ...cur, phase: 'rewriteLoading', notice: '' }))
   try {
-    const done = await callModel($, CALLS.revise, REVISE_SYSTEM, reviseInput(f.draft, req))
+    const done = await callModel($, CALLS.revise, REVISE_SYSTEM, reviseInput(f.draft, req), REVISE_LOG_PREFIX)
     await setIf($, id, cur =>
       done.text === null
         ? { ...cur, phase: 'review', notice: REVISE_FAILED_NOTICE }
@@ -367,11 +372,14 @@ const parkDraft = async ($: EngineInterface, draft: string): Promise<void> => {
 const askAndApplyRecommended = async ($: EngineInterface, id: number): Promise<void> => {
   const f = await getFlow($)
   if (isStale(f, id)) return
-  const asked = await callModel($, CALLS.ask, Q_SYSTEM, askInput(f))
+  const asked = await callModel($, CALLS.ask, Q_SYSTEM, askInput(f), ASK_LOG_PREFIX)
   const questions = parseQuestions(asked.text)
-  await setIf($, id, cur =>
+  const next = await setIf($, id, cur =>
     withRecommended(withQuestions(asked.text ? withTook(cur, 'ask', asked.ms) : cur, questions)),
   )
+  if (isStale(next, id)) return
+  const row = answerLog(next, LOG_ROW_MAX)
+  if (row !== null) writeLog($, row)
 }
 
 const runSilent = async ($: EngineInterface, id: number, typed: string, useQuestions: boolean): Promise<void> => {

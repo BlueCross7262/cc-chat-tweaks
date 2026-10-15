@@ -5,7 +5,7 @@ import { CLASSIFY_SYSTEM } from './upgrade-prompts'
 
 const PLUGIN = 'cc-chat-tweaks'
 const PANE = 'prompt-upgrade'
-const USAGE_LINE = /^Prompt Upgrade: /
+const USAGE_LINE = /^Prompt (ask|rewrite|revise): /
 const LONG = 'please summarise the attached design document for me'
 const USAGE = { input_tokens: 1, output_tokens: 1 }
 
@@ -491,6 +491,7 @@ test('a silent run asks inside, applies the recommended answer and fills the dra
   expect(s.filled).toEqual(['Draft with bullets.'])
   expect(s.entered).toEqual([])
   expect(s.logs.filter(line => USAGE_LINE.test(line))).toHaveLength(2)
+  expect(s.logs.filter(line => line.startsWith('Prompt answer: '))).toEqual(['Prompt answer: Which format? → bullets'])
 })
 
 test('a silent run leaves a question without a recommended answer unanswered', async ($, on) => {
@@ -535,7 +536,8 @@ test('every model call writes one log row with the model, effort, time and the o
   await $.ui.press({ plugin: PLUGIN, key: 'q0o1', requestId: PANE })
   const rows = s.logs.filter(line => USAGE_LINE.test(line))
   expect(rows).toHaveLength(2)
-  for (const row of rows) expect(row).toMatch(new RegExp(`^Prompt Upgrade: sonnet low · \\d+(ms|\\.\\ds) · ${LONG}$`))
+  expect(rows[0]).toMatch(new RegExp(`^Prompt ask: sonnet low · \\d+(ms|\\.\\ds) · ${LONG}$`))
+  expect(rows[1]).toMatch(new RegExp(`^Prompt rewrite: sonnet low · \\d+(ms|\\.\\ds) · ${LONG}$`))
   expect(s.logs).toHaveLength(2)
   expect(s.toasts).toEqual([])
   expect(s.entered).toEqual([])
@@ -548,7 +550,7 @@ test('a multi-line original is logged in the same row, its line breaks turned in
   await settle(s)
   expect(s.logs).toHaveLength(1)
   expect(s.logs[0]).toMatch(
-    /^Prompt Upgrade: sonnet low · \d+(ms|\.\ds) · first line of a long prompt second line of a long prompt fourth line after a blank one$/,
+    /^Prompt rewrite: sonnet low · \d+(ms|\.\ds) · first line of a long prompt second line of a long prompt fourth line after a blank one$/,
   )
 })
 
