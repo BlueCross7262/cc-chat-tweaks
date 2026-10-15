@@ -1,4 +1,4 @@
-import { GROUP_PATHS, isFeatureKey, labelOf, pathText, type ExtraReport, type FlagKey } from './settings'
+import { GROUP_PATHS, isFeatureKey, labelOf, pathText, type ExtraReport, type FlagKey, type IgnoredKey } from './settings'
 
 export type FlagReport = {
   key: FlagKey
@@ -9,6 +9,7 @@ export type FlagReport = {
 export type DoctorInput = {
   flags: FlagReport[]
   extras: ExtraReport[]
+  ignored: IgnoredKey[]
   runs: {
     tracked: number
     pending: boolean
@@ -59,6 +60,12 @@ export const checksOf = (input: DoctorInput): string[] => {
     checks.push(
       '[info] Every feature is off, so the mod draws nothing. Set a use switch to true in settings.json to turn it on (use under ccChatTweaks.chat.tool-fold, use-edit-summary under ccChatTweaks.chat, use under ccChatTweaks.prompt.prompt-upgrade).',
     )
+  }
+
+  for (const { key, from } of input.ignored) {
+    const target = key.startsWith('type-') ? `models.classify.${key.slice('type-'.length)}` : `models.<ask|rewrite|revise>.${key}`
+
+    checks.push(`[warn] prompt.prompt-upgrade.${key} in ${from} is ignored. Use prompt.prompt-upgrade.${target}.`)
   }
 
   if (checks.length === 0) {

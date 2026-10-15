@@ -1,21 +1,25 @@
 import { expect, test } from 'claude-code/testing'
 
 import {
+  CALL_NAMES,
+  DEFAULT_MODELS,
   DEFAULT_UNFOLDED_TOOLS,
   describeExtras,
   describeFlags,
-  effortOf,
+  effortIn,
+  extraKeys,
   FLAG_PATHS,
   flagsOf,
+  ignoredKeysOf,
   isFlagOn,
   labelOf,
   minLengthOf,
-  modelOf,
+  modelIn,
   propOf,
+  resolveEffort,
+  resolveModel,
   silentOffTriggersOf,
   silentTriggersOf,
-  TYPE_EFFORT_KEY,
-  TYPE_MODEL_KEY,
   unfoldedToolsOf,
   withMissingDefaults,
   type FlagKey,
@@ -71,31 +75,113 @@ test('silent-triggers keeps at most 10 entries', () => {
   expect(silentTriggersOf([triggers(many)])).toEqual(many.slice(0, 10))
 })
 
-const prompt = (key: string, value: unknown) => up({ [key]: value })
+const call = (name: string, entry: unknown) => up({ models: { [name]: entry } })
 
-test('model is the first trimmed string of 1 to 100 characters', () => {
-  expect(modelOf([])).toBeUndefined()
-  expect(modelOf([prompt('model', '  sonnet  ')])).toBe('sonnet')
-  expect(modelOf([prompt('model', '   '), prompt('model', 5), prompt('model', 'x'.repeat(101)), prompt('model', 'claude-haiku-5-5')])).toBe('claude-haiku-5-5')
-  expect(modelOf([{ ccChatTweaks: { chat: { model: 'opus' } } }])).toBeUndefined()
+test('the model of a call is the first trimmed string of 1 to 100 characters under its own models entry', () => {
+  expect(modelIn([], 'ask')).toBeUndefined()
+  expect(modelIn([call('ask', { model: '  sonnet  ' })], 'ask')).toBe('sonnet')
+  expect(
+    modelIn(
+      [
+        call('ask', { model: '   ' }),
+        call('ask', { model: 5 }),
+        call('ask', { model: 'x'.repeat(101) }),
+        call('ask', { model: 'claude-haiku-5-5' }),
+      ],
+      'ask',
+    ),
+  ).toBe('claude-haiku-5-5')
+  expect(modelIn([{ ccChatTweaks: { chat: { models: { ask: { model: 'opus' } } } } }], 'ask')).toBeUndefined()
 })
 
-test('effort is the first value among low, medium, high, xhigh and max', () => {
-  expect(effortOf([])).toBeUndefined()
-  expect(effortOf([prompt('effort', 'high')])).toBe('high')
-  expect(effortOf([prompt('effort', ' max ')])).toBe('max')
-  expect(effortOf([prompt('effort', 'LOW'), prompt('effort', 3), prompt('effort', 'ultra'), prompt('effort', 'xhigh')])).toBe('xhigh')
+test('the effort of a call is the first value among low, medium, high, xhigh and max under its own models entry', () => {
+  expect(effortIn([], 'rewrite')).toBeUndefined()
+  expect(effortIn([call('rewrite', { effort: 'high' })], 'rewrite')).toBe('high')
+  expect(effortIn([call('rewrite', { effort: ' max ' })], 'rewrite')).toBe('max')
+  expect(
+    effortIn(
+      [
+        call('rewrite', { effort: 'LOW' }),
+        call('rewrite', { effort: 3 }),
+        call('rewrite', { effort: 'ultra' }),
+        call('rewrite', { effort: 'xhigh' }),
+      ],
+      'rewrite',
+    ),
+  ).toBe('xhigh')
 })
 
-test('the type model and type effort are read from their own keys with the same rules', () => {
-  const both = up({ model: 'opus', effort: 'high', 'type-model': ' sonnet ', 'type-effort': 'medium' })
+test('a call reads only its own entry and the first source with a valid value wins', () => {
+  const sources = [call('ask', { model: 'opus', effort: 'high' }), call('rewrite', { model: 'haiku' }), call('ask', { model: 'sonnet' })]
 
-  expect(modelOf([both], TYPE_MODEL_KEY)).toBe('sonnet')
-  expect(effortOf([both], TYPE_EFFORT_KEY)).toBe('medium')
-  expect(modelOf([both])).toBe('opus')
-  expect(effortOf([both])).toBe('high')
-  expect(modelOf([up({ model: 'opus' })], TYPE_MODEL_KEY)).toBeUndefined()
-  expect(effortOf([up({ 'type-effort': 'ultra' })], TYPE_EFFORT_KEY)).toBeUndefined()
+  expect(modelIn(sources, 'ask')).toBe('opus')
+  expect(modelIn(sources, 'rewrite')).toBe('haiku')
+  expect(modelIn(sources, 'revise')).toBeUndefined()
+  expect(effortIn(sources, 'ask')).toBe('high')
+  expect(effortIn(sources, 'rewrite')).toBeUndefined()
+  expect(modelIn([call('ask', { model: 5 }), call('ask', { model: 'sonnet' })], 'ask')).toBe('sonnet')
+  expect(modelIn([up({ models: { foo: { model: 'opus' } } })], 'ask')).toBeUndefined()
+})
+
+test('a source that is not a settings object, or whose models entry is not an object, is skipped without an error', () => {
+  const broken = [
+    undefined,
+    null,
+    'x',
+    5,
+    [],
+    {},
+    { ccChatTweaks: 'x' },
+    { ccChatTweaks: { prompt: 'x' } },
+    { ccChatTweaks: { prompt: { 'prompt-upgrade': 'x' } } },
+    up({ models: 'opus' }),
+    up({ models: ['opus'] }),
+    up({ models: null }),
+    up({ models: { ask: 'opus' } }),
+    up({ models: { ask: ['opus'] } }),
+    up({ models: { ask: null } }),
+  ]
+
+  expect(modelIn(broken, 'ask')).toBeUndefined()
+  expect(effortIn(broken, 'ask')).toBeUndefined()
+  expect(resolveModel(broken, 'ask')).toBe('sonnet')
+  expect(resolveEffort(broken, 'ask')).toBe('low')
+  expect(modelIn([...broken, call('ask', { model: 'opus' })], 'ask')).toBe('opus')
+})
+
+test('a call with no valid value falls back to its default: haiku for classify and sonnet for the others, all at low effort', () => {
+  expect(DEFAULT_MODELS).toEqual({
+    ask: { model: 'sonnet', effort: 'low' },
+    rewrite: { model: 'sonnet', effort: 'low' },
+    revise: { model: 'sonnet', effort: 'low' },
+    classify: { model: 'haiku', effort: 'low' },
+  })
+  expect(CALL_NAMES).toEqual(['ask', 'rewrite', 'revise', 'classify'])
+  expect(resolveModel([], 'classify')).toBe('haiku')
+  expect(resolveEffort([], 'classify')).toBe('low')
+  expect(resolveModel([call('rewrite', { model: 'opus' })], 'ask')).toBe('sonnet')
+  expect(resolveModel([call('classify', { model: ' opus ' })], 'classify')).toBe('opus')
+  expect(resolveEffort([call('revise', { effort: 'max' })], 'revise')).toBe('max')
+  expect(resolveEffort([call('revise', { effort: 'ultra' })], 'revise')).toBe('low')
+})
+
+test('the old model keys are neither read for a call nor listed as extra keys, and doctor finds them by source', () => {
+  const old = up({ model: 'opus', effort: 'high', 'type-model': 'sonnet', 'type-effort': 'medium' })
+
+  expect(resolveModel([old], 'ask')).toBe('sonnet')
+  expect(resolveEffort([old], 'ask')).toBe('low')
+  expect(resolveModel([old], 'classify')).toBe('haiku')
+  expect(resolveEffort([old], 'classify')).toBe('low')
+  expect(extraKeys).not.toContain('model')
+  expect(extraKeys).not.toContain('type-model')
+  expect(ignoredKeysOf([['policy', {}], ['user', old], ['local', up({ effort: 'low' })]])).toEqual([
+    { key: 'model', from: 'user' },
+    { key: 'effort', from: 'user' },
+    { key: 'type-model', from: 'user' },
+    { key: 'type-effort', from: 'user' },
+    { key: 'effort', from: 'local' },
+  ])
+  expect(ignoredKeysOf([['user', up({ models: { ask: { model: 'opus' } } })], ['local', null], ['project', { ccChatTweaks: { chat: { model: 'x' } } }]])).toEqual([])
 })
 
 test('the defaults when no source sets a key', () => {
@@ -126,7 +212,7 @@ test('the prompt upgrade keys live under ccChatTweaks.prompt.prompt-upgrade and 
   expect(isFlagOn([{ ccChatTweaks: { 'prompt-upgrade': { use: false } } }], 'use-prompt-upgrade')).toBe(true)
   expect(isFlagOn([up({ use: 'no' })], 'use-prompt-upgrade')).toBe(true)
   expect(minLengthOf([{ ccChatTweaks: { prompt: { 'min-length': 40 } } }])).toBeUndefined()
-  expect(modelOf([{ ccChatTweaks: { prompt: { model: 'opus' } } }])).toBeUndefined()
+  expect(modelIn([{ ccChatTweaks: { prompt: { models: { ask: { model: 'opus' } } } } }], 'ask')).toBeUndefined()
   expect(isFlagOn([{ ccChatTweaks: { chat: { 'use-prompt-upgrade': false } } }], 'use-prompt-upgrade')).toBe(true)
   expect(isFlagOn([{ ccChatTweaks: { chat: { 'use-questions': true } } }], 'use-questions')).toBe(false)
 })
@@ -201,7 +287,25 @@ test('adds only the missing switches with their default and keeps everything els
   }
   const { settings, added } = withMissingDefaults(existing)
 
-  expect(added).toEqual(['use-edit-summary', 'use-prompt-upgrade', 'use-questions', 'use-silent-upgrade', 'skip-silent-trigger', 'min-length', 'silent-triggers', 'silent-off-triggers', 'model', 'effort', 'type-model', 'type-effort', 'unfolded-tools'])
+  expect(added).toEqual([
+    'use-edit-summary',
+    'use-prompt-upgrade',
+    'use-questions',
+    'use-silent-upgrade',
+    'skip-silent-trigger',
+    'min-length',
+    'silent-triggers',
+    'silent-off-triggers',
+    'models.ask.model',
+    'models.ask.effort',
+    'models.rewrite.model',
+    'models.rewrite.effort',
+    'models.revise.model',
+    'models.revise.effort',
+    'models.classify.model',
+    'models.classify.effort',
+    'unfolded-tools',
+  ])
   expect(settings).toEqual({
     theme: 'dark',
     ccChatTweaks: {
@@ -219,10 +323,7 @@ test('adds only the missing switches with their default and keeps everything els
           'min-length': 10,
           'silent-triggers': ['+++'],
           'silent-off-triggers': ['---'],
-          model: 'sonnet',
-          effort: 'low',
-          'type-model': 'haiku',
-          'type-effort': 'low',
+          models: DEFAULT_MODELS,
         },
       },
       other: 1,
@@ -233,8 +334,8 @@ test('adds only the missing switches with their default and keeps everything els
 })
 
 test('builds the whole section for an empty or malformed file', () => {
-  expect(withMissingDefaults({}).added).toHaveLength(14)
-  expect(withMissingDefaults(null).added).toHaveLength(14)
+  expect(withMissingDefaults({}).added).toHaveLength(18)
+  expect(withMissingDefaults(null).added).toHaveLength(18)
   expect(withMissingDefaults({ ccChatTweaks: 'x' }).settings).toEqual({
     ccChatTweaks: {
       chat: {
@@ -250,10 +351,7 @@ test('builds the whole section for an empty or malformed file', () => {
           'min-length': 10,
           'silent-triggers': ['+++'],
           'silent-off-triggers': ['---'],
-          model: 'sonnet',
-          effort: 'low',
-          'type-model': 'haiku',
-          'type-effort': 'low',
+          models: DEFAULT_MODELS,
         },
       },
     },
@@ -269,9 +367,47 @@ test('the old location is left alone and its keys are not read', () => {
   expect(prompt['use-prompt-upgrade']).toBe(false)
   expect(prompt.model).toBe('opus')
   expect((prompt['prompt-upgrade'] as Record<string, unknown>).use).toBe(true)
-  expect((prompt['prompt-upgrade'] as Record<string, unknown>).model).toBe('sonnet')
+  expect((prompt['prompt-upgrade'] as Record<string, unknown>).models).toEqual(DEFAULT_MODELS)
   expect(isFlagOn([settings], 'use-prompt-upgrade')).toBe(true)
-  expect(modelOf([settings])).toBe('sonnet')
+  expect(modelIn([settings], 'ask')).toBe('sonnet')
+})
+
+test('a models entry the person already set is kept, and only the missing leaves are added', () => {
+  const existing = { ccChatTweaks: { prompt: { 'prompt-upgrade': { models: { rewrite: { model: 'opus', note: 'mine' }, ask: { effort: null } } } } } }
+  const { settings, added } = withMissingDefaults(existing)
+  const models = (settings.ccChatTweaks as { prompt: { 'prompt-upgrade': { models: Record<string, Record<string, unknown>> } } }).prompt['prompt-upgrade'].models
+
+  expect(models.rewrite).toEqual({ model: 'opus', note: 'mine', effort: 'low' })
+  expect(models.ask).toEqual({ effort: null, model: 'sonnet' })
+  expect(models.revise).toEqual({ model: 'sonnet', effort: 'low' })
+  expect(models.classify).toEqual({ model: 'haiku', effort: 'low' })
+  expect(added).not.toContain('models.rewrite.model')
+  expect(added).not.toContain('models.ask.effort')
+  expect(added).toContain('models.rewrite.effort')
+  expect(added).toContain('models.ask.model')
+  expect(existing.ccChatTweaks.prompt['prompt-upgrade'].models.rewrite).toEqual({ model: 'opus', note: 'mine' })
+})
+
+test('a models value or call entry that is not an object is replaced, as the groups above it are', () => {
+  for (const bad of ['opus', ['opus'], null, 5]) {
+    const { settings } = withMissingDefaults({ ccChatTweaks: { prompt: { 'prompt-upgrade': { models: bad } } } })
+    const models = (settings.ccChatTweaks as { prompt: { 'prompt-upgrade': { models: unknown } } }).prompt['prompt-upgrade'].models
+
+    expect(models).toEqual(DEFAULT_MODELS)
+  }
+
+  const { settings } = withMissingDefaults({ ccChatTweaks: { prompt: { 'prompt-upgrade': { models: { ask: 'opus' } } } } })
+  const models = (settings.ccChatTweaks as { prompt: { 'prompt-upgrade': { models: Record<string, unknown> } } }).prompt['prompt-upgrade'].models
+
+  expect(models.ask).toEqual({ model: 'sonnet', effort: 'low' })
+})
+
+test('no model key is written as a literal dotted property name', () => {
+  const written = (withMissingDefaults({}).settings.ccChatTweaks as { prompt: { 'prompt-upgrade': Record<string, unknown> } }).prompt['prompt-upgrade']
+
+  expect(Object.keys(written).filter(key => key.includes('.'))).toEqual([])
+  expect(written.model).toBeUndefined()
+  expect(written['type-model']).toBeUndefined()
 })
 
 test('the default trigger list written to a file is a copy, so editing it leaves the default alone', () => {
@@ -287,28 +423,36 @@ test('the default trigger list written to a file is a copy, so editing it leaves
 test('describes every extra key with its value and the source it came from', () => {
   const report = describeExtras([
     ['policy', {}],
-    ['local', up({ model: 'sonnet', 'silent-triggers': ['>>'] })],
-    ['user', up({ model: 'opus', effort: 'high', 'min-length': 40 })],
+    ['local', up({ models: { ask: { model: 'sonnet' }, rewrite: { model: 'haiku' } }, 'silent-triggers': ['>>'] })],
+    ['user', up({ models: { ask: { model: 'opus', effort: 'high' }, classify: { model: 'sonnet' } }, 'min-length': 40 })],
   ])
 
   expect(report).toEqual([
     { key: 'min-length', value: 40, from: 'user' },
     { key: 'silent-triggers', value: ['>>'], from: 'local' },
     { key: 'silent-off-triggers', value: ['---'], from: 'default' },
-    { key: 'model', value: 'sonnet', from: 'local' },
-    { key: 'effort', value: 'high', from: 'user' },
-    { key: 'type-model', value: 'haiku', from: 'default' },
-    { key: 'type-effort', value: 'low', from: 'default' },
+    { key: 'models.ask.model', value: 'sonnet', from: 'local' },
+    { key: 'models.ask.effort', value: 'high', from: 'user' },
+    { key: 'models.rewrite.model', value: 'haiku', from: 'local' },
+    { key: 'models.rewrite.effort', value: 'low', from: 'default' },
+    { key: 'models.revise.model', value: 'sonnet', from: 'default' },
+    { key: 'models.revise.effort', value: 'low', from: 'default' },
+    { key: 'models.classify.model', value: 'sonnet', from: 'user' },
+    { key: 'models.classify.effort', value: 'low', from: 'default' },
     { key: 'unfolded-tools', value: ['AskUserQuestion', 'Skill', 'Agent'], from: 'default' },
   ])
   expect(describeExtras([['user', {}]])).toEqual([
     { key: 'min-length', value: 10, from: 'default' },
     { key: 'silent-triggers', value: ['+++'], from: 'default' },
     { key: 'silent-off-triggers', value: ['---'], from: 'default' },
-    { key: 'model', value: 'sonnet', from: 'default' },
-    { key: 'effort', value: 'low', from: 'default' },
-    { key: 'type-model', value: 'haiku', from: 'default' },
-    { key: 'type-effort', value: 'low', from: 'default' },
+    { key: 'models.ask.model', value: 'sonnet', from: 'default' },
+    { key: 'models.ask.effort', value: 'low', from: 'default' },
+    { key: 'models.rewrite.model', value: 'sonnet', from: 'default' },
+    { key: 'models.rewrite.effort', value: 'low', from: 'default' },
+    { key: 'models.revise.model', value: 'sonnet', from: 'default' },
+    { key: 'models.revise.effort', value: 'low', from: 'default' },
+    { key: 'models.classify.model', value: 'haiku', from: 'default' },
+    { key: 'models.classify.effort', value: 'low', from: 'default' },
     { key: 'unfolded-tools', value: ['AskUserQuestion', 'Skill', 'Agent'], from: 'default' },
   ])
   expect(describeExtras([['user', chat({ 'unfolded-tools': [] })]]).at(-1)).toEqual({ key: 'unfolded-tools', value: [], from: 'user' })
@@ -353,10 +497,12 @@ test('reports nothing to add when every switch is present', () => {
           'min-length': 25,
           'silent-triggers': ['##', '>>'],
           'silent-off-triggers': [],
-          model: 'sonnet',
-          effort: 'high',
-          'type-model': 'sonnet',
-          'type-effort': 'medium',
+          models: {
+            ask: { model: 'sonnet', effort: 'high' },
+            rewrite: { model: 'opus', effort: 'low' },
+            revise: { model: 'sonnet', effort: 'low' },
+            classify: { model: 'sonnet', effort: 'medium' },
+          },
         },
       },
     },

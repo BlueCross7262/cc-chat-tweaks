@@ -1,4 +1,4 @@
-import { DEFAULT_EFFORT, DEFAULT_MODEL, DEFAULT_TYPE_EFFORT, DEFAULT_TYPE_MODEL } from './settings'
+import { DEFAULT_MODELS } from './settings'
 
 export const Q_SYSTEM = `사용자의 프롬프트를 더 정확하게 만들기 위한 보강 질문을 만든다.
 규칙:
@@ -112,8 +112,8 @@ export const CLASSIFY_SYSTEM = `사용자의 프롬프트가 AI에게 요청하�
 {"types":["research"]}`
 
 export const CALLS = {
-  ask: { model: DEFAULT_MODEL, effort: DEFAULT_EFFORT, maxTokens: 5000, timeoutMs: 20000 },
-  rewrite: { model: DEFAULT_MODEL, effort: DEFAULT_EFFORT, maxTokens: 1500, timeoutMs: 30000 },
-  revise: { model: DEFAULT_MODEL, effort: DEFAULT_EFFORT, maxTokens: 1500, timeoutMs: 30000 },
-  classify: { model: DEFAULT_TYPE_MODEL, effort: DEFAULT_TYPE_EFFORT, maxTokens: 1000, timeoutMs: 5000 },
+  ask: { ...DEFAULT_MODELS.ask, maxTokens: 5000, timeoutMs: 20000 },
+  rewrite: { ...DEFAULT_MODELS.rewrite, maxTokens: 1500, timeoutMs: 30000 },
+  revise: { ...DEFAULT_MODELS.revise, maxTokens: 1500, timeoutMs: 30000 },
+  classify: { ...DEFAULT_MODELS.classify, maxTokens: 1000, timeoutMs: 5000 },
 } as const

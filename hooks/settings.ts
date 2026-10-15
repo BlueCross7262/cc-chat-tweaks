@@ -87,20 +87,22 @@ export const describeFlags = (
 
 export const DEFAULT_MIN_LENGTH = 10
 export const DEFAULT_SILENT_TRIGGERS: readonly string[] = ['+++']
-export const DEFAULT_MODEL = 'sonnet'
-export const DEFAULT_EFFORT = 'low'
 export const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const
+export const CALL_NAMES = ['ask', 'rewrite', 'revise', 'classify'] as const
+export type CallName = (typeof CALL_NAMES)[number]
+export const MODELS_KEY = 'models'
+export const DEFAULT_MODELS: Record<CallName, { model: string; effort: Effort }> = {
+  ask: { model: 'sonnet', effort: 'low' },
+  rewrite: { model: 'sonnet', effort: 'low' },
+  revise: { model: 'sonnet', effort: 'low' },
+  classify: { model: 'haiku', effort: 'low' },
+}
+export const IGNORED_KEYS = ['model', 'effort', 'type-model', 'type-effort'] as const
 export const MIN_LENGTH_KEY = 'min-length'
 export const SILENT_TRIGGERS_KEY = 'silent-triggers'
 export const MAX_SILENT_TRIGGERS = 10
 export const DEFAULT_SILENT_OFF_TRIGGERS: readonly string[] = ['---']
 export const SILENT_OFF_TRIGGERS_KEY = 'silent-off-triggers'
-export const MODEL_KEY = 'model'
-export const EFFORT_KEY = 'effort'
-export const DEFAULT_TYPE_MODEL = 'haiku'
-export const DEFAULT_TYPE_EFFORT = 'low'
-export const TYPE_MODEL_KEY = 'type-model'
-export const TYPE_EFFORT_KEY = 'type-effort'
 export const UNFOLDED_TOOLS_KEY = 'unfolded-tools'
 export const DEFAULT_UNFOLDED_TOOLS: readonly string[] = ['AskUserQuestion', 'Skill', 'Agent']
 export const MAX_UNFOLDED_TOOLS = 50
@@ -109,10 +111,14 @@ const EXTRA_DEFAULTS = {
   [MIN_LENGTH_KEY]: DEFAULT_MIN_LENGTH,
   [SILENT_TRIGGERS_KEY]: DEFAULT_SILENT_TRIGGERS,
   [SILENT_OFF_TRIGGERS_KEY]: DEFAULT_SILENT_OFF_TRIGGERS,
-  [MODEL_KEY]: DEFAULT_MODEL,
-  [EFFORT_KEY]: DEFAULT_EFFORT,
-  [TYPE_MODEL_KEY]: DEFAULT_TYPE_MODEL,
-  [TYPE_EFFORT_KEY]: DEFAULT_TYPE_EFFORT,
+  'models.ask.model': DEFAULT_MODELS.ask.model,
+  'models.ask.effort': DEFAULT_MODELS.ask.effort,
+  'models.rewrite.model': DEFAULT_MODELS.rewrite.model,
+  'models.rewrite.effort': DEFAULT_MODELS.rewrite.effort,
+  'models.revise.model': DEFAULT_MODELS.revise.model,
+  'models.revise.effort': DEFAULT_MODELS.revise.effort,
+  'models.classify.model': DEFAULT_MODELS.classify.model,
+  'models.classify.effort': DEFAULT_MODELS.classify.effort,
   [UNFOLDED_TOOLS_KEY]: DEFAULT_UNFOLDED_TOOLS,
 } as const
 
@@ -120,10 +126,14 @@ const EXTRA_PATHS: Record<keyof typeof EXTRA_DEFAULTS, readonly string[]> = {
   [MIN_LENGTH_KEY]: PROMPT_UPGRADE_PATH,
   [SILENT_TRIGGERS_KEY]: PROMPT_UPGRADE_PATH,
   [SILENT_OFF_TRIGGERS_KEY]: PROMPT_UPGRADE_PATH,
-  [MODEL_KEY]: PROMPT_UPGRADE_PATH,
-  [EFFORT_KEY]: PROMPT_UPGRADE_PATH,
-  [TYPE_MODEL_KEY]: PROMPT_UPGRADE_PATH,
-  [TYPE_EFFORT_KEY]: PROMPT_UPGRADE_PATH,
+  'models.ask.model': PROMPT_UPGRADE_PATH,
+  'models.ask.effort': PROMPT_UPGRADE_PATH,
+  'models.rewrite.model': PROMPT_UPGRADE_PATH,
+  'models.rewrite.effort': PROMPT_UPGRADE_PATH,
+  'models.revise.model': PROMPT_UPGRADE_PATH,
+  'models.revise.effort': PROMPT_UPGRADE_PATH,
+  'models.classify.model': PROMPT_UPGRADE_PATH,
+  'models.classify.effort': PROMPT_UPGRADE_PATH,
   [UNFOLDED_TOOLS_KEY]: TOOL_FOLD_PATH,
 }
 
@@ -188,10 +198,12 @@ export const withMissingDefaults = (
   }
 
   for (const key of Object.keys(EXTRA_DEFAULTS) as ExtraKey[]) {
-    const group = groupIn(EXTRA_PATHS[key])
+    const segments = key.split('.')
+    const prop = segments[segments.length - 1] as string
+    const group = groupIn([...EXTRA_PATHS[key], ...segments.slice(0, -1)])
 
-    if (group[key] === undefined) {
-      group[key] = copyOf(EXTRA_DEFAULTS[key])
+    if (group[prop] === undefined) {
+      group[prop] = copyOf(EXTRA_DEFAULTS[key])
       added.push(key)
     }
   }
@@ -242,9 +254,16 @@ export const silentOffTriggersOf = (sources: readonly unknown[]): string[] | und
 
 export type Effort = (typeof EFFORTS)[number]
 
-export const modelOf = (sources: readonly unknown[], key: string = MODEL_KEY): string | undefined => {
+const entryAt = (source: unknown, call: CallName): Record<string, unknown> | undefined => {
+  const models = upgradeValueOf(source, MODELS_KEY)
+  const entry = isRecord(models) ? models[call] : undefined
+
+  return isRecord(entry) ? entry : undefined
+}
+
+export const modelIn = (sources: readonly unknown[], call: CallName): string | undefined => {
   for (const source of sources) {
-    const value = upgradeValueOf(source, key)
+    const value = entryAt(source, call)?.model
 
     if (typeof value === 'string' && value.trim().length >= 1 && value.trim().length <= 100) return value.trim()
   }
@@ -252,15 +271,30 @@ export const modelOf = (sources: readonly unknown[], key: string = MODEL_KEY): s
   return undefined
 }
 
-export const effortOf = (sources: readonly unknown[], key: string = EFFORT_KEY): Effort | undefined => {
+export const effortIn = (sources: readonly unknown[], call: CallName): Effort | undefined => {
   for (const source of sources) {
-    const value = upgradeValueOf(source, key)
+    const value = entryAt(source, call)?.effort
 
     if (typeof value === 'string' && (EFFORTS as readonly string[]).includes(value.trim())) return value.trim() as Effort
   }
 
   return undefined
 }
+
+export const resolveModel = (sources: readonly unknown[], call: CallName): string =>
+  modelIn(sources, call) ?? DEFAULT_MODELS[call].model
+
+export const resolveEffort = (sources: readonly unknown[], call: CallName): Effort =>
+  effortIn(sources, call) ?? DEFAULT_MODELS[call].effort
+
+export type IgnoredKey = { key: string; from: string }
+
+export const ignoredKeysOf = (named: readonly (readonly [string, unknown])[]): IgnoredKey[] =>
+  named.flatMap(([from, source]) => {
+    const group = groupAt(source, PROMPT_UPGRADE_PATH)
+
+    return group === undefined ? [] : IGNORED_KEYS.filter(key => group[key] !== undefined).map(key => ({ key, from }))
+  })
 
 export const unfoldedToolsOf = (sources: readonly unknown[]): string[] | undefined => {
   for (const source of sources) {
@@ -285,16 +319,40 @@ export const unfoldedToolsOf = (sources: readonly unknown[]): string[] | undefin
 
 export type ExtraReport = { key: ExtraKey; value: number | string | string[]; from: string }
 
-const extraReader = (key: ExtraKey): ((sources: readonly unknown[]) => number | string | string[] | undefined) => {
-  if (key === MIN_LENGTH_KEY) return minLengthOf
-  if (key === SILENT_TRIGGERS_KEY) return silentTriggersOf
-  if (key === SILENT_OFF_TRIGGERS_KEY) return silentOffTriggersOf
-  if (key === MODEL_KEY) return sources => modelOf(sources)
-  if (key === TYPE_MODEL_KEY) return sources => modelOf(sources, TYPE_MODEL_KEY)
-  if (key === TYPE_EFFORT_KEY) return sources => effortOf(sources, TYPE_EFFORT_KEY)
-  if (key === UNFOLDED_TOOLS_KEY) return unfoldedToolsOf
+type ExtraReader = (sources: readonly unknown[]) => number | string | string[] | undefined
 
-  return sources => effortOf(sources)
+const extraReader = (key: ExtraKey): ExtraReader => {
+  switch (key) {
+    case MIN_LENGTH_KEY:
+      return minLengthOf
+    case SILENT_TRIGGERS_KEY:
+      return silentTriggersOf
+    case SILENT_OFF_TRIGGERS_KEY:
+      return silentOffTriggersOf
+    case 'models.ask.model':
+      return sources => modelIn(sources, 'ask')
+    case 'models.ask.effort':
+      return sources => effortIn(sources, 'ask')
+    case 'models.rewrite.model':
+      return sources => modelIn(sources, 'rewrite')
+    case 'models.rewrite.effort':
+      return sources => effortIn(sources, 'rewrite')
+    case 'models.revise.model':
+      return sources => modelIn(sources, 'revise')
+    case 'models.revise.effort':
+      return sources => effortIn(sources, 'revise')
+    case 'models.classify.model':
+      return sources => modelIn(sources, 'classify')
+    case 'models.classify.effort':
+      return sources => effortIn(sources, 'classify')
+    case UNFOLDED_TOOLS_KEY:
+      return unfoldedToolsOf
+    default: {
+      const unhandled: never = key
+
+      return unhandled
+    }
+  }
 }
 
 export const extraKeys = Object.keys(EXTRA_DEFAULTS) as ExtraKey[]

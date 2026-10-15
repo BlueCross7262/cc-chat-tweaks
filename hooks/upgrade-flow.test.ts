@@ -573,15 +573,43 @@ test('a very long original is cut at 2000 characters in the log', async ($, on) 
   expect(row.endsWith('x...')).toBe(true)
 })
 
-test('model and effort from the settings reach every call and its log line', async ($, on) => {
-  const s = world($, on, { extra: { model: 'sonnet', effort: 'high' }, answers: [QUESTION, 'Upgraded prompt.'] })
+test('the models entry of each call reaches that call and its log line only', async ($, on) => {
+  const models = { ask: { model: 'opus', effort: 'high' }, rewrite: { model: 'haiku', effort: 'medium' } }
+  const s = world($, on, { extra: { models }, answers: [QUESTION, 'Upgraded prompt.'] })
+  await submit($, LONG)
+  await settle(s)
+  await mountPane($)
+  await $.ui.press({ plugin: PLUGIN, key: 'q0o1', requestId: PANE })
+  expect(s.ids).toEqual(['opus', 'haiku'])
+  expect(s.efforts).toEqual(['high', 'medium'])
+  const rows = s.logs.filter(line => USAGE_LINE.test(line))
+  expect(rows[0]).toMatch(/^Prompt ask: opus high · /)
+  expect(rows[1]).toMatch(/^Prompt rewrite: haiku medium · /)
+})
+
+test('the revise call reads models.revise and not the rewrite entry', async ($, on) => {
+  const models = { rewrite: { model: 'opus', effort: 'high' }, revise: { model: 'haiku', effort: 'max' } }
+  const s = world($, on, { extra: { models }, answers: [JSON.stringify({ questions: [] }), 'First draft.', 'Second draft.'] })
+  await submit($, LONG)
+  await settle(s)
+  const ui = await mountPane($)
+  await $.ui.input({ plugin: PLUGIN, key: 'revise', text: 'make it shorter', requestId: PANE })
+  expect((await ui.find({ type: 'Markdown' }))?.text).toContain('Second draft.')
+  expect(s.ids).toEqual(['sonnet', 'opus', 'haiku'])
+  expect(s.efforts).toEqual(['low', 'high', 'max'])
+  expect(s.logs.filter(line => USAGE_LINE.test(line)).at(-1)).toMatch(/^Prompt revise: haiku max · /)
+})
+
+test('the old model keys in the settings reach no call', async ($, on) => {
+  const old = { model: 'opus', effort: 'high', 'type-model': 'sonnet', 'type-effort': 'medium' }
+  const s = world($, on, { extra: old, answers: [QUESTION, 'Upgraded prompt.'] })
   await submit($, LONG)
   await settle(s)
   await mountPane($)
   await $.ui.press({ plugin: PLUGIN, key: 'q0o1', requestId: PANE })
   expect(s.ids).toEqual(['sonnet', 'sonnet'])
-  expect(s.efforts).toEqual(['high', 'high'])
-  expect(s.logs.filter(line => USAGE_LINE.test(line)).every(line => line.includes('sonnet high'))).toBe(true)
+  expect(s.efforts).toEqual(['low', 'low'])
+  expect(s.classified.map(c => `${c.model} ${c.effort}`)).toEqual(['haiku low'])
 })
 
 test('the prompt types from the classify call reach the rewrite input and the classify log row', async ($, on) => {
@@ -613,7 +641,8 @@ test('a classify call with no known type logs none and the rewrite runs without 
 })
 
 test('the classify call uses haiku low by default whatever model the upgrade calls use', async ($, on) => {
-  const s = world($, on, { extra: { model: 'opus', effort: 'high' }, answers: [QUESTION, 'Upgraded prompt.'] })
+  const models = { ask: { model: 'opus', effort: 'high' }, rewrite: { model: 'opus', effort: 'high' } }
+  const s = world($, on, { extra: { models }, answers: [QUESTION, 'Upgraded prompt.'] })
   await submit($, LONG)
   await settle(s)
   await mountPane($)
@@ -622,8 +651,9 @@ test('the classify call uses haiku low by default whatever model the upgrade cal
   expect(s.ids).toEqual(['opus', 'opus'])
 })
 
-test('type-model and type-effort from the settings reach the classify call only', async ($, on) => {
-  const s = world($, on, { useQuestions: false, extra: { 'type-model': 'sonnet', 'type-effort': 'medium' }, answers: ['Upgraded prompt.'] })
+test('models.classify from the settings reaches the classify call only', async ($, on) => {
+  const models = { classify: { model: 'sonnet', effort: 'medium' } }
+  const s = world($, on, { useQuestions: false, extra: { models }, answers: ['Upgraded prompt.'] })
   await submit($, LONG)
   await settle(s)
   expect(s.classified.map(c => `${c.model} ${c.effort}`)).toEqual(['sonnet medium'])
@@ -633,7 +663,8 @@ test('type-model and type-effort from the settings reach the classify call only'
 })
 
 test('a model or effort that is not valid falls back to sonnet and low', async ($, on) => {
-  const s = world($, on, { extra: { model: '  ', effort: 'ultra' }, answers: [JSON.stringify({ questions: [] }), 'Upgraded prompt.'] })
+  const models = { ask: { model: '  ', effort: 'ultra' }, rewrite: { model: 5, effort: ['high'] } }
+  const s = world($, on, { extra: { models }, answers: [JSON.stringify({ questions: [] }), 'Upgraded prompt.'] })
   await submit($, LONG)
   await settle(s)
   expect(s.ids).toEqual(['sonnet', 'sonnet'])

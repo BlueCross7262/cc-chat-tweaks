@@ -44,6 +44,7 @@ import {
   describeFlags,
   defaultOf,
   flagsOf,
+  ignoredKeysOf,
   labelOf,
   minLengthOf,
   SETTINGS_SOURCES,
@@ -313,6 +314,7 @@ const collectDoctorInput = async ($: EngineInterface): Promise<DoctorInput> => {
   return {
     flags: describeFlags(named),
     extras,
+    ignored: ignoredKeysOf(named),
     runs: {
       tracked: state.runs.length,
       pending: hasPending(state),

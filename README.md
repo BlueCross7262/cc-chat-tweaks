@@ -26,10 +26,10 @@ Tool folding and the Edit/Write summary are off until you turn them on. The prom
 | `prompt.prompt-upgrade` | `silent-triggers` | `["+++"]` | The trigger texts for the silent upgrade, as an array of strings. |
 | `prompt.prompt-upgrade` | `silent-off-triggers` | `["---"]` | The texts that turn the silent upgrade off for one prompt, as an array of strings. The prompt is sent as it is, without the text. `[]` turns this off. |
 | `prompt.prompt-upgrade` | `min-length` | `10` | Shortest prompt that is upgraded, in characters. |
-| `prompt.prompt-upgrade` | `model` | `sonnet` | The model of every upgrade call. An alias or a full model id. |
-| `prompt.prompt-upgrade` | `effort` | `low` | The effort of every upgrade call: `low`, `medium`, `high`, `xhigh` or `max`. |
-| `prompt.prompt-upgrade` | `type-model` | `haiku` | The model of the prompt type call. An alias or a full model id. |
-| `prompt.prompt-upgrade` | `type-effort` | `low` | The effort of the prompt type call: `low`, `medium`, `high`, `xhigh` or `max`. |
+| `prompt.prompt-upgrade` | `models.ask.model`, `models.ask.effort` | `sonnet`, `low` | The model and effort of the questions call. The model is an alias or a full model id. The effort is `low`, `medium`, `high`, `xhigh` or `max`. |
+| `prompt.prompt-upgrade` | `models.rewrite.model`, `models.rewrite.effort` | `sonnet`, `low` | The model and effort of the rewrite call. |
+| `prompt.prompt-upgrade` | `models.revise.model`, `models.revise.effort` | `sonnet`, `low` | The model and effort of the revise call. |
+| `prompt.prompt-upgrade` | `models.classify.model`, `models.classify.effort` | `haiku`, `low` | The model and effort of the prompt type call. |
 
 ```json
 {
@@ -65,7 +65,7 @@ The prompt upgrade keys are read only from `ccChatTweaks.prompt.prompt-upgrade`.
 
 First it writes every key your user `settings.json` lacks, switches and value keys alike, with its default, so you can see and flip them. It never changes a value that is already there. It leaves a file that is not plain JSON alone and says so.
 
-Then it prints each switch and each value key (`unfolded-tools`, `min-length`, `silent-triggers`, `silent-off-triggers`, `model`, `effort`, `type-model`, `type-effort`) by its path under `ccChatTweaks`, such as `chat.tool-fold.use`, with its value and the source it came from, the fold counters, the prompt upgrade phase and threshold, the environment and a list of checks.
+Then it prints each switch and each value key (`unfolded-tools`, `min-length`, `silent-triggers`, `silent-off-triggers` and the eight `models.<call>.model` and `models.<call>.effort` keys) by its path under `ccChatTweaks`, such as `chat.tool-fold.use`, with its value and the source it came from, the fold counters, the prompt upgrade phase and threshold, the environment and a list of checks. The checks include one warning for each old key `model`, `effort`, `type-model` or `type-effort` found in your settings, because the mod no longer reads them.
 
 ## Features
 

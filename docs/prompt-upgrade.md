@@ -41,10 +41,11 @@ A key that is absent uses its default.
 | `silent-triggers` | `["+++"]` | The trigger texts, as an array of strings. Any one of them at the start or the end of a prompt is a trigger. Each entry is 1 to 32 characters after trimming. An entry that is blank or not text is dropped, a repeated entry counts once, and only the first 10 entries are used. An array with no valid entry uses the default. The old key `silent-trigger` is not read. |
 | `silent-off-triggers` | `["---"]` | Option of `use-silent-upgrade`. The texts that turn the silent upgrade off for one prompt, as an array of strings. Any one of them at the start or the end of a prompt is a trigger. The entry rules are those of `silent-triggers`, except that an empty array `[]` is valid and turns the opt-out off. It has no effect while `use-silent-upgrade` is `false`. |
 | `min-length` | `10` | Shortest prompt that is intercepted, in characters. A whole number from 1 to 10000. It beats the value set by `/prompt-upgrade threshold`. |
-| `model` | `sonnet` | The model of the question, rewrite and revise calls. An alias or a full model id, 1 to 100 characters after trimming. A blank or non-text value uses the default. |
-| `effort` | `low` | The effort of the same calls: `low`, `medium`, `high`, `xhigh` or `max`. Any other value uses the default. |
-| `type-model` | `haiku` | The model of the prompt type call. The rules of `model` apply. `model` does not change it. |
-| `type-effort` | `low` | The effort of the prompt type call. The rules of `effort` apply. `effort` does not change it. |
+| `models.<call>.model` | `sonnet`, and `haiku` for `classify` | The model of one call. `<call>` is `ask` (the questions), `rewrite`, `revise` or `classify` (the prompt type). An alias or a full model id, 1 to 100 characters after trimming. A blank or non-text value, or a `models` entry that is not an object, uses the default. |
+| `models.<call>.effort` | `low` | The effort of the same call: `low`, `medium`, `high`, `xhigh` or `max`. Any other value uses the default. |
+
+Each call reads only its own entry. The first source that holds a valid value wins.
+The old keys `model`, `effort`, `type-model` and `type-effort` are not read. `/tweaks-doctor` shows a warning for each one it finds, with the key to use instead (`type-model` and `type-effort` map to `models.classify`, the others to `models.ask`, `models.rewrite` and `models.revise`).
 
 ```json
 {
@@ -58,10 +59,12 @@ A key that is absent uses its default.
         "silent-triggers": ["+++"],
         "silent-off-triggers": ["---"],
         "min-length": 40,
-        "model": "sonnet",
-        "effort": "low",
-        "type-model": "haiku",
-        "type-effort": "low"
+        "models": {
+          "ask": { "model": "sonnet", "effort": "low" },
+          "rewrite": { "model": "sonnet", "effort": "low" },
+          "revise": { "model": "sonnet", "effort": "low" },
+          "classify": { "model": "haiku", "effort": "low" }
+        }
       }
     }
   }
@@ -70,13 +73,13 @@ A key that is absent uses its default.
 
 Settings changes apply to the next prompt you submit.
 
-A `model` the engine refuses makes the call fail, and the flow ends with your original prompt as for any Haiku failure. The usage log line shows the model and effort the call used. `/prompt-upgrade status` shows them too. Whether the engine accepts a given model id depends on its allowlist and provider, and the mod does not check it.
+A model the engine refuses makes the call fail, and the flow ends with your original prompt as for any Haiku failure. The usage log line shows the model and effort the call used. `/prompt-upgrade status` shows them too. Whether the engine accepts a given model id depends on its allowlist and provider, and the mod does not check it.
 
 ## Commands
 
 | Command | Effect |
 |---|---|
-| `/prompt-upgrade status` | Shows each switch with its value and source, the model and effort of the upgrade calls and of the prompt type call, the threshold and the current phase. |
+| `/prompt-upgrade status` | Shows each switch with its value and source, the model and effort of each of the four calls (`ask`, `rewrite`, `revise` and `classify`), the threshold and the current phase. |
 | `/prompt-upgrade threshold <n>` | Sets the shortest prompt that is intercepted, in characters. The default is 10. The value lives in `$.store`. A `min-length` in settings beats it, and the reply says so. |
 | `/prompt-upgrade reset` | Closes the pane and puts the original prompt back in the prompt box. |
 | `/prompt-upgrade probe on \| off \| show \| clear` | Records a PoC sample per submit. See `prompt-upgrade-poc-results.md`. |

@@ -10,10 +10,11 @@ const input = (patch: Partial<DoctorInput> = {}): DoctorInput => ({
   extras: [
     { key: 'min-length', value: 10, from: 'default' },
     { key: 'silent-triggers', value: ['+++'], from: 'default' },
-    { key: 'model', value: 'haiku', from: 'default' },
-    { key: 'effort', value: 'low', from: 'user' },
+    { key: 'models.ask.model', value: 'haiku', from: 'default' },
+    { key: 'models.ask.effort', value: 'low', from: 'user' },
     { key: 'unfolded-tools', value: ['AskUserQuestion', 'Skill', 'Agent'], from: 'default' },
   ],
+  ignored: [],
   runs: { tracked: 3, pending: false, failed: 0, changes: 5 },
   upgrade: { phase: 'idle', minLen: 10 },
   env: { surface: 'terminal', version: '2.1.0' },
@@ -33,8 +34,8 @@ test('prints the value keys with their value and source under the switches', () 
   expect(text).toMatch(/prompt\.prompt-upgrade\.min-length\s+10\s+\(default\)/)
   expect(text).toMatch(/chat\.tool-fold\.unfolded-tools\s+\["AskUserQuestion","Skill","Agent"\]\s+\(default\)/)
   expect(text).toMatch(/silent-triggers\s+\["\+\+\+"\]\s+\(default\)/)
-  expect(text).toMatch(/model\s+"haiku"\s+\(default\)/)
-  expect(text).toMatch(/effort\s+"low"\s+\(user\)/)
+  expect(text).toMatch(/prompt\.prompt-upgrade\.models\.ask\.model\s+"haiku"\s+\(default\)/)
+  expect(text).toMatch(/prompt\.prompt-upgrade\.models\.ask\.effort\s+"low"\s+\(user\)/)
   expect(text.indexOf('use-edit-summary')).toBeLessThan(text.indexOf('min-length'))
 })
 
@@ -73,6 +74,26 @@ test('reads the version from a string, an object or a nested object', () => {
 
 test('reports no problem when everything is in place', () => {
   expect(checksOf(input())).toEqual(['[ok] No problem found.'])
+})
+
+test('warns once for each old model key found, naming where it was found and the key to use instead', () => {
+  const checks = checksOf(
+    input({
+      ignored: [
+        { key: 'model', from: 'user' },
+        { key: 'effort', from: 'local' },
+        { key: 'type-model', from: 'user' },
+        { key: 'type-effort', from: 'project' },
+      ],
+    }),
+  )
+
+  expect(checks).toEqual([
+    '[warn] prompt.prompt-upgrade.model in user is ignored. Use prompt.prompt-upgrade.models.<ask|rewrite|revise>.model.',
+    '[warn] prompt.prompt-upgrade.effort in local is ignored. Use prompt.prompt-upgrade.models.<ask|rewrite|revise>.effort.',
+    '[warn] prompt.prompt-upgrade.type-model in user is ignored. Use prompt.prompt-upgrade.models.classify.model.',
+    '[warn] prompt.prompt-upgrade.type-effort in project is ignored. Use prompt.prompt-upgrade.models.classify.effort.',
+  ])
 })
 
 test('warns when folding is on and no run has been tracked', () => {

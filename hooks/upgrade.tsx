@@ -53,16 +53,16 @@ import {
   DEFAULT_SILENT_OFF_TRIGGERS,
   DEFAULT_SILENT_TRIGGERS,
   describeFlags,
-  effortOf,
   flagsOf,
   labelOf,
   minLengthOf,
-  modelOf,
+  resolveEffort,
+  resolveModel,
   SETTINGS_SOURCES,
   silentOffTriggersOf,
   silentTriggersOf,
-  TYPE_EFFORT_KEY,
-  TYPE_MODEL_KEY,
+  CALL_NAMES,
+  type CallName,
   type Flags,
 } from './settings'
 
@@ -89,27 +89,13 @@ const setFlow = async ($: EngineInterface, fn: (f: Flow) => Flow): Promise<Flow>
 const setIf = ($: EngineInterface, id: number, fn: (f: Flow) => Flow): Promise<Flow> =>
   setFlow($, f => (isStale(f, id) ? f : fn(f)))
 
-const callWithSettings = async ($: EngineInterface, call: Call): Promise<Call> => {
+const callWithSettings = async ($: EngineInterface, name: CallName): Promise<Call> => {
   try {
     const sources = (await readSources($)).map(([, settings]) => settings)
 
-    return { ...call, model: modelOf(sources) ?? call.model, effort: effortOf(sources) ?? call.effort }
+    return { ...CALLS[name], model: resolveModel(sources, name), effort: resolveEffort(sources, name) }
   } catch {
-    return call
-  }
-}
-
-const callWithTypeSettings = async ($: EngineInterface, call: Call): Promise<Call> => {
-  try {
-    const sources = (await readSources($)).map(([, settings]) => settings)
-
-    return {
-      ...call,
-      model: modelOf(sources, TYPE_MODEL_KEY) ?? call.model,
-      effort: effortOf(sources, TYPE_EFFORT_KEY) ?? call.effort,
-    }
-  } catch {
-    return call
+    return CALLS[name]
   }
 }
 
@@ -148,12 +134,12 @@ const completeWith = async ($: EngineInterface, used: Call, system: string, prom
 
 const callModel = async (
   $: EngineInterface,
-  call: Call,
+  name: CallName,
   system: string,
   prompt: string,
   logPrefix: string,
 ): Promise<Timed> => {
-  const used = await callWithSettings($, call)
+  const used = await callWithSettings($, name)
   const done = await completeWith($, used, system, prompt)
   logCall($, used, done.ms, (await getFlow($).catch(() => EMPTY_FLOW)).original, logPrefix)
 
@@ -162,7 +148,7 @@ const callModel = async (
 
 const classify = async ($: EngineInterface, flow: Flow): Promise<string[]> => {
   try {
-    const used = await callWithTypeSettings($, CALLS.classify)
+    const used = await callWithSettings($, 'classify')
     const done = await completeWith($, used, CLASSIFY_SYSTEM, askInput(flow))
     const types = parseTypes(done.text)
     writeLog($, callLog(used, done.ms, classifyTail(done.text === null ? null : types), LOG_ROW_MAX, CLASSIFY_LOG_PREFIX))
@@ -216,7 +202,7 @@ const startAsk = async ($: EngineInterface, id: number, useQuestions: boolean): 
   try {
     const f = await getFlow($)
     if (isStale(f, id)) return
-    const asked = useQuestions ? await callModel($, CALLS.ask, Q_SYSTEM, askInput(f), ASK_LOG_PREFIX) : null
+    const asked = useQuestions ? await callModel($, 'ask', Q_SYSTEM, askInput(f), ASK_LOG_PREFIX) : null
     const questions = parseQuestions(asked?.text ?? null)
     const next = await setIf($, id, cur =>
       withQuestions(asked?.text ? withTook(cur, 'ask', asked.ms) : cur, questions),
@@ -235,7 +221,7 @@ const startRewrite = async ($: EngineInterface, id: number): Promise<void> => {
     const types = await takeTypes(id, loading.types ?? [])
     const f = await setIf($, id, cur => ({ ...cur, types }))
     if (isStale(f, id)) return
-    const done = await callModel($, CALLS.rewrite, R_SYSTEM, rewriteInput(f), REWRITE_LOG_PREFIX)
+    const done = await callModel($, 'rewrite', R_SYSTEM, rewriteInput(f), REWRITE_LOG_PREFIX)
     await setIf($, id, cur =>
       done.text === null
         ? withDraft(cur, cur.original, FAILED_NOTICE)
@@ -268,7 +254,7 @@ const revise = async ($: EngineInterface, request: string): Promise<void> => {
   const id = f.runId
   await setIf($, id, cur => ({ ...cur, phase: 'rewriteLoading', notice: '' }))
   try {
-    const done = await callModel($, CALLS.revise, REVISE_SYSTEM, reviseInput(f.draft, req), REVISE_LOG_PREFIX)
+    const done = await callModel($, 'revise', REVISE_SYSTEM, reviseInput(f.draft, req), REVISE_LOG_PREFIX)
     await setIf($, id, cur =>
       done.text === null
         ? { ...cur, phase: 'review', notice: REVISE_FAILED_NOTICE }
@@ -372,7 +358,7 @@ const parkDraft = async ($: EngineInterface, draft: string): Promise<void> => {
 const askAndApplyRecommended = async ($: EngineInterface, id: number): Promise<void> => {
   const f = await getFlow($)
   if (isStale(f, id)) return
-  const asked = await callModel($, CALLS.ask, Q_SYSTEM, askInput(f), ASK_LOG_PREFIX)
+  const asked = await callModel($, 'ask', Q_SYSTEM, askInput(f), ASK_LOG_PREFIX)
   const questions = parseQuestions(asked.text)
   const next = await setIf($, id, cur =>
     withRecommended(withQuestions(asked.text ? withTook(cur, 'ask', asked.ms) : cur, questions)),
@@ -840,13 +826,11 @@ export const registerUpgrade = (on: Parameters<Register>[0]): void => {
       const probe = (await $.store.get(KEY_PROBE)) === true
       const flow = await getFlow($)
       const flags = describeFlags(await readSources($))
-      const used = await callWithSettings($, CALLS.rewrite)
-      const typed = await callWithTypeSettings($, CALLS.classify)
+      const used = await Promise.all(CALL_NAMES.map(async name => [name, await callWithSettings($, name)] as const))
       return {
         text: [
           ...flags.map(f => `${labelOf(f.key)}: ${f.value} (${f.from})`),
-          `model ${used.model}; effort ${used.effort}.`,
-          `type model ${typed.model}; type effort ${typed.effort}.`,
+          ...used.map(([name, call]) => `${name} model ${call.model}; effort ${call.effort}.`),
           `threshold ${minLen} characters (default ${MIN_LEN}); phase ${flow.phase}; probe ${probe ? 'on' : 'off'}.`,
         ].join('\n'),
       }
