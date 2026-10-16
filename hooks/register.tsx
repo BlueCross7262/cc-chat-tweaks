@@ -26,12 +26,14 @@ import {
   hasChanges,
   hasPending,
   headerText,
+  isTrackedRow,
   isStreamingRow,
   normalizeState,
   recordChange,
   recordTime,
   SHOW_ROW,
   timingOf,
+  untimedOf,
   viewOf,
   type Header,
 } from './runs'
@@ -142,19 +144,12 @@ export const register: Register = on => {
 
   on('session.append', async ($, e, next) => {
     try {
-      const current = await read($, runsAtom)
-      const updated = applyRow(
-        current,
-        {
-          door: e.door,
-          agentId: e.agentId,
-          content: e.message.content,
-        },
-        await readUnfolded($),
-      )
+      const row = { door: e.door, agentId: e.agentId, content: e.message.content }
 
-      if (updated !== current) {
-        await update($, runsAtom, () => updated)
+      if (isTrackedRow(row)) {
+        const unfolded = await readUnfolded($)
+
+        await update($, runsAtom, state => applyRow(state, row, unfolded))
       }
     } catch {
       return next(e)
@@ -193,11 +188,8 @@ export const register: Register = on => {
 
   on('turn.complete', async ($, e, next) => {
     try {
-      const current = await read($, runsAtom)
-      const updated = closeRunOnTurnEnd(current, e.agentId)
-
-      if (updated !== current) {
-        await update($, runsAtom, () => updated)
+      if (e.agentId === undefined) {
+        await update($, runsAtom, state => closeRunOnTurnEnd(state, e.agentId))
       }
     } catch {
       return next(e)
@@ -320,6 +312,9 @@ const collectDoctorInput = async ($: EngineInterface): Promise<DoctorInput> => {
       pending: hasPending(state),
       failed: state.failed.length,
       changes: state.changes.length,
+      times: state.times.length,
+      done: state.done.length,
+      untimed: untimedOf(state),
     },
     upgrade: { phase: flow.phase, minLen },
     env: { surface, version },

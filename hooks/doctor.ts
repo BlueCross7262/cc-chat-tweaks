@@ -1,3 +1,4 @@
+import type { Untimed } from './runs'
 import { GROUP_PATHS, isFeatureKey, labelOf, pathText, type ExtraReport, type FlagKey, type IgnoredKey } from './settings'
 
 export type FlagReport = {
@@ -15,6 +16,9 @@ export type DoctorInput = {
     pending: boolean
     failed: number
     changes: number
+    times: number
+    done: number
+    untimed: Untimed
   }
   upgrade: {
     phase: string
@@ -75,6 +79,13 @@ export const checksOf = (input: DoctorInput): string[] => {
   return checks
 }
 
+const listOf = (names: readonly string[]): string => (names.length === 0 ? 'none' : names.join(', '))
+
+const tallyOf = (perTool: Untimed['perTool']): string =>
+  perTool.length === 0
+    ? 'none'
+    : perTool.map(([label, count]) => `${label} ${count.untimed}/${count.total}`).join(', ')
+
 export const formatReport = (input: DoctorInput): string => {
   const width = Math.max(
     ...input.flags.map(report => labelOf(report.key).length),
@@ -91,6 +102,9 @@ export const formatReport = (input: DoctorInput): string => {
     '',
     'tool-call folding',
     `  runs tracked: ${runs.tracked}, pending: ${runs.pending ? 'yes' : 'no'}, failed calls: ${runs.failed}, change records: ${runs.changes}`,
+    `  time records: ${runs.times}, done calls: ${runs.done}`,
+    `  untimed failed: ${listOf(runs.untimed.failed)}, untimed other: ${listOf(runs.untimed.others)}`,
+    `  per tool (untimed/total): ${tallyOf(runs.untimed.perTool)}`,
     '',
     'prompt upgrade',
     `  phase: ${upgrade.phase}, threshold: ${upgrade.minLen} characters`,

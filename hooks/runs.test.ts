@@ -12,12 +12,14 @@ import {
   hasChanges,
   hasMoreNames,
   headerText,
+  isTrackedRow,
   isStreamingRow,
   labelOf,
   namesOf,
   recordChange,
   recordTime,
   timingOf,
+  untimedOf,
   viewOf,
   type AppendedRow,
   type Header,
@@ -559,4 +561,88 @@ test('a failed result also counts as done', () => {
 
   expect(state.done).toEqual(['a', 'b', 'c'])
   expect(state.failed).toEqual(['a'])
+})
+
+const untimedRun = (): RunState => {
+  const calls = feed([
+    response(use('a', 'Read'), use('b', 'Edit'), use('c', 'Edit'), use('e', 'Grep'), use('d', 'Read')),
+  ])
+  const done = applyRow(calls, {
+    door: 'tool-result',
+    content: [
+      { type: 'tool_result', tool_use_id: 'a' },
+      { type: 'tool_result', tool_use_id: 'b' },
+      { type: 'tool_result', tool_use_id: 'c', is_error: true },
+      { type: 'tool_result', tool_use_id: 'e' },
+    ],
+  })
+
+  return recordTime(recordTime(done, { id: 'a', start: 0, end: 10 }), { id: 'b', start: 10, end: 20 })
+}
+
+test('lists the finished calls without a time, split into failed and others, with a tally per tool', () => {
+  expect(untimedOf(untimedRun())).toEqual({
+    failed: ['Edit'],
+    others: ['Grep'],
+    perTool: [
+      ['Edit', { untimed: 1, total: 2 }],
+      ['Grep', { untimed: 1, total: 1 }],
+      ['Read', { untimed: 0, total: 1 }],
+    ],
+  })
+})
+
+test('a call whose stored time lacks a start and an end counts as without a time', () => {
+  const stored = { ...untimedRun(), times: [{ id: 'a', ms: 100 }] } as unknown as RunState
+
+  expect(untimedOf(stored).perTool).toEqual([
+    ['Edit', { untimed: 2, total: 2 }],
+    ['Grep', { untimed: 1, total: 1 }],
+    ['Read', { untimed: 1, total: 1 }],
+  ])
+})
+
+test('a state with no finished call has nothing without a time', () => {
+  expect(untimedOf(EMPTY_RUN_STATE)).toEqual({ failed: [], others: [], perTool: [] })
+  expect(untimedOf(feed([response(use('a'))]))).toEqual({ failed: [], others: [], perTool: [] })
+})
+
+test('only a main-loop prompt, response or tool result row can change the runs', () => {
+  const tracked = ['prompt', 'response', 'tool-result']
+  const others = ['command', 'tool-message', 'delivery', 'attachment', 'hook-context', 'note', 'compaction', 'notice']
+  const state = feed([response(use('a'))])
+
+  for (const door of tracked) {
+    expect(isTrackedRow({ door, content: [] })).toBe(true)
+    expect(isTrackedRow({ door, agentId: 'sub-1', content: [] })).toBe(false)
+  }
+
+  for (const door of others) {
+    expect(isTrackedRow({ door, content: [] })).toBe(false)
+    expect(applyRow(state, { door, content: [{ type: 'tool_result', tool_use_id: 'a' }, { type: 'text', text: 'x' }] })).toBe(state)
+  }
+})
+
+const failedRun = (failedIds: string[], ...ids: string[]): RunState =>
+  applyRow(closedRun(...ids), {
+    door: 'tool-result',
+    content: failedIds.map(id => ({ type: 'tool_result', tool_use_id: id, is_error: true })),
+  })
+
+test('a failed call without a time leaves the header time to the calls that have one', () => {
+  const state = recordTime(failedRun(['b'], 'a', 'b'), { id: 'a', start: 1000, end: 2000 })
+
+  expect(viewOf(state, ['a']).header?.ms).toBe(1000)
+  expect(viewOf(state, ['a']).header?.failed).toBe(1)
+})
+
+test('a succeeded call without a time still hides the header time next to a failed one', () => {
+  const state = recordTime(failedRun(['c'], 'a', 'b', 'c'), { id: 'a', start: 1000, end: 2000 })
+
+  expect(viewOf(state, ['a']).header?.ms).toBeNull()
+})
+
+test('the header has no time when no call has one, even if every call failed', () => {
+  expect(viewOf(failedRun(['a', 'b'], 'a', 'b'), ['a']).header?.ms).toBeNull()
+  expect(viewOf(failedRun(['a'], 'a'), ['a']).header?.ms).toBeNull()
 })

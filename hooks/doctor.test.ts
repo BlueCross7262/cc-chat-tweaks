@@ -15,7 +15,22 @@ const input = (patch: Partial<DoctorInput> = {}): DoctorInput => ({
     { key: 'unfolded-tools', value: ['AskUserQuestion', 'Skill', 'Agent'], from: 'default' },
   ],
   ignored: [],
-  runs: { tracked: 3, pending: false, failed: 0, changes: 5 },
+  runs: {
+    tracked: 3,
+    pending: false,
+    failed: 0,
+    changes: 5,
+    times: 7,
+    done: 9,
+    untimed: {
+      failed: ['Bash'],
+      others: [],
+      perTool: [
+        ['Bash', { untimed: 1, total: 1 }],
+        ['Edit', { untimed: 0, total: 8 }],
+      ],
+    },
+  },
   upgrade: { phase: 'idle', minLen: 10 },
   env: { surface: 'terminal', version: '2.1.0' },
   ...patch,
@@ -64,6 +79,34 @@ test('prints the fold counters and the environment', () => {
   expect(text).toContain('claude code: 2.1.0')
 })
 
+test('prints the time records and the calls that finished without a time', () => {
+  const text = formatReport(input())
+
+  expect(text).toContain('time records: 7, done calls: 9')
+  expect(text).toContain('untimed failed: Bash, untimed other: none')
+  expect(text).toContain('per tool (untimed/total): Bash 1/1, Edit 0/8')
+})
+
+test('prints none where no call finished without a time', () => {
+  const text = formatReport(
+    input({
+      runs: {
+        tracked: 0,
+        pending: false,
+        failed: 0,
+        changes: 0,
+        times: 0,
+        done: 0,
+        untimed: { failed: [], others: [], perTool: [] },
+      },
+    }),
+  )
+
+  expect(text).toContain('time records: 0, done calls: 0')
+  expect(text).toContain('untimed failed: none, untimed other: none')
+  expect(text).toContain('per tool (untimed/total): none')
+})
+
 test('reads the version from a string, an object or a nested object', () => {
   expect(versionText('2.1.295')).toBe('2.1.295')
   expect(versionText({ version: '2.1.295', base: '2.1.295' })).toBe('2.1.295')
@@ -97,7 +140,17 @@ test('warns once for each old model key found, naming where it was found and the
 })
 
 test('warns when folding is on and no run has been tracked', () => {
-  const checks = checksOf(input({ runs: { tracked: 0, pending: false, failed: 0, changes: 0 } }))
+  const checks = checksOf(input({
+      runs: {
+        tracked: 0,
+        pending: false,
+        failed: 0,
+        changes: 0,
+        times: 0,
+        done: 0,
+        untimed: { failed: [], others: [], perTool: [] },
+      },
+    }))
 
   expect(checks.some(check => check.startsWith('[warn] chat.tool-fold.use is on'))).toBe(true)
 })

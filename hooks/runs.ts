@@ -213,6 +213,11 @@ export const closeOpenRun = (stored: RunState): RunState => {
 export const closeRunOnTurnEnd = (stored: RunState, agentId: string | undefined): RunState =>
   agentId === undefined ? closeOpenRun(stored) : stored
 
+const TRACKED_DOORS: readonly string[] = ['prompt', 'response', 'tool-result']
+
+export const isTrackedRow = (row: AppendedRow): boolean =>
+  row.agentId === undefined && TRACKED_DOORS.includes(row.door)
+
 export const applyRow = (
   stored: RunState,
   row: AppendedRow,
@@ -294,10 +299,15 @@ export const viewOf = (stored: RunState, ids: readonly string[]): RowView => {
       { added: 0, removed: 0 },
     )
   const timed = new Map(state.times.filter(isSpan).map(timing => [timing.id, timing]))
-  const spans = folded.map(call => timed.get(call.id))
-  const ms = isPending || spans.some(span => span === undefined)
+  const owed = folded.filter(call => !timed.has(call.id) && !state.failed.includes(call.id))
+  const spans = folded.flatMap(call => {
+    const span = timed.get(call.id)
+
+    return span === undefined ? [] : [span]
+  })
+  const ms = isPending || owed.length > 0 || spans.length === 0
     ? null
-    : Math.max(...spans.map(span => span?.end ?? 0)) - Math.min(...spans.map(span => span?.start ?? 0))
+    : Math.max(...spans.map(span => span.end)) - Math.min(...spans.map(span => span.start))
   const header: Header | null =
     firstId !== undefined && ids.includes(firstId)
       ? {
@@ -363,4 +373,32 @@ export const headerText = (header: Header): string => {
   const spent = header.ms === null ? '' : ` in ${formatMs(header.ms)}`
 
   return `${header.isPending ? 'Calling' : 'Called'} ${header.count} ${header.count === 1 ? 'time' : 'times'}${spent} ${namesOf(header.calls, hasTail)}`
+}
+
+export type Untimed = {
+  failed: string[]
+  others: string[]
+  perTool: [string, { untimed: number; total: number }][]
+}
+
+const labelsOf = (calls: readonly Call[]): string[] =>
+  [...new Set(calls.map(call => labelOf(call.name)))].sort()
+
+export const untimedOf = (stored: RunState): Untimed => {
+  const state = normalizeState(stored)
+  const timedIds = new Set(state.times.filter(isSpan).map(timing => timing.id))
+  const calls = state.runs.flatMap(run => run.calls).filter(call => state.done.includes(call.id))
+  const untimed = calls.filter(call => !timedIds.has(call.id))
+
+  return {
+    failed: labelsOf(untimed.filter(call => state.failed.includes(call.id))),
+    others: labelsOf(untimed.filter(call => !state.failed.includes(call.id))),
+    perTool: labelsOf(calls).map(label => [
+      label,
+      {
+        untimed: untimed.filter(call => labelOf(call.name) === label).length,
+        total: calls.filter(call => labelOf(call.name) === label).length,
+      },
+    ]),
+  }
 }
