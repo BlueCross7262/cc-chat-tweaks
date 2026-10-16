@@ -415,6 +415,31 @@ test('both tails are not repeated when applied again to a draft that already has
   expect(withTails(executeOnce, '버그를 고쳐 줘', ['execute'])).toBe(executeOnce)
 })
 
+test('both tails drop the lines of the draft that repeat them, even without the word 나에게 or the white space', () => {
+  const draft = [
+    '원인을 찾는다.',
+    '결과나 결론을 첫 줄에 쓴다.',
+    '근거가 없는 내용은 추정이라고 표시한다.',
+    '각 단계에 파일 경로로 근거를 붙인다.',
+    '대화 중에 선택지가 생기면 AskUserQuestion 도구로 권장안과 함께 질문한다.',
+    '권장  보기는 선택지 목록의 맨 앞에 둔다.',
+  ].join('\n')
+  expect(withTails(draft, '원인을 찾아 줘', ['research'])).toBe(
+    `원인을 찾는다.\n각 단계에 파일 경로로 근거를 붙인다.\n\n${COMMON_TAIL}\n${RESEARCH_TAIL}\n\n${QUESTION_TAIL}`,
+  )
+})
+
+test('both tails keep a question line of the draft when the types add no question lines', () => {
+  const draft = '질문 도구를 고친다.\n대화 중에 선택지가 생기면 AskUserQuestion 도구로 나에게 권장안과 함께 질문한다.'
+  expect(withTails(draft, '질문 도구를 고쳐 줘', ['execute'])).toBe(`${draft}\n\n${COMMON_TAIL}\n${EXECUTE_TAIL}`)
+})
+
+test('both tails keep the draft whole when no tail applies', () => {
+  const draft = 'Find the cause.\n결과나 결론을 첫 줄에 쓴다.'
+  expect(withTails(draft, 'find the cause', ['research'])).toBe(draft)
+  expect(withTails(draft, '원인을 찾아 줘', [])).toBe(draft)
+})
+
 test('both tails are left out for an English prompt', () => {
   expect(withTails('Find the cause.', 'find the cause', ['research'])).toBe('Find the cause.')
 })

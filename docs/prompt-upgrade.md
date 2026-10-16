@@ -98,7 +98,7 @@ Your prompt > Questions > Rewrite > Review
   - If the call fails or finds no known type, the rewrite goes on without types.
   - When the types hold at least one known type and the prompt has Korean characters, the mod adds fixed lines to the end of the draft. These are the common answer rules, then the rules of each type in the order of the types. The common rules ask for a thorough investigation, the result first, facts apart from guesses, and no unrequested background. The `research` rules ask for evidence on every claim. The `discuss` rules ask for one recommendation first with the pros and cons of each option. The `execute` rules ask for done, failed and skipped work, the changed files, and how the change was checked.
   - When the types hold `research` or `discuss`, the mod then adds two more fixed lines. They ask Claude to put its questions through AskUserQuestion with the recommended option first.
-  - A revision applies the same lines to its result. A draft that already ends with them does not get them again.
+  - A revision applies the same lines to its result. Before the mod adds its lines, it removes every line of the draft that repeats one of them, ignoring white space and the word "나에게", so the draft never holds the same rule twice.
   - With no known type, or with a prompt that has no Korean characters, the mod adds nothing.
 - Haiku asks up to three questions with 3 to 5 options each.
   - Pick an option, type your own answer, or skip.
