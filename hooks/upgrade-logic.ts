@@ -379,6 +379,61 @@ export const withQuestionLines = (draft: string, original: string, types: readon
   return `${draft}\n\n${QUESTION_TAIL}`
 }
 
+type PromptType = (typeof PROMPT_TYPES)[number]
+
+const COMMON_LINES: readonly string[] = [
+  '충분히 조사한다.',
+  '결과나 결론을 첫 줄에 쓴다.',
+  '확인한 사실과 추측을 구분해 쓴다.',
+  '확인하지 못한 내용은 확인하지 못했다고 쓴다.',
+  '요청하지 않은 배경 설명을 쓰지 않는다.',
+]
+
+const TYPE_LINES: Readonly<Record<PromptType, readonly string[]>> = {
+  research: [
+    '모든 주장에 근거를 붙인다.',
+    '근거는 파일 경로와 줄 번호, 실행 결과, 문서 출처 중 하나로 쓴다.',
+    '근거가 없는 내용은 추정이라고 표시한다.',
+    '근거끼리 충돌하면 충돌한 사실을 그대로 쓴다.',
+  ],
+  discuss: [
+    '권장안 하나를 첫 줄에 쓰고 이유를 그 뒤에 쓴다.',
+    '선택지마다 장점과 단점을 한 줄씩 쓴다.',
+    '권장안을 고른 기준을 밝힌다.',
+  ],
+  execute: [
+    '완료한 작업, 실패한 작업, 하지 않은 작업을 나눠 쓴다.',
+    '바꾼 파일을 경로로 나열한다.',
+    '검증 방법과 그 결과를 쓴다.',
+    '검증을 실행하지 못했으면 실행하지 못했다고 쓴다.',
+  ],
+}
+
+const isPromptType = (type: string): type is PromptType => (PROMPT_TYPES as readonly string[]).includes(type)
+
+const typeTail = (types: readonly string[]): string => {
+  const known = [...new Set(types.filter(isPromptType))]
+  if (known.length === 0) return ''
+
+  return [...COMMON_LINES, ...known.flatMap(type => TYPE_LINES[type])].join('\n')
+}
+
+export const withTypeLines = (draft: string, original: string, types: readonly string[]): string => {
+  const tail = typeTail(types)
+  if (tail === '' || !HANGUL.test(original)) return draft
+  if (draft.endsWith(tail)) return draft
+
+  return `${draft}\n\n${tail}`
+}
+
+const QUESTION_BLOCK = `\n\n${QUESTION_TAIL}`
+
+export const withTails = (draft: string, original: string, types: readonly string[]): string => {
+  const base = draft.endsWith(QUESTION_BLOCK) ? draft.slice(0, -QUESTION_BLOCK.length) : draft
+
+  return withQuestionLines(withTypeLines(base, original, types), original, types)
+}
+
 export const reviseInput = (draft: string, request: string): string =>
   `<draft>${draft}</draft><request>${request}</request>`
 

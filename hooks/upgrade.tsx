@@ -41,7 +41,7 @@ import {
   toPhase,
   undo,
   withDraft,
-  withQuestionLines,
+  withTails,
   hasRecommended,
   withQuestions,
   withRecommended,
@@ -226,7 +226,7 @@ const startRewrite = async ($: EngineInterface, id: number): Promise<void> => {
     await setIf($, id, cur =>
       done.text === null
         ? withDraft(cur, cur.original, FAILED_NOTICE)
-        : withTook(withDraft(cur, withQuestionLines(unwrapDraft(done.text), cur.original, types)), 'rewrite', done.ms),
+        : withTook(withDraft(cur, withTails(unwrapDraft(done.text), cur.original, types)), 'rewrite', done.ms),
     )
   } catch {
     await toOriginal($, id, FAILED_NOTICE)
@@ -259,7 +259,7 @@ const revise = async ($: EngineInterface, request: string): Promise<void> => {
     await setIf($, id, cur =>
       done.text === null
         ? { ...cur, phase: 'review', notice: REVISE_FAILED_NOTICE }
-        : withTook({ ...revised(cur, unwrapDraft(done.text)), phase: 'review', notice: '' }, 'revise', done.ms),
+        : withTook({ ...revised(cur, withTails(unwrapDraft(done.text), cur.original, cur.types ?? [])), phase: 'review', notice: '' }, 'revise', done.ms),
     )
   } catch {
     await setIf($, id, cur => ({ ...cur, phase: 'review', notice: REVISE_FAILED_NOTICE }))

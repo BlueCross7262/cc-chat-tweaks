@@ -689,6 +689,44 @@ test('an English prompt with a research type gets no question lines', async ($, 
   expect((await ui.find({ type: 'Markdown' }))?.text).not.toContain(QUESTION_LINE_ONE)
 })
 
+const COMMON_LINE = '충분히 조사한다.'
+const EXECUTE_LINE = '바꾼 파일을 경로로 나열한다.'
+const countOf = (text: string, part: string): number => text.split(part).length - 1
+
+test('a Korean prompt with an execute type only ends its draft with the common and execute lines', async ($, on) => {
+  const s = world($, on, { useQuestions: false, types: JSON.stringify({ types: ['execute'] }), answers: ['첨부한 설계 문서를 요약한다.'] })
+  await submit($, KOREAN)
+  await settle(s)
+  const ui = await mountPane($)
+  const text = (await ui.find({ type: 'Markdown' }))?.text ?? ''
+  expect(text).toContain(COMMON_LINE)
+  expect(text).toContain(EXECUTE_LINE)
+})
+
+test('an English prompt with a research type gets no type lines', async ($, on) => {
+  const s = world($, on, { useQuestions: false, types: JSON.stringify({ types: ['research'] }), answers: ['Summarise the attached design document.'] })
+  await submit($, LONG)
+  await settle(s)
+  const ui = await mountPane($)
+  expect((await ui.find({ type: 'Markdown' }))?.text).not.toContain(COMMON_LINE)
+})
+
+test('a revision of a Korean draft keeps the type lines and the question lines once', async ($, on) => {
+  const s = world($, on, {
+    useQuestions: false,
+    types: JSON.stringify({ types: ['research'] }),
+    answers: ['첨부한 설계 문서를 요약한다.', '첨부한 설계 문서를 짧게 요약한다.'],
+  })
+  await submit($, KOREAN)
+  await settle(s)
+  const ui = await mountPane($)
+  await $.ui.input({ plugin: PLUGIN, key: 'revise', text: '짧게 써 줘', requestId: PANE })
+  const text = (await ui.find({ type: 'Markdown' }))?.text ?? ''
+  expect(text).toContain('첨부한 설계 문서를 짧게 요약한다.')
+  expect(countOf(text, COMMON_LINE)).toBe(1)
+  expect(countOf(text, QUESTION_LINE_ONE)).toBe(1)
+})
+
 test('the classify call uses haiku low by default whatever model the upgrade calls use', async ($, on) => {
   const models = { ask: { model: 'opus', effort: 'high' }, rewrite: { model: 'opus', effort: 'high' } }
   const s = world($, on, { extra: { models }, answers: [QUESTION, 'Upgraded prompt.'] })

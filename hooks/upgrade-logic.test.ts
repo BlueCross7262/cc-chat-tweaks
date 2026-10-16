@@ -36,6 +36,8 @@ import {
   unwrapDraft,
   withDraft,
   withQuestionLines,
+  withTails,
+  withTypeLines,
   withQuestions,
   withRecommended,
   type GateInput,
@@ -346,6 +348,75 @@ test('the two question lines are left out for execute only types, no types or a 
 test('the two question lines are not added to a draft that already ends with them', () => {
   const draft = `원인을 찾는다.\n\n${QUESTION_TAIL}`
   expect(withQuestionLines(draft, '원인을 찾아 줘', ['research'])).toBe(draft)
+})
+
+const COMMON_TAIL = [
+  '충분히 조사한다.',
+  '결과나 결론을 첫 줄에 쓴다.',
+  '확인한 사실과 추측을 구분해 쓴다.',
+  '확인하지 못한 내용은 확인하지 못했다고 쓴다.',
+  '요청하지 않은 배경 설명을 쓰지 않는다.',
+].join('\n')
+
+const RESEARCH_TAIL = [
+  '모든 주장에 근거를 붙인다.',
+  '근거는 파일 경로와 줄 번호, 실행 결과, 문서 출처 중 하나로 쓴다.',
+  '근거가 없는 내용은 추정이라고 표시한다.',
+  '근거끼리 충돌하면 충돌한 사실을 그대로 쓴다.',
+].join('\n')
+
+const DISCUSS_TAIL = [
+  '권장안 하나를 첫 줄에 쓰고 이유를 그 뒤에 쓴다.',
+  '선택지마다 장점과 단점을 한 줄씩 쓴다.',
+  '권장안을 고른 기준을 밝힌다.',
+].join('\n')
+
+const EXECUTE_TAIL = [
+  '완료한 작업, 실패한 작업, 하지 않은 작업을 나눠 쓴다.',
+  '바꾼 파일을 경로로 나열한다.',
+  '검증 방법과 그 결과를 쓴다.',
+  '검증을 실행하지 못했으면 실행하지 못했다고 쓴다.',
+].join('\n')
+
+test('each type adds the common lines and its own lines to the end of a Korean draft', () => {
+  expect(withTypeLines('원인을 찾는다.', '원인을 찾아 줘', ['research'])).toBe(`원인을 찾는다.\n\n${COMMON_TAIL}\n${RESEARCH_TAIL}`)
+  expect(withTypeLines('두 안을 비교한다.', '두 안을 비교해 줘', ['discuss'])).toBe(`두 안을 비교한다.\n\n${COMMON_TAIL}\n${DISCUSS_TAIL}`)
+  expect(withTypeLines('버그를 고친다.', '버그를 고쳐 줘', ['execute'])).toBe(`버그를 고친다.\n\n${COMMON_TAIL}\n${EXECUTE_TAIL}`)
+})
+
+test('several types add the common lines once and the type lines in the order of the types without repeats', () => {
+  expect(withTypeLines('원인을 찾고 고친다.', '원인을 찾고 고쳐 줘', ['execute', 'research', 'execute'])).toBe(
+    `원인을 찾고 고친다.\n\n${COMMON_TAIL}\n${EXECUTE_TAIL}\n${RESEARCH_TAIL}`,
+  )
+})
+
+test('the type lines are left out for no known type or a prompt without hangul', () => {
+  expect(withTypeLines('원인을 찾는다.', '원인을 찾아 줘', [])).toBe('원인을 찾는다.')
+  expect(withTypeLines('원인을 찾는다.', '원인을 찾아 줘', ['plan'])).toBe('원인을 찾는다.')
+  expect(withTypeLines('Find the cause.', 'find the cause', ['research'])).toBe('Find the cause.')
+})
+
+test('the type lines are not added to a draft that already ends with them', () => {
+  const draft = `원인을 찾는다.\n\n${COMMON_TAIL}\n${RESEARCH_TAIL}`
+  expect(withTypeLines(draft, '원인을 찾아 줘', ['research'])).toBe(draft)
+})
+
+test('both tails end a research draft with the type lines first and the question lines last', () => {
+  expect(withTails('원인을 찾는다.', '원인을 찾아 줘', ['research'])).toBe(
+    `원인을 찾는다.\n\n${COMMON_TAIL}\n${RESEARCH_TAIL}\n\n${QUESTION_TAIL}`,
+  )
+  expect(withTails('버그를 고친다.', '버그를 고쳐 줘', ['execute'])).toBe(`버그를 고친다.\n\n${COMMON_TAIL}\n${EXECUTE_TAIL}`)
+})
+
+test('both tails are not repeated when applied again to a draft that already has them', () => {
+  const once = withTails('원인을 찾는다.', '원인을 찾아 줘', ['research'])
+  expect(withTails(once, '원인을 찾아 줘', ['research'])).toBe(once)
+  const executeOnce = withTails('버그를 고친다.', '버그를 고쳐 줘', ['execute'])
+  expect(withTails(executeOnce, '버그를 고쳐 줘', ['execute'])).toBe(executeOnce)
+})
+
+test('both tails are left out for an English prompt', () => {
+  expect(withTails('Find the cause.', 'find the cause', ['research'])).toBe('Find the cause.')
 })
 
 test('the classify log tail names the types, none for an empty list and failed for no answer', () => {
