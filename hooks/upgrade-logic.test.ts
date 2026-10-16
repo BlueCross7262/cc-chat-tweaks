@@ -379,14 +379,14 @@ const EXECUTE_TAIL = [
 ].join('\n')
 
 test('each type adds the common lines and its own lines to the end of a Korean draft', () => {
-  expect(withTypeLines('원인을 찾는다.', '원인을 찾아 줘', ['research'])).toBe(`원인을 찾는다.\n\n${COMMON_TAIL}\n${RESEARCH_TAIL}`)
-  expect(withTypeLines('두 안을 비교한다.', '두 안을 비교해 줘', ['discuss'])).toBe(`두 안을 비교한다.\n\n${COMMON_TAIL}\n${DISCUSS_TAIL}`)
-  expect(withTypeLines('버그를 고친다.', '버그를 고쳐 줘', ['execute'])).toBe(`버그를 고친다.\n\n${COMMON_TAIL}\n${EXECUTE_TAIL}`)
+  expect(withTypeLines('원인을 찾는다.', '원인을 찾아 줘', ['research'])).toBe(`원인을 찾는다.\n\n${COMMON_TAIL}\n\n${RESEARCH_TAIL}`)
+  expect(withTypeLines('두 안을 비교한다.', '두 안을 비교해 줘', ['discuss'])).toBe(`두 안을 비교한다.\n\n${COMMON_TAIL}\n\n${DISCUSS_TAIL}`)
+  expect(withTypeLines('버그를 고친다.', '버그를 고쳐 줘', ['execute'])).toBe(`버그를 고친다.\n\n${COMMON_TAIL}\n\n${EXECUTE_TAIL}`)
 })
 
 test('several types add the common lines once and the type lines in the order of the types without repeats', () => {
   expect(withTypeLines('원인을 찾고 고친다.', '원인을 찾고 고쳐 줘', ['execute', 'research', 'execute'])).toBe(
-    `원인을 찾고 고친다.\n\n${COMMON_TAIL}\n${EXECUTE_TAIL}\n${RESEARCH_TAIL}`,
+    `원인을 찾고 고친다.\n\n${COMMON_TAIL}\n\n${EXECUTE_TAIL}\n${RESEARCH_TAIL}`,
   )
 })
 
@@ -397,15 +397,15 @@ test('the type lines are left out for no known type or a prompt without hangul',
 })
 
 test('the type lines are not added to a draft that already ends with them', () => {
-  const draft = `원인을 찾는다.\n\n${COMMON_TAIL}\n${RESEARCH_TAIL}`
+  const draft = `원인을 찾는다.\n\n${COMMON_TAIL}\n\n${RESEARCH_TAIL}`
   expect(withTypeLines(draft, '원인을 찾아 줘', ['research'])).toBe(draft)
 })
 
 test('both tails end a research draft with the type lines first and the question lines last', () => {
   expect(withTails('원인을 찾는다.', '원인을 찾아 줘', ['research'])).toBe(
-    `원인을 찾는다.\n\n${COMMON_TAIL}\n${RESEARCH_TAIL}\n\n${QUESTION_TAIL}`,
+    `원인을 찾는다.\n\n${COMMON_TAIL}\n\n${RESEARCH_TAIL}\n\n${QUESTION_TAIL}`,
   )
-  expect(withTails('버그를 고친다.', '버그를 고쳐 줘', ['execute'])).toBe(`버그를 고친다.\n\n${COMMON_TAIL}\n${EXECUTE_TAIL}`)
+  expect(withTails('버그를 고친다.', '버그를 고쳐 줘', ['execute'])).toBe(`버그를 고친다.\n\n${COMMON_TAIL}\n\n${EXECUTE_TAIL}`)
 })
 
 test('both tails are not repeated when applied again to a draft that already has them', () => {
@@ -425,13 +425,13 @@ test('both tails drop the lines of the draft that repeat them, even without the 
     '권장  보기는 선택지 목록의 맨 앞에 둔다.',
   ].join('\n')
   expect(withTails(draft, '원인을 찾아 줘', ['research'])).toBe(
-    `원인을 찾는다.\n각 단계에 파일 경로로 근거를 붙인다.\n\n${COMMON_TAIL}\n${RESEARCH_TAIL}\n\n${QUESTION_TAIL}`,
+    `원인을 찾는다.\n각 단계에 파일 경로로 근거를 붙인다.\n\n${COMMON_TAIL}\n\n${RESEARCH_TAIL}\n\n${QUESTION_TAIL}`,
   )
 })
 
 test('both tails keep a question line of the draft when the types add no question lines', () => {
   const draft = '질문 도구를 고친다.\n대화 중에 선택지가 생기면 AskUserQuestion 도구로 나에게 권장안과 함께 질문한다.'
-  expect(withTails(draft, '질문 도구를 고쳐 줘', ['execute'])).toBe(`${draft}\n\n${COMMON_TAIL}\n${EXECUTE_TAIL}`)
+  expect(withTails(draft, '질문 도구를 고쳐 줘', ['execute'])).toBe(`${draft}\n\n${COMMON_TAIL}\n\n${EXECUTE_TAIL}`)
 })
 
 test('both tails keep the draft whole when no tail applies', () => {

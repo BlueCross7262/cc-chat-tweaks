@@ -419,7 +419,15 @@ const typeLines = (types: readonly string[]): readonly string[] => {
   return [...COMMON_LINES, ...known.flatMap(type => TYPE_LINES[type])]
 }
 
-const typeTail = (types: readonly string[]): string => typeLines(types).join('\n')
+const typeTail = (types: readonly string[]): string => {
+  const lines = typeLines(types)
+  if (lines.length === 0) return ''
+
+  const common = lines.slice(0, COMMON_LINES.length).join('\n')
+  const typed = lines.slice(COMMON_LINES.length).join('\n')
+
+  return `${common}\n\n${typed}`
+}
 
 export const withTypeLines = (draft: string, original: string, types: readonly string[]): string => {
   const tail = typeTail(types)
