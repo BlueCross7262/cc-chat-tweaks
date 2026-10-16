@@ -9,7 +9,7 @@
     {
       "name": "cc-chat-tweaks",
       "description": "Chat tweaks for Claude Code: folded tool-call rows, an Edit/Write summary row and a prompt upgrade step, each switched by a use-* setting.",
-      "version": "0.0.43",
+      "version": "0.0.44",
       "author": {
         "name": "BlueCross7262"
       },
@@ -23,5 +23,5 @@
       ]
     }
   ],
-  "version": "0.0.43"
+  "version": "0.0.44"
 }
