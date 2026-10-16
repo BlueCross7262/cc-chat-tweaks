@@ -334,20 +334,21 @@ test('prompt types are empty for no answer, broken JSON or a missing list', () =
 
 const QUESTION_TAIL = '대화 중에 선택지가 생기면 AskUserQuestion 도구로 나에게 권장안과 함께 질문한다.\n권장 보기는 선택지 목록의 맨 앞에 둔다.'
 
-test('the two question lines end the draft when the prompt holds hangul and the types hold research or discuss', () => {
-  expect(withQuestionLines('원인을 찾는다.', '원인을 찾아 줘', ['research'])).toBe(`원인을 찾는다.\n\n${QUESTION_TAIL}`)
-  expect(withQuestionLines('두 안을 비교한다.', '두 안을 비교해 줘', ['execute', 'discuss'])).toBe(`두 안을 비교한다.\n\n${QUESTION_TAIL}`)
+test('the two question lines end the draft when the prompt holds hangul and the types hold discuss', () => {
+  expect(withQuestionLines('두 안을 비교한다.', '두 안을 비교해 줘', ['discuss'])).toBe(`두 안을 비교한다.\n${QUESTION_TAIL}`)
+  expect(withQuestionLines('두 안을 비교한다.', '두 안을 비교해 줘', ['execute', 'discuss'])).toBe(`두 안을 비교한다.\n${QUESTION_TAIL}`)
 })
 
-test('the two question lines are left out for execute only types, no types or a prompt without hangul', () => {
+test('the two question lines are left out for research or execute only types, no types or a prompt without hangul', () => {
+  expect(withQuestionLines('원인을 찾는다.', '원인을 찾아 줘', ['research'])).toBe('원인을 찾는다.')
   expect(withQuestionLines('버그를 고친다.', '버그를 고쳐 줘', ['execute'])).toBe('버그를 고친다.')
   expect(withQuestionLines('원인을 찾는다.', '원인을 찾아 줘', [])).toBe('원인을 찾는다.')
   expect(withQuestionLines('Find the cause.', 'find the cause', ['research'])).toBe('Find the cause.')
 })
 
 test('the two question lines are not added to a draft that already ends with them', () => {
-  const draft = `원인을 찾는다.\n\n${QUESTION_TAIL}`
-  expect(withQuestionLines(draft, '원인을 찾아 줘', ['research'])).toBe(draft)
+  const draft = `두 안을 비교한다.\n${QUESTION_TAIL}`
+  expect(withQuestionLines(draft, '두 안을 비교해 줘', ['discuss'])).toBe(draft)
 })
 
 const COMMON_TAIL = [
@@ -356,6 +357,7 @@ const COMMON_TAIL = [
   '확인한 사실과 추측을 구분해 쓴다.',
   '확인하지 못한 내용은 확인하지 못했다고 쓴다.',
   '요청하지 않은 배경 설명을 쓰지 않는다.',
+  '여러 단계의 작업이면 할일 목록을 먼저 생성하고 순서대로 진행한다.',
 ].join('\n')
 
 const RESEARCH_TAIL = [
@@ -401,37 +403,39 @@ test('the type lines are not added to a draft that already ends with them', () =
   expect(withTypeLines(draft, '원인을 찾아 줘', ['research'])).toBe(draft)
 })
 
-test('both tails end a research draft with the type lines first and the question lines last', () => {
-  expect(withTails('원인을 찾는다.', '원인을 찾아 줘', ['research'])).toBe(
-    `원인을 찾는다.\n\n${COMMON_TAIL}\n\n${RESEARCH_TAIL}\n\n${QUESTION_TAIL}`,
+test('both tails end a discuss draft with the type lines first and the question lines last', () => {
+  expect(withTails('두 안을 비교한다.', '두 안을 비교해 줘', ['discuss'])).toBe(
+    `두 안을 비교한다.\n\n${COMMON_TAIL}\n\n${DISCUSS_TAIL}\n${QUESTION_TAIL}`,
   )
+  expect(withTails('원인을 찾는다.', '원인을 찾아 줘', ['research'])).toBe(`원인을 찾는다.\n\n${COMMON_TAIL}\n\n${RESEARCH_TAIL}`)
   expect(withTails('버그를 고친다.', '버그를 고쳐 줘', ['execute'])).toBe(`버그를 고친다.\n\n${COMMON_TAIL}\n\n${EXECUTE_TAIL}`)
 })
 
 test('both tails are not repeated when applied again to a draft that already has them', () => {
-  const once = withTails('원인을 찾는다.', '원인을 찾아 줘', ['research'])
-  expect(withTails(once, '원인을 찾아 줘', ['research'])).toBe(once)
+  const once = withTails('두 안을 비교한다.', '두 안을 비교해 줘', ['discuss'])
+  expect(withTails(once, '두 안을 비교해 줘', ['discuss'])).toBe(once)
   const executeOnce = withTails('버그를 고친다.', '버그를 고쳐 줘', ['execute'])
   expect(withTails(executeOnce, '버그를 고쳐 줘', ['execute'])).toBe(executeOnce)
 })
 
 test('both tails drop the lines of the draft that repeat them, even without the word 나에게 or the white space', () => {
   const draft = [
-    '원인을 찾는다.',
+    '두 안을 비교한다.',
     '결과나 결론을 첫 줄에 쓴다.',
-    '근거가 없는 내용은 추정이라고 표시한다.',
+    '선택지마다 장점과 단점을 한 줄씩 쓴다.',
     '각 단계에 파일 경로로 근거를 붙인다.',
     '대화 중에 선택지가 생기면 AskUserQuestion 도구로 권장안과 함께 질문한다.',
     '권장  보기는 선택지 목록의 맨 앞에 둔다.',
   ].join('\n')
-  expect(withTails(draft, '원인을 찾아 줘', ['research'])).toBe(
-    `원인을 찾는다.\n각 단계에 파일 경로로 근거를 붙인다.\n\n${COMMON_TAIL}\n\n${RESEARCH_TAIL}\n\n${QUESTION_TAIL}`,
+  expect(withTails(draft, '두 안을 비교해 줘', ['discuss'])).toBe(
+    `두 안을 비교한다.\n각 단계에 파일 경로로 근거를 붙인다.\n\n${COMMON_TAIL}\n\n${DISCUSS_TAIL}\n${QUESTION_TAIL}`,
   )
 })
 
 test('both tails keep a question line of the draft when the types add no question lines', () => {
   const draft = '질문 도구를 고친다.\n대화 중에 선택지가 생기면 AskUserQuestion 도구로 나에게 권장안과 함께 질문한다.'
   expect(withTails(draft, '질문 도구를 고쳐 줘', ['execute'])).toBe(`${draft}\n\n${COMMON_TAIL}\n\n${EXECUTE_TAIL}`)
+  expect(withTails(draft, '질문 도구를 찾아 줘', ['research'])).toBe(`${draft}\n\n${COMMON_TAIL}\n\n${RESEARCH_TAIL}`)
 })
 
 test('both tails keep the draft whole when no tail applies', () => {

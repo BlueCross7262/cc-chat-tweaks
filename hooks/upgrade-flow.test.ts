@@ -662,8 +662,8 @@ const KOREAN = '첨부한 설계 문서의 내용을 요약해 줄 수 있을까
 const QUESTION_LINE_ONE = '대화 중에 선택지가 생기면 AskUserQuestion 도구로 나에게 권장안과 함께 질문한다.'
 const QUESTION_LINE_TWO = '권장 보기는 선택지 목록의 맨 앞에 둔다.'
 
-test('a Korean prompt with a research or discuss type ends its draft with the two question lines', async ($, on) => {
-  const s = world($, on, { useQuestions: false, types: JSON.stringify({ types: ['research'] }), answers: ['첨부한 설계 문서를 요약한다.'] })
+test('a Korean prompt with a discuss type ends its draft with the two question lines', async ($, on) => {
+  const s = world($, on, { useQuestions: false, types: JSON.stringify({ types: ['discuss'] }), answers: ['첨부한 설계 문서를 요약한다.'] })
   await submit($, KOREAN)
   await settle(s)
   const ui = await mountPane($)
@@ -671,6 +671,14 @@ test('a Korean prompt with a research or discuss type ends its draft with the tw
   expect(text).toContain('첨부한 설계 문서를 요약한다.')
   expect(text).toContain(QUESTION_LINE_ONE)
   expect(text).toContain(QUESTION_LINE_TWO)
+})
+
+test('a Korean prompt with a research type only gets no question lines', async ($, on) => {
+  const s = world($, on, { useQuestions: false, types: JSON.stringify({ types: ['research'] }), answers: ['첨부한 설계 문서를 요약한다.'] })
+  await submit($, KOREAN)
+  await settle(s)
+  const ui = await mountPane($)
+  expect((await ui.find({ type: 'Markdown' }))?.text).not.toContain(QUESTION_LINE_ONE)
 })
 
 test('a Korean prompt with an execute type only gets no question lines', async ($, on) => {
@@ -714,7 +722,7 @@ test('an English prompt with a research type gets no type lines', async ($, on) 
 test('a revision of a Korean draft keeps the type lines and the question lines once', async ($, on) => {
   const s = world($, on, {
     useQuestions: false,
-    types: JSON.stringify({ types: ['research'] }),
+    types: JSON.stringify({ types: ['discuss'] }),
     answers: ['첨부한 설계 문서를 요약한다.', '첨부한 설계 문서를 짧게 요약한다.'],
   })
   await submit($, KOREAN)

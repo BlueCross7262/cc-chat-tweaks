@@ -364,7 +364,7 @@ export const unwrapDraft = (raw: string): string =>
     .join('')
     .trim()
 
-const QUESTION_TYPES: readonly string[] = ['research', 'discuss']
+const QUESTION_TYPES: readonly string[] = ['discuss']
 const HANGUL = /[ㄱ-ㆎ가-힣]/
 const QUESTION_LINES: readonly string[] = [
   '대화 중에 선택지가 생기면 AskUserQuestion 도구로 나에게 권장안과 함께 질문한다.',
@@ -377,7 +377,7 @@ export const withQuestionLines = (draft: string, original: string, types: readon
   if (!HANGUL.test(original)) return draft
   if (draft.endsWith(QUESTION_TAIL)) return draft
 
-  return `${draft}\n\n${QUESTION_TAIL}`
+  return `${draft}\n${QUESTION_TAIL}`
 }
 
 type PromptType = (typeof PROMPT_TYPES)[number]
@@ -388,6 +388,7 @@ const COMMON_LINES: readonly string[] = [
   '확인한 사실과 추측을 구분해 쓴다.',
   '확인하지 못한 내용은 확인하지 못했다고 쓴다.',
   '요청하지 않은 배경 설명을 쓰지 않는다.',
+  '여러 단계의 작업이면 할일 목록을 먼저 생성하고 순서대로 진행한다.',
 ]
 
 const TYPE_LINES: Readonly<Record<PromptType, readonly string[]>> = {
