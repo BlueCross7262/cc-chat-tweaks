@@ -35,7 +35,6 @@ import {
   undo,
   unwrapDraft,
   withDraft,
-  withQuestionLines,
   withTails,
   withTypeLines,
   withQuestions,
@@ -334,23 +333,6 @@ test('prompt types are empty for no answer, broken JSON or a missing list', () =
 
 const QUESTION_TAIL = '대화 중에 선택지가 생기면 AskUserQuestion 도구로 나에게 권장안과 함께 질문한다.\n권장 보기는 선택지 목록의 맨 앞에 둔다.'
 
-test('the two question lines end the draft when the prompt holds hangul and the types hold discuss', () => {
-  expect(withQuestionLines('두 안을 비교한다.', '두 안을 비교해 줘', ['discuss'])).toBe(`두 안을 비교한다.\n${QUESTION_TAIL}`)
-  expect(withQuestionLines('두 안을 비교한다.', '두 안을 비교해 줘', ['execute', 'discuss'])).toBe(`두 안을 비교한다.\n${QUESTION_TAIL}`)
-})
-
-test('the two question lines are left out for research or execute only types, no types or a prompt without hangul', () => {
-  expect(withQuestionLines('원인을 찾는다.', '원인을 찾아 줘', ['research'])).toBe('원인을 찾는다.')
-  expect(withQuestionLines('버그를 고친다.', '버그를 고쳐 줘', ['execute'])).toBe('버그를 고친다.')
-  expect(withQuestionLines('원인을 찾는다.', '원인을 찾아 줘', [])).toBe('원인을 찾는다.')
-  expect(withQuestionLines('Find the cause.', 'find the cause', ['research'])).toBe('Find the cause.')
-})
-
-test('the two question lines are not added to a draft that already ends with them', () => {
-  const draft = `두 안을 비교한다.\n${QUESTION_TAIL}`
-  expect(withQuestionLines(draft, '두 안을 비교해 줘', ['discuss'])).toBe(draft)
-})
-
 const COMMON_TAIL = [
   '충분히 조사한다.',
   '결과나 결론을 첫 줄에 쓴다.',
@@ -382,13 +364,22 @@ const EXECUTE_TAIL = [
 
 test('each type adds the common lines and its own lines to the end of a Korean draft', () => {
   expect(withTypeLines('원인을 찾는다.', '원인을 찾아 줘', ['research'])).toBe(`원인을 찾는다.\n\n${COMMON_TAIL}\n\n${RESEARCH_TAIL}`)
-  expect(withTypeLines('두 안을 비교한다.', '두 안을 비교해 줘', ['discuss'])).toBe(`두 안을 비교한다.\n\n${COMMON_TAIL}\n\n${DISCUSS_TAIL}`)
+  expect(withTypeLines('두 안을 비교한다.', '두 안을 비교해 줘', ['discuss'])).toBe(`두 안을 비교한다.\n\n${COMMON_TAIL}\n\n${DISCUSS_TAIL}\n${QUESTION_TAIL}`)
   expect(withTypeLines('버그를 고친다.', '버그를 고쳐 줘', ['execute'])).toBe(`버그를 고친다.\n\n${COMMON_TAIL}\n\n${EXECUTE_TAIL}`)
 })
 
 test('several types add the common lines once and the type lines in the order of the types without repeats', () => {
   expect(withTypeLines('원인을 찾고 고친다.', '원인을 찾고 고쳐 줘', ['execute', 'research', 'execute'])).toBe(
-    `원인을 찾고 고친다.\n\n${COMMON_TAIL}\n\n${EXECUTE_TAIL}\n${RESEARCH_TAIL}`,
+    `원인을 찾고 고친다.\n\n${COMMON_TAIL}\n\n${EXECUTE_TAIL}\n\n${RESEARCH_TAIL}`,
+  )
+})
+
+test('a blank line sits between the blocks of two types and the question lines stay with the discuss block', () => {
+  expect(withTypeLines('원인을 찾고 비교한다.', '원인을 찾고 비교해 줘', ['research', 'discuss'])).toBe(
+    `원인을 찾고 비교한다.\n\n${COMMON_TAIL}\n\n${RESEARCH_TAIL}\n\n${DISCUSS_TAIL}\n${QUESTION_TAIL}`,
+  )
+  expect(withTypeLines('비교하고 고친다.', '비교하고 고쳐 줘', ['discuss', 'execute'])).toBe(
+    `비교하고 고친다.\n\n${COMMON_TAIL}\n\n${DISCUSS_TAIL}\n${QUESTION_TAIL}\n\n${EXECUTE_TAIL}`,
   )
 })
 

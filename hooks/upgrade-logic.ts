@@ -364,23 +364,15 @@ export const unwrapDraft = (raw: string): string =>
     .join('')
     .trim()
 
-const QUESTION_TYPES: readonly string[] = ['discuss']
 const HANGUL = /[ㄱ-ㆎ가-힣]/
 const QUESTION_LINES: readonly string[] = [
   '대화 중에 선택지가 생기면 AskUserQuestion 도구로 나에게 권장안과 함께 질문한다.',
   '권장 보기는 선택지 목록의 맨 앞에 둔다.',
 ]
-const QUESTION_TAIL = QUESTION_LINES.join('\n')
-
-export const withQuestionLines = (draft: string, original: string, types: readonly string[]): string => {
-  if (!types.some(type => QUESTION_TYPES.includes(type))) return draft
-  if (!HANGUL.test(original)) return draft
-  if (draft.endsWith(QUESTION_TAIL)) return draft
-
-  return `${draft}\n${QUESTION_TAIL}`
-}
 
 type PromptType = (typeof PROMPT_TYPES)[number]
+
+const QUESTION_TYPES: readonly PromptType[] = ['discuss']
 
 const COMMON_LINES: readonly string[] = [
   '충분히 조사한다.',
@@ -413,21 +405,16 @@ const TYPE_LINES: Readonly<Record<PromptType, readonly string[]>> = {
 
 const isPromptType = (type: string): type is PromptType => (PROMPT_TYPES as readonly string[]).includes(type)
 
-const typeLines = (types: readonly string[]): readonly string[] => {
-  const known = [...new Set(types.filter(isPromptType))]
-  if (known.length === 0) return []
-
-  return [...COMMON_LINES, ...known.flatMap(type => TYPE_LINES[type])]
-}
+const typeBlocks = (types: readonly string[]): readonly (readonly string[])[] =>
+  [...new Set(types.filter(isPromptType))].map(type =>
+    QUESTION_TYPES.includes(type) ? [...TYPE_LINES[type], ...QUESTION_LINES] : TYPE_LINES[type],
+  )
 
 const typeTail = (types: readonly string[]): string => {
-  const lines = typeLines(types)
-  if (lines.length === 0) return ''
+  const blocks = typeBlocks(types)
+  if (blocks.length === 0) return ''
 
-  const common = lines.slice(0, COMMON_LINES.length).join('\n')
-  const typed = lines.slice(COMMON_LINES.length).join('\n')
-
-  return `${common}\n\n${typed}`
+  return [COMMON_LINES, ...blocks].map(lines => lines.join('\n')).join('\n\n')
 }
 
 export const withTypeLines = (draft: string, original: string, types: readonly string[]): string => {
@@ -441,18 +428,17 @@ export const withTypeLines = (draft: string, original: string, types: readonly s
 const normalizeLine = (line: string): string => line.replace(/\s+/g, '').replace('나에게', '')
 
 export const withTails = (draft: string, original: string, types: readonly string[]): string => {
-  const lines = typeLines(types)
-  if (lines.length === 0 || !HANGUL.test(original)) return draft
+  const blocks = typeBlocks(types)
+  if (blocks.length === 0 || !HANGUL.test(original)) return draft
 
-  const added = types.some(type => QUESTION_TYPES.includes(type)) ? [...lines, ...QUESTION_LINES] : lines
-  const dropped = new Set(added.map(normalizeLine))
+  const dropped = new Set([...COMMON_LINES, ...blocks.flat()].map(normalizeLine))
   const body = draft
     .split('\n')
     .filter(line => !dropped.has(normalizeLine(line)))
     .join('\n')
     .trimEnd()
 
-  return withQuestionLines(withTypeLines(body, original, types), original, types)
+  return withTypeLines(body, original, types)
 }
 
 export const reviseInput = (draft: string, request: string): string =>
