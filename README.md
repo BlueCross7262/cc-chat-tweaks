@@ -28,7 +28,6 @@ Tool folding and the Edit/Write summary are off until you turn them on. The prom
 | `prompt.prompt-upgrade` | `min-length` | `10` | Shortest prompt that is upgraded, in characters. |
 | `prompt.prompt-upgrade` | `models.ask.model`, `models.ask.effort` | `sonnet`, `low` | The model and effort of the questions call. The model is an alias or a full model id. The effort is `low`, `medium`, `high`, `xhigh` or `max`. |
 | `prompt.prompt-upgrade` | `models.rewrite.model`, `models.rewrite.effort` | `sonnet`, `low` | The model and effort of the rewrite call. |
-| `prompt.prompt-upgrade` | `models.revise.model`, `models.revise.effort` | `sonnet`, `low` | The model and effort of the revise call. |
 | `prompt.prompt-upgrade` | `models.classify.model`, `models.classify.effort` | `haiku`, `low` | The model and effort of the prompt type call. |
 
 ```json
@@ -117,7 +116,8 @@ A prompt you type at the prompt box and send is held back, and a pane opens with
 
 - Haiku asks up to three questions with 3 to 5 options each. You pick an option, type your own answer, or skip.
 - Haiku rewrites the prompt as prose with one sentence on each line and keeps pasted material as it is, wrapped in `<input>` tags.
-- In the review you can ask for a change to the draft, undo it, edit the draft in the prompt box, send the draft, send the original, or cancel.
+- A Korean prompt is put into one message: an instruction that asks Claude to write a prompt from the rewrite, print it and run it, the rewrite between `<source>` tags, and the answer rules for its type between `<hard rule>` tags. The mod builds the message in code, so the rules reach Claude as they are written.
+- In the review you can edit the draft in the prompt box, send the draft, send the original, or cancel.
 - Each upgraded prompt costs up to three model calls on your plan or API key. The default model is `sonnet`.
 - Prompts typed while a turn runs, prompts with attachments, slash commands, shell commands that start with `!`, prompts with an `@file` or `@agent` mention, prompts that are only pasted material and short prompts pass through unchanged. So does every prompt when the pane cannot be placed or Haiku does not answer.
 - `/prompt-upgrade status | threshold <n> | reset | probe on|off|show|clear` shows and tunes the feature.

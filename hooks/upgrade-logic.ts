@@ -11,7 +11,6 @@ export const EMPTY_FLOW: Flow = {
   questions: [],
   answers: {},
   draft: '',
-  prevDraft: '',
   skipUntil: 0,
   filled: '',
   pending: null,
@@ -19,7 +18,7 @@ export const EMPTY_FLOW: Flow = {
   notice: '',
   context: '',
   types: [],
-  took: { ask: 0, rewrite: 0, revise: 0 },
+  took: { ask: 0, rewrite: 0 },
 }
 
 export const PROMPT_TYPES = ['research', 'discuss', 'execute'] as const
@@ -57,7 +56,6 @@ export const tookText = (flow: Flow): string => {
   const parts = [
     flow.took.ask > 0 ? `questions ${formatMs(flow.took.ask)}` : '',
     flow.took.rewrite > 0 ? `rewrite ${formatMs(flow.took.rewrite)}` : '',
-    flow.took.revise > 0 ? `last revision ${formatMs(flow.took.revise)}` : '',
   ].filter(part => part !== '')
 
   return parts.length === 0 ? '' : `Took ${parts.join(' · ')}`
@@ -65,7 +63,6 @@ export const tookText = (flow: Flow): string => {
 
 export const ASK_LOG_PREFIX = 'Prompt ask:'
 export const REWRITE_LOG_PREFIX = 'Prompt rewrite:'
-export const REVISE_LOG_PREFIX = 'Prompt revise:'
 export const CLASSIFY_LOG_PREFIX = 'Prompt classify:'
 export const ANSWER_LOG_PREFIX = 'Prompt answer:'
 
@@ -417,46 +414,61 @@ const typeTail = (types: readonly string[]): string => {
   return [COMMON_LINES, ...blocks].map(lines => lines.join('\n')).join('\n\n')
 }
 
-export const withTypeLines = (draft: string, original: string, types: readonly string[]): string => {
-  const tail = typeTail(types)
-  if (tail === '' || !HANGUL.test(original)) return draft
-  if (draft.endsWith(tail)) return draft
-
-  return `${draft}\n\n${tail}`
-}
-
 const normalizeLine = (line: string): string => line.replace(/\s+/g, '').replace('나에게', '')
 
-export const withTails = (draft: string, original: string, types: readonly string[]): string => {
+const META_TAGS: readonly string[] = ['<source>', '</source>', '<hard rule>', '</hard rule>']
+
+const META_LINES: readonly string[] = [
+  '너는 프롬프트 엔지니어다.',
+  '아래 <source> 는 내가 AI에게 요청하는 내용이다.',
+  '<source> 의 요청을 수행하는 프롬프트를 먼저 쓴다.',
+  '프롬프트의 작업 부분은 <source> 를 바탕으로 새로 쓴다.',
+  '쓴 프롬프트를 채팅에 출력한 후 이 대화에서 그 프롬프트를 실행한다.',
+]
+
+const META_FULL_LINES: readonly string[] = [
+  ...META_LINES,
+  '<hard rule> 의 규칙은 프롬프트를 쓸 때와 실행할 때 모두 지킨다.',
+  '<hard rule> 의 규칙 문장만 쓴 프롬프트에 한 글자도 바꾸지 않고 옮긴다.',
+  '쓴 프롬프트에는 <source> 태그와 <hard rule> 태그를 포함하지 않는다.',
+]
+
+const META_SHORT_LINES: readonly string[] = [...META_LINES, '쓴 프롬프트에는 <source> 태그를 포함하지 않는다.']
+
+const tidyBody = (text: string): string =>
+  text
+    .split(/(<input>[\s\S]*?<\/input>)/)
+    .map((part, i) => (i % 2 === 1 ? part : part.replace(/\n{3,}/g, '\n\n')))
+    .join('')
+    .trim()
+
+export const withMeta = (draft: string, original: string, types: readonly string[]): string => {
+  if (!HANGUL.test(original)) return draft
+
   const blocks = typeBlocks(types)
-  if (blocks.length === 0 || !HANGUL.test(original)) return draft
+  const hasRules = blocks.length > 0
+  const dropped = new Set(
+    [...META_FULL_LINES, ...META_SHORT_LINES, ...(hasRules ? [...COMMON_LINES, ...blocks.flat()] : [])].map(normalizeLine),
+  )
+  const body = tidyBody(
+    draft
+      .split('\n')
+      .filter(line => !dropped.has(normalizeLine(line)))
+      .filter(line => !META_TAGS.includes(line.trim()))
+      .join('\n'),
+  )
+  const tail = typeTail(types)
+  if (META_TAGS.some(tag => body.includes(tag))) return hasRules ? `${body}\n\n${tail}` : body
 
-  const dropped = new Set([...COMMON_LINES, ...blocks.flat()].map(normalizeLine))
-  const body = draft
-    .split('\n')
-    .filter(line => !dropped.has(normalizeLine(line)))
-    .join('\n')
-    .trimEnd()
+  const head = `${(hasRules ? META_FULL_LINES : META_SHORT_LINES).join('\n')}\n\n<source>\n${body}\n</source>`
 
-  return withTypeLines(body, original, types)
+  return hasRules ? `${head}\n\n<hard rule>\n${tail}\n</hard rule>` : head
 }
-
-export const reviseInput = (draft: string, request: string): string =>
-  `<draft>${draft}</draft><request>${request}</request>`
 
 export const withDraft = (flow: Flow, draft: string, notice = ''): Flow => ({
   ...flow,
   draft,
-  prevDraft: '',
   phase: 'review',
   notice,
 })
 
-export const revised = (flow: Flow, draft: string): Flow => ({
-  ...flow,
-  prevDraft: flow.draft,
-  draft,
-})
-
-export const undo = (flow: Flow): Flow =>
-  flow.prevDraft === '' ? flow : { ...flow, draft: flow.prevDraft, prevDraft: '' }

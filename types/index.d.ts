@@ -18,7 +18,6 @@ export type Flow = {
   questions: Question[]
   answers: Record<string, string>
   draft: string
-  prevDraft: string
   skipUntil: number
   filled: string
   pending: string | null
@@ -26,7 +25,7 @@ export type Flow = {
   notice: string
   context: string
   types: string[]
-  took: { ask: number; rewrite: number; revise: number }
+  took: { ask: number; rewrite: number }
 }
 
 declare module 'claude-code' {

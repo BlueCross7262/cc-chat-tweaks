@@ -24,19 +24,15 @@ import {
   answerLogs,
   ASK_LOG_PREFIX,
   CLASSIFY_LOG_PREFIX,
-  REVISE_LOG_PREFIX,
   REWRITE_LOG_PREFIX,
   classifyTail,
   parseTypes,
   withTook,
-  revised,
   rewriteInput,
   stripFence,
-  undo,
   unwrapDraft,
   withDraft,
-  withTails,
-  withTypeLines,
+  withMeta,
   withQuestions,
   withRecommended,
   type GateInput,
@@ -362,54 +358,76 @@ const EXECUTE_TAIL = [
   '검증을 실행하지 못했으면 실행하지 못했다고 쓴다.',
 ].join('\n')
 
-test('each type adds the common lines and its own lines to the end of a Korean draft', () => {
-  expect(withTypeLines('원인을 찾는다.', '원인을 찾아 줘', ['research'])).toBe(`원인을 찾는다.\n\n${COMMON_TAIL}\n\n${RESEARCH_TAIL}`)
-  expect(withTypeLines('두 안을 비교한다.', '두 안을 비교해 줘', ['discuss'])).toBe(`두 안을 비교한다.\n\n${COMMON_TAIL}\n\n${DISCUSS_TAIL}\n${QUESTION_TAIL}`)
-  expect(withTypeLines('버그를 고친다.', '버그를 고쳐 줘', ['execute'])).toBe(`버그를 고친다.\n\n${COMMON_TAIL}\n\n${EXECUTE_TAIL}`)
-})
+const META_FULL = [
+  '너는 프롬프트 엔지니어다.',
+  '아래 <source> 는 내가 AI에게 요청하는 내용이다.',
+  '<source> 의 요청을 수행하는 프롬프트를 먼저 쓴다.',
+  '프롬프트의 작업 부분은 <source> 를 바탕으로 새로 쓴다.',
+  '쓴 프롬프트를 채팅에 출력한 후 이 대화에서 그 프롬프트를 실행한다.',
+  '<hard rule> 의 규칙은 프롬프트를 쓸 때와 실행할 때 모두 지킨다.',
+  '<hard rule> 의 규칙 문장만 쓴 프롬프트에 한 글자도 바꾸지 않고 옮긴다.',
+  '쓴 프롬프트에는 <source> 태그와 <hard rule> 태그를 포함하지 않는다.',
+].join('\n')
 
-test('several types add the common lines once and the type lines in the order of the types without repeats', () => {
-  expect(withTypeLines('원인을 찾고 고친다.', '원인을 찾고 고쳐 줘', ['execute', 'research', 'execute'])).toBe(
-    `원인을 찾고 고친다.\n\n${COMMON_TAIL}\n\n${EXECUTE_TAIL}\n\n${RESEARCH_TAIL}`,
+const META_SHORT = [
+  '너는 프롬프트 엔지니어다.',
+  '아래 <source> 는 내가 AI에게 요청하는 내용이다.',
+  '<source> 의 요청을 수행하는 프롬프트를 먼저 쓴다.',
+  '프롬프트의 작업 부분은 <source> 를 바탕으로 새로 쓴다.',
+  '쓴 프롬프트를 채팅에 출력한 후 이 대화에서 그 프롬프트를 실행한다.',
+  '쓴 프롬프트에는 <source> 태그를 포함하지 않는다.',
+].join('\n')
+
+const RESEARCH_RULES = `${COMMON_TAIL}\n\n${RESEARCH_TAIL}`
+
+const wrapped = (source: string, rules: string) =>
+  `${META_FULL}\n\n<source>\n${source}\n</source>\n\n<hard rule>\n${rules}\n</hard rule>`
+
+test('a Korean draft is wrapped with the instruction, the source and the hard rule block', () => {
+  expect(withMeta('원인을 찾는다.', '원인을 찾아 줘', ['research'])).toBe(wrapped('원인을 찾는다.', RESEARCH_RULES))
+  expect(withMeta('두 안을 비교한다.', '두 안을 비교해 줘', ['discuss'])).toBe(
+    wrapped('두 안을 비교한다.', `${COMMON_TAIL}\n\n${DISCUSS_TAIL}\n${QUESTION_TAIL}`),
+  )
+  expect(withMeta('버그를 고친다.', '버그를 고쳐 줘', ['execute'])).toBe(
+    wrapped('버그를 고친다.', `${COMMON_TAIL}\n\n${EXECUTE_TAIL}`),
   )
 })
 
-test('a blank line sits between the blocks of two types and the question lines stay with the discuss block', () => {
-  expect(withTypeLines('원인을 찾고 비교한다.', '원인을 찾고 비교해 줘', ['research', 'discuss'])).toBe(
-    `원인을 찾고 비교한다.\n\n${COMMON_TAIL}\n\n${RESEARCH_TAIL}\n\n${DISCUSS_TAIL}\n${QUESTION_TAIL}`,
+test('the instruction is the eight lines of the full form and the six lines of the short form', () => {
+  const full = withMeta('원인을 찾는다.', '원인을 찾아 줘', ['research']).split('\n')
+  expect(full.slice(0, 8)).toEqual(META_FULL.split('\n'))
+  expect(full[8]).toBe('')
+  expect(full[9]).toBe('<source>')
+  const short = withMeta('원인을 찾는다.', '원인을 찾아 줘', []).split('\n')
+  expect(short.slice(0, 6)).toEqual(META_SHORT.split('\n'))
+  expect(short[6]).toBe('')
+  expect(short[7]).toBe('<source>')
+})
+
+test('several types put the common lines once and the type lines in the order of the types without repeats', () => {
+  expect(withMeta('원인을 찾고 고친다.', '원인을 찾고 고쳐 줘', ['execute', 'research', 'execute'])).toBe(
+    wrapped('원인을 찾고 고친다.', `${COMMON_TAIL}\n\n${EXECUTE_TAIL}\n\n${RESEARCH_TAIL}`),
   )
-  expect(withTypeLines('비교하고 고친다.', '비교하고 고쳐 줘', ['discuss', 'execute'])).toBe(
-    `비교하고 고친다.\n\n${COMMON_TAIL}\n\n${DISCUSS_TAIL}\n${QUESTION_TAIL}\n\n${EXECUTE_TAIL}`,
+  expect(withMeta('원인을 찾고 비교한다.', '원인을 찾고 비교해 줘', ['research', 'discuss'])).toBe(
+    wrapped('원인을 찾고 비교한다.', `${COMMON_TAIL}\n\n${RESEARCH_TAIL}\n\n${DISCUSS_TAIL}\n${QUESTION_TAIL}`),
   )
 })
 
-test('the type lines are left out for no known type or a prompt without hangul', () => {
-  expect(withTypeLines('원인을 찾는다.', '원인을 찾아 줘', [])).toBe('원인을 찾는다.')
-  expect(withTypeLines('원인을 찾는다.', '원인을 찾아 줘', ['plan'])).toBe('원인을 찾는다.')
-  expect(withTypeLines('Find the cause.', 'find the cause', ['research'])).toBe('Find the cause.')
+test('a draft without a known type gets the short instruction and the source only', () => {
+  const expected = `${META_SHORT}\n\n<source>\n원인을 찾는다.\n</source>`
+  expect(withMeta('원인을 찾는다.', '원인을 찾아 줘', [])).toBe(expected)
+  expect(withMeta('원인을 찾는다.', '원인을 찾아 줘', ['plan'])).toBe(expected)
 })
 
-test('the type lines are not added to a draft that already ends with them', () => {
-  const draft = `원인을 찾는다.\n\n${COMMON_TAIL}\n\n${RESEARCH_TAIL}`
-  expect(withTypeLines(draft, '원인을 찾아 줘', ['research'])).toBe(draft)
-})
-
-test('both tails end a discuss draft with the type lines first and the question lines last', () => {
-  expect(withTails('두 안을 비교한다.', '두 안을 비교해 줘', ['discuss'])).toBe(
-    `두 안을 비교한다.\n\n${COMMON_TAIL}\n\n${DISCUSS_TAIL}\n${QUESTION_TAIL}`,
+test('a prompt without hangul is left as the draft, with or without a type', () => {
+  expect(withMeta('Find the cause.', 'find the cause', ['research'])).toBe('Find the cause.')
+  expect(withMeta('Find the cause.', 'find the cause', [])).toBe('Find the cause.')
+  expect(withMeta('Find the cause.\n결과나 결론을 첫 줄에 쓴다.', 'find the cause', ['research'])).toBe(
+    'Find the cause.\n결과나 결론을 첫 줄에 쓴다.',
   )
-  expect(withTails('원인을 찾는다.', '원인을 찾아 줘', ['research'])).toBe(`원인을 찾는다.\n\n${COMMON_TAIL}\n\n${RESEARCH_TAIL}`)
-  expect(withTails('버그를 고친다.', '버그를 고쳐 줘', ['execute'])).toBe(`버그를 고친다.\n\n${COMMON_TAIL}\n\n${EXECUTE_TAIL}`)
 })
 
-test('both tails are not repeated when applied again to a draft that already has them', () => {
-  const once = withTails('두 안을 비교한다.', '두 안을 비교해 줘', ['discuss'])
-  expect(withTails(once, '두 안을 비교해 줘', ['discuss'])).toBe(once)
-  const executeOnce = withTails('버그를 고친다.', '버그를 고쳐 줘', ['execute'])
-  expect(withTails(executeOnce, '버그를 고쳐 줘', ['execute'])).toBe(executeOnce)
-})
-
-test('both tails drop the lines of the draft that repeat them, even without the word 나에게 or the white space', () => {
+test('the lines of the draft that repeat a rule leave the source, even without the word 나에게 or with other white space', () => {
   const draft = [
     '두 안을 비교한다.',
     '결과나 결론을 첫 줄에 쓴다.',
@@ -418,41 +436,52 @@ test('both tails drop the lines of the draft that repeat them, even without the 
     '대화 중에 선택지가 생기면 AskUserQuestion 도구로 권장안과 함께 질문한다.',
     '권장  보기는 선택지 목록의 맨 앞에 둔다.',
   ].join('\n')
-  expect(withTails(draft, '두 안을 비교해 줘', ['discuss'])).toBe(
-    `두 안을 비교한다.\n각 단계에 파일 경로로 근거를 붙인다.\n\n${COMMON_TAIL}\n\n${DISCUSS_TAIL}\n${QUESTION_TAIL}`,
+  expect(withMeta(draft, '두 안을 비교해 줘', ['discuss'])).toBe(
+    wrapped('두 안을 비교한다.\n각 단계에 파일 경로로 근거를 붙인다.', `${COMMON_TAIL}\n\n${DISCUSS_TAIL}\n${QUESTION_TAIL}`),
+  )
+  expect(withMeta('원인을 찾는다.\n충분히  조사한다.\n결과나 결론을 첫 줄에 쓴다.', '원인을 찾아 줘', ['research'])).toBe(
+    wrapped('원인을 찾는다.', RESEARCH_RULES),
   )
 })
 
-test('both tails keep a question line of the draft when the types add no question lines', () => {
+test('a question line of the draft stays in the source when the types add no question lines', () => {
   const draft = '질문 도구를 고친다.\n대화 중에 선택지가 생기면 AskUserQuestion 도구로 나에게 권장안과 함께 질문한다.'
-  expect(withTails(draft, '질문 도구를 고쳐 줘', ['execute'])).toBe(`${draft}\n\n${COMMON_TAIL}\n\n${EXECUTE_TAIL}`)
-  expect(withTails(draft, '질문 도구를 찾아 줘', ['research'])).toBe(`${draft}\n\n${COMMON_TAIL}\n\n${RESEARCH_TAIL}`)
+  expect(withMeta(draft, '질문 도구를 고쳐 줘', ['execute'])).toBe(wrapped(draft, `${COMMON_TAIL}\n\n${EXECUTE_TAIL}`))
 })
 
-test('both tails keep the draft whole when no tail applies', () => {
-  const draft = 'Find the cause.\n결과나 결론을 첫 줄에 쓴다.'
-  expect(withTails(draft, 'find the cause', ['research'])).toBe(draft)
-  expect(withTails(draft, '원인을 찾아 줘', [])).toBe(draft)
+test('a hand typed hard rule block in the draft leaves no tag line and no empty tag pair', () => {
+  const draft = `원인을 찾는다.\n\n<hard rule>\n${RESEARCH_RULES}\n<hard rule>`
+  expect(withMeta(draft, '원인을 찾아 줘', ['research'])).toBe(wrapped('원인을 찾는다.', RESEARCH_RULES))
 })
 
-test('both tails are left out for an English prompt', () => {
-  expect(withTails('Find the cause.', 'find the cause', ['research'])).toBe('Find the cause.')
+test('a tag line and a rule in the middle of the draft leave one blank line between the two parts', () => {
+  const draft = '앞 문장.\n\n<hard rule>\n충분히 조사한다.\n<hard rule>\n\n뒤 문장.'
+  expect(withMeta(draft, '원인을 찾아 줘', ['research'])).toBe(wrapped('앞 문장.\n\n뒤 문장.', RESEARCH_RULES))
+})
+
+test('blank lines inside an input block stay as they are', () => {
+  const draft = '자료를 읽는다.\n<input>\n가\n\n\n나\n</input>'
+  expect(withMeta(draft, '자료를 읽어 줘', ['research'])).toBe(wrapped(draft, RESEARCH_RULES))
+})
+
+test('a draft that names a tag in the middle of a line gets no wrapper and the rules once at the end', () => {
+  expect(withMeta('`<hard rule>` 태그는 없어?', '태그가 없는지 알려 줘', ['research'])).toBe(
+    `\`<hard rule>\` 태그는 없어?\n\n${RESEARCH_RULES}`,
+  )
+  expect(withMeta('`<source>` 는 무엇인지 설명한다.', '설명해 줘', [])).toBe('`<source>` 는 무엇인지 설명한다.')
+})
+
+test('an assembled message that is upgraded again gets one fresh wrapper', () => {
+  const once = withMeta('원인을 찾는다.', '원인을 찾아 줘', ['research'])
+  expect(withMeta(once, once, ['research'])).toBe(once)
+  const shortOnce = withMeta('원인을 찾는다.', '원인을 찾아 줘', [])
+  expect(withMeta(shortOnce, shortOnce, [])).toBe(shortOnce)
 })
 
 test('the classify log tail names the types, none for an empty list and failed for no answer', () => {
   expect(classifyTail(['research', 'execute'])).toBe('research, execute')
   expect(classifyTail([])).toBe('none')
   expect(classifyTail(null)).toBe('failed')
-})
-
-test('revise keeps one level of undo', () => {
-  let f = withDraft(begin(EMPTY_FLOW, 'orig'), 'draft one')
-  expect(f.phase).toBe('review')
-  f = revised(f, 'draft two')
-  expect(f.draft).toBe('draft two')
-  f = undo(f)
-  expect(f.draft).toBe('draft one')
-  expect(undo(f).draft).toBe('draft one')
 })
 
 test('context keeps the newest text turns, clipped, oldest dropped first', () => {
@@ -574,12 +603,11 @@ test('the call log is one row: model, effort, time and the original prompt', () 
   expect(callLog(call, 840, 'fix the login bug', 2000, REWRITE_LOG_PREFIX)).toBe('Prompt rewrite: sonnet low · 840ms · fix the login bug')
 })
 
-test('the ask, rewrite and revise calls each write a row with their own prefix', () => {
+test('the ask and rewrite calls each write a row with their own prefix', () => {
   const call = { model: 'sonnet', effort: 'low' }
 
   expect(callLog(call, 1900, 'fix the login bug', 2000, ASK_LOG_PREFIX)).toBe('Prompt ask: sonnet low · 1.9s · fix the login bug')
   expect(callLog(call, 1900, 'fix the login bug', 2000, REWRITE_LOG_PREFIX)).toBe('Prompt rewrite: sonnet low · 1.9s · fix the login bug')
-  expect(callLog(call, 1900, 'fix the login bug', 2000, REVISE_LOG_PREFIX)).toBe('Prompt revise: sonnet low · 1.9s · fix the login bug')
 })
 
 test('the answer log writes one row for each answered question and skips the unanswered ones', () => {

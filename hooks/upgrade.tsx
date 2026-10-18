@@ -14,7 +14,6 @@ import {
   ASK_LOG_PREFIX,
   callLog,
   CLASSIFY_LOG_PREFIX,
-  REVISE_LOG_PREFIX,
   REWRITE_LOG_PREFIX,
   classifyTail,
   parseTypes,
@@ -33,15 +32,12 @@ import {
   parseMinLen,
   parseQuestions,
   reset,
-  revised,
   squash,
-  reviseInput,
   rewriteInput,
   SKIP_TTL_MS,
   toPhase,
-  undo,
   withDraft,
-  withTails,
+  withMeta,
   hasRecommended,
   withQuestions,
   withRecommended,
@@ -49,7 +45,7 @@ import {
   tookText,
   unwrapDraft,
 } from './upgrade-logic'
-import { CALLS, CLASSIFY_SYSTEM, Q_SYSTEM, R_SYSTEM, REVISE_SYSTEM } from './upgrade-prompts'
+import { CALLS, CLASSIFY_SYSTEM, Q_SYSTEM, R_SYSTEM } from './upgrade-prompts'
 import {
   DEFAULT_SILENT_OFF_TRIGGERS,
   DEFAULT_SILENT_TRIGGERS,
@@ -73,7 +69,6 @@ const LOG_ROW_MAX = 2000
 const flowAtom = atom({ plugin: 'cc-chat-tweaks', key: 'flow' } as const, EMPTY_FLOW)
 
 const FAILED_NOTICE = 'Haiku did not answer. Showing the original prompt.'
-const REVISE_FAILED_NOTICE = 'Haiku did not answer. The draft is unchanged.'
 
 type Call = { model: string; effort: ModelEffort; maxTokens: number; timeoutMs: number }
 
@@ -226,7 +221,7 @@ const startRewrite = async ($: EngineInterface, id: number): Promise<void> => {
     await setIf($, id, cur =>
       done.text === null
         ? withDraft(cur, cur.original, FAILED_NOTICE)
-        : withTook(withDraft(cur, withTails(unwrapDraft(done.text), cur.original, types)), 'rewrite', done.ms),
+        : withTook(withDraft(cur, withMeta(unwrapDraft(done.text), cur.original, types)), 'rewrite', done.ms),
     )
   } catch {
     await toOriginal($, id, FAILED_NOTICE)
@@ -246,28 +241,6 @@ const upgradeNow = async ($: EngineInterface): Promise<void> => {
 const upgradeWithRecommended = async ($: EngineInterface): Promise<void> => {
   const f = await setFlow($, cur => (cur.phase === 'questions' ? withRecommended(cur) : cur))
   if (f.phase === 'questions') await startRewrite($, f.runId)
-}
-
-const revise = async ($: EngineInterface, request: string): Promise<void> => {
-  const req = request.trim()
-  const f = await getFlow($)
-  if (req === '' || f.phase !== 'review') return
-  const id = f.runId
-  await setIf($, id, cur => ({ ...cur, phase: 'rewriteLoading', notice: '' }))
-  try {
-    const done = await callModel($, 'revise', REVISE_SYSTEM, reviseInput(f.draft, req), REVISE_LOG_PREFIX)
-    await setIf($, id, cur =>
-      done.text === null
-        ? { ...cur, phase: 'review', notice: REVISE_FAILED_NOTICE }
-        : withTook({ ...revised(cur, withTails(unwrapDraft(done.text), cur.original, cur.types ?? [])), phase: 'review', notice: '' }, 'revise', done.ms),
-    )
-  } catch {
-    await setIf($, id, cur => ({ ...cur, phase: 'review', notice: REVISE_FAILED_NOTICE }))
-  }
-}
-
-const undoRevision = async ($: EngineInterface): Promise<void> => {
-  await setFlow($, cur => (cur.phase === 'review' ? undo(cur) : cur))
 }
 
 const cancel = async ($: EngineInterface): Promise<void> => {
@@ -591,7 +564,7 @@ const renderPane = ($: EngineInterface, e: PaneInput, flow: Flow) => {
   return (
     <Box flexDirection="column">
       {stepper}
-      {section('YOUR UPGRADED PROMPT', 'revise it, then send')}
+      {section('YOUR UPGRADED PROMPT', 'then send')}
       <Box flexDirection="column" borderStyle="round" borderColor="success" paddingX={1}>
         <Markdown text={clip(flow.draft, DRAFT_CLIP)} />
       </Box>
@@ -603,19 +576,8 @@ const renderPane = ($: EngineInterface, e: PaneInput, flow: Flow) => {
           </Text>
         </Box>
       ) : null}
-      <Box marginTop={1}>
-        <Input
-          key="revise"
-          label="수정"
-          placeholder="what should change?"
-          submitLabel="revise"
-          onSubmit={value => revise($, value)}
-        />
-      </Box>
       <Box flexWrap="wrap" columnGap={1} marginTop={1}>
-        {/* UNVERIFIED: hotkeys fire while the revise Input holds the focus */}
         <Button label="이 프롬프트 보내기" hotkey="s" variant="primary" onPress={() => finishDraft($)} />
-        {flow.prevDraft !== '' ? <Button label="수정 되돌리기" hotkey="u" onPress={() => undoRevision($)} /> : null}
         <Button label="입력창에서 편집" hotkey="e" onPress={() => editInPrompt($)} />
         <Button label="원문 그대로 보내기" hotkey="o" onPress={() => finishOriginal($)} />
         {cancelButton}

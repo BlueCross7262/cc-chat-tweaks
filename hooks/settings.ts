@@ -88,13 +88,12 @@ export const describeFlags = (
 export const DEFAULT_MIN_LENGTH = 10
 export const DEFAULT_SILENT_TRIGGERS: readonly string[] = ['+++']
 export const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const
-export const CALL_NAMES = ['ask', 'rewrite', 'revise', 'classify'] as const
+export const CALL_NAMES = ['ask', 'rewrite', 'classify'] as const
 export type CallName = (typeof CALL_NAMES)[number]
 export const MODELS_KEY = 'models'
 export const DEFAULT_MODELS: Record<CallName, { model: string; effort: Effort }> = {
   ask: { model: 'sonnet', effort: 'low' },
   rewrite: { model: 'sonnet', effort: 'low' },
-  revise: { model: 'sonnet', effort: 'low' },
   classify: { model: 'haiku', effort: 'low' },
 }
 export const IGNORED_KEYS = ['model', 'effort', 'type-model', 'type-effort'] as const
@@ -115,8 +114,6 @@ const EXTRA_DEFAULTS = {
   'models.ask.effort': DEFAULT_MODELS.ask.effort,
   'models.rewrite.model': DEFAULT_MODELS.rewrite.model,
   'models.rewrite.effort': DEFAULT_MODELS.rewrite.effort,
-  'models.revise.model': DEFAULT_MODELS.revise.model,
-  'models.revise.effort': DEFAULT_MODELS.revise.effort,
   'models.classify.model': DEFAULT_MODELS.classify.model,
   'models.classify.effort': DEFAULT_MODELS.classify.effort,
   [UNFOLDED_TOOLS_KEY]: DEFAULT_UNFOLDED_TOOLS,
@@ -130,8 +127,6 @@ const EXTRA_PATHS: Record<keyof typeof EXTRA_DEFAULTS, readonly string[]> = {
   'models.ask.effort': PROMPT_UPGRADE_PATH,
   'models.rewrite.model': PROMPT_UPGRADE_PATH,
   'models.rewrite.effort': PROMPT_UPGRADE_PATH,
-  'models.revise.model': PROMPT_UPGRADE_PATH,
-  'models.revise.effort': PROMPT_UPGRADE_PATH,
   'models.classify.model': PROMPT_UPGRADE_PATH,
   'models.classify.effort': PROMPT_UPGRADE_PATH,
   [UNFOLDED_TOOLS_KEY]: TOOL_FOLD_PATH,
@@ -337,10 +332,6 @@ const extraReader = (key: ExtraKey): ExtraReader => {
       return sources => modelIn(sources, 'rewrite')
     case 'models.rewrite.effort':
       return sources => effortIn(sources, 'rewrite')
-    case 'models.revise.model':
-      return sources => modelIn(sources, 'revise')
-    case 'models.revise.effort':
-      return sources => effortIn(sources, 'revise')
     case 'models.classify.model':
       return sources => modelIn(sources, 'classify')
     case 'models.classify.effort':

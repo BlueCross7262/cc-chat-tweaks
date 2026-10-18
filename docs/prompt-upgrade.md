@@ -2,13 +2,14 @@
 
 A feature of cc-chat-tweaks.
 It intercepts a prompt you submit, asks Haiku for up to three clarifying questions, rewrites the prompt as prose, and sends it after you review it.
+A Korean prompt is sent as a message that asks Claude to write a prompt from the rewrite, print it in the chat and run it.
 
 ## Security notice
 
 - A mod runs with your user permissions and has no sandbox.
 - While `use` is `true`, the mod sees every prompt you submit.
 - The prompt upgrade is on by default, so the mod sees your prompts until you set `use` to `false`.
-- Each upgraded prompt costs up to four model calls on your plan or API key: one prompt type call and up to three upgrade calls. The default model is `haiku` for the prompt type call and `sonnet` for the others.
+- Each upgraded prompt costs up to three model calls on your plan or API key: one prompt type call and up to two upgrade calls (the questions and the rewrite). The default model is `haiku` for the prompt type call and `sonnet` for the others.
 - The mod sends prompt text to the model only through `$.model.complete`.
 - The mod makes no other network call and does not use `$.http`.
 - The mod stores no prompt text. The probe log keeps lengths and origin only.
@@ -41,11 +42,11 @@ A key that is absent uses its default.
 | `silent-triggers` | `["+++"]` | The trigger texts, as an array of strings. Any one of them at the start or the end of a prompt is a trigger. Each entry is 1 to 32 characters after trimming. An entry that is blank or not text is dropped, a repeated entry counts once, and only the first 10 entries are used. An array with no valid entry uses the default. The old key `silent-trigger` is not read. |
 | `silent-off-triggers` | `["---"]` | Option of `use-silent-upgrade`. The texts that turn the silent upgrade off for one prompt, as an array of strings. Any one of them at the start or the end of a prompt is a trigger. The entry rules are those of `silent-triggers`, except that an empty array `[]` is valid and turns the opt-out off. It has no effect while `use-silent-upgrade` is `false`. |
 | `min-length` | `10` | Shortest prompt that is intercepted, in characters. A whole number from 1 to 10000. It beats the value set by `/prompt-upgrade threshold`. |
-| `models.<call>.model` | `sonnet`, and `haiku` for `classify` | The model of one call. `<call>` is `ask` (the questions), `rewrite`, `revise` or `classify` (the prompt type). An alias or a full model id, 1 to 100 characters after trimming. A blank or non-text value, or a `models` entry that is not an object, uses the default. |
+| `models.<call>.model` | `sonnet`, and `haiku` for `classify` | The model of one call. `<call>` is `ask` (the questions), `rewrite` or `classify` (the prompt type). An alias or a full model id, 1 to 100 characters after trimming. A blank or non-text value, or a `models` entry that is not an object, uses the default. |
 | `models.<call>.effort` | `low` | The effort of the same call: `low`, `medium`, `high`, `xhigh` or `max`. Any other value uses the default. |
 
 Each call reads only its own entry. The first source that holds a valid value wins.
-The old keys `model`, `effort`, `type-model` and `type-effort` are not read. `/tweaks-doctor` shows a warning for each one it finds, with the key to use instead (`type-model` and `type-effort` map to `models.classify`, the others to `models.ask`, `models.rewrite` and `models.revise`).
+The old keys `model`, `effort`, `type-model` and `type-effort` are not read. `/tweaks-doctor` shows a warning for each one it finds, with the key to use instead (`type-model` and `type-effort` map to `models.classify`, the others to `models.ask` and `models.rewrite`).
 
 ```json
 {
@@ -62,7 +63,6 @@ The old keys `model`, `effort`, `type-model` and `type-effort` are not read. `/t
         "models": {
           "ask": { "model": "sonnet", "effort": "low" },
           "rewrite": { "model": "sonnet", "effort": "low" },
-          "revise": { "model": "sonnet", "effort": "low" },
           "classify": { "model": "haiku", "effort": "low" }
         }
       }
@@ -79,7 +79,7 @@ A model the engine refuses makes the call fail, and the flow ends with your orig
 
 | Command | Effect |
 |---|---|
-| `/prompt-upgrade status` | Shows each switch with its value and source, the model and effort of each of the four calls (`ask`, `rewrite`, `revise` and `classify`), the threshold and the current phase. |
+| `/prompt-upgrade status` | Shows each switch with its value and source, the model and effort of each of the three calls (`ask`, `rewrite` and `classify`), the threshold and the current phase. |
 | `/prompt-upgrade threshold <n>` | Sets the shortest prompt that is intercepted, in characters. The default is 10. The value lives in `$.store`. A `min-length` in settings beats it, and the reply says so. |
 | `/prompt-upgrade reset` | Closes the pane and puts the original prompt back in the prompt box. |
 | `/prompt-upgrade probe on \| off \| show \| clear` | Records a PoC sample per submit. See `prompt-upgrade-poc-results.md`. |
@@ -96,10 +96,14 @@ Your prompt > Questions > Rewrite > Review
   - It runs on every upgrade, with or without `use-questions`, and with the questions call when there is one.
   - The rewrite waits for it. The rewrite uses the types only to order the sentences and to choose how each request is phrased. It adds no request that is not in your prompt.
   - If the call fails or finds no known type, the rewrite goes on without types.
-  - When the types hold at least one known type and the prompt has Korean characters, the mod adds fixed lines to the end of the draft. These are the common answer rules, then the rules of each type in the order of the types. The common rules ask for a thorough investigation, the result first, facts apart from guesses, no unrequested background, and a task list first, then the steps in order, for work of several steps. The `research` rules ask for evidence on every claim. The `discuss` rules ask for one recommendation first with the pros and cons of each option. The `execute` rules ask for done, failed and skipped work, the changed files, and how the change was checked.
-  - When the types hold `discuss`, the mod then adds two more fixed lines. They ask Claude to put its questions through AskUserQuestion with the recommended option first.
-  - A revision applies the same lines to its result. Before the mod adds its lines, it removes every line of the draft that repeats one of them, ignoring white space and the word "나에게", so the draft never holds the same rule twice.
-  - With no known type, or with a prompt that has no Korean characters, the mod adds nothing.
+  - When the prompt has Korean characters, the mod puts the rewrite into one message with an instruction in front. The message is built in code, after the rewrite call, so the model never sees the fixed lines and cannot change them.
+  - With at least one known type the message has three parts: an instruction of eight lines, the rewrite between `<source>` and `</source>`, and the fixed lines between `<hard rule>` and `</hard rule>`. The instruction asks Claude to write a prompt from the `<source>` part, print it in the chat and run it in the same turn. It asks Claude to follow the `<hard rule>` lines while it writes and runs, to copy only those sentences unchanged into the written prompt, and to leave both tags out of the written prompt.
+  - With no known type the message has the six-line short instruction and the `<source>` part only. The two lines about `<hard rule>` and the block itself are left out.
+  - The fixed lines are the common answer rules, then the rules of each type in the order of the types. The common rules ask for a thorough investigation, the result first, facts apart from guesses, no unrequested background, and a task list first, then the steps in order, for work of several steps. The `research` rules ask for evidence on every claim. The `discuss` rules ask for one recommendation first with the pros and cons of each option. The `execute` rules ask for done, failed and skipped work, the changed files, and how the change was checked.
+  - When the types hold `discuss`, the `<hard rule>` block ends with two more fixed lines. They ask Claude to put its questions through AskUserQuestion with the recommended option first.
+  - Before the mod builds the message, it cleans the rewrite. It removes every line that repeats a fixed line or an instruction line, ignoring white space and the word "나에게", and every line that holds only one of the four tags. It reduces a run of blank lines to one blank line outside `<input>` blocks, and trims both ends. So a message that is upgraded again gets one fresh wrapper, and the draft never holds the same rule twice.
+  - If a tag still stands inside a line of the draft, for example when the prompt talks about the tags, the mod adds no wrapper. The draft then ends with the fixed lines once, as a plain rewrite.
+  - A prompt that has no Korean characters gets the rewrite alone, with no instruction and no fixed lines.
 - Haiku asks up to three questions with 3 to 5 options each.
   - Pick an option, type your own answer, or skip.
   - `나머지 건너뛰고 업그레이드` goes on with the answers so far.
@@ -111,15 +115,12 @@ Your prompt > Questions > Rewrite > Review
 
 | Control | Key | Effect |
 |---|---|---|
-| `수정` field | | Haiku changes only the draft, as you ask. |
 | `이 프롬프트 보내기` | `s` | Sends the draft and clears the prompt box. |
-| `수정 되돌리기` | `u` | Brings back the draft before the last revision. |
 | `입력창에서 편집` | `e` | Closes the pane and puts the draft in the prompt box. Your next submit passes once: any time for the same characters as the draft, and within 5 minutes for anything else. |
 | `원문 그대로 보내기` | `o` | Sends the prompt you typed. |
 | `취소` | `c` | Closes the pane and puts the original back in the prompt box. |
 
 The keys fire while the pane holds the focus.
-Whether they fire while the cursor sits in the revise field is not verified.
 Press Tab to move to a button, or click it.
 
 ## Silent upgrade
@@ -148,7 +149,7 @@ The trigger (`+++` by default) at the start or the end of a prompt is what start
 - Haiku then rewrites the prompt once with those answers, and the mod puts the result in the prompt box. It does not send it.
 - If the questions call fails, the rewrite goes on without answers.
 - You read the draft in the prompt box, edit it if you want, and press Enter yourself.
-- The pane is not opened, so there is no review pane. Use the normal path when you want to revise the draft with Haiku.
+- The pane is not opened, so there is no review pane.
 - The mod remembers the characters of the draft it put in the prompt box, with every space, tab and line break dropped.
 - A prompt that holds the same characters passes through, however its spaces and line breaks differ, and however long you waited. So the draft goes out without a second upgrade, and the pass is spent.
 - A prompt that holds other characters is an edited draft or a new prompt, and the mod cannot tell which. Within 5 minutes it passes through once. After 5 minutes it is upgraded.
@@ -177,7 +178,7 @@ cc-chat-tweaks: Prompt rewrite: sonnet low · 1.9s · fix the login bug
 
 - The engine puts the plugin name `cc-chat-tweaks: ` in front of every row. The mod does not write it, and `$.ui.log` takes only the text and the sink, so the mod cannot remove it.
 - The row holds a call prefix, the model alias and effort, the time, and the prompt you typed without the trigger, each part set off by ` · `.
-- The prefix names the call: `Prompt ask:` for the questions call, `Prompt rewrite:` for the rewrite call, and `Prompt revise:` for the revise call.
+- The prefix names the call: `Prompt ask:` for the questions call, and `Prompt rewrite:` for the rewrite call.
 - A silent run applies the recommended answers on its own and writes one `Prompt answer:` row for each answer it applies. A row holds the question and its answer, as `question → answer`. A question with no recommended answer writes no row, and a run with no applied answer writes none. The pane path writes no such row, because you pick the answers there.
 - The prompt type call writes its own row. It holds `Prompt classify:`, the model alias and effort, the time, and the types it found, each part set off by ` · `. It ends with `none` when the call found no known type and with `failed` when the call failed. It does not hold the prompt.
 - One log call is one row. A line break inside the text of a call is not drawn as a break, and shows as a garbled character. So the mod turns every run of spaces and line breaks in the prompt into one space, and never puts a line break in a log.
@@ -213,7 +214,10 @@ Every failure path ends with your original prompt: a Haiku error or timeout show
 - Haiku sees only a short slice of the conversation (see Flow).
   - A prompt that refers to something older than that cannot be improved.
   - The mod does not detect such prompts. Use `원문 그대로 보내기`.
-- The revise field is one line.
+- The review pane draws the message through the engine's Markdown component. Whether it shows the `<source>` and `<hard rule>` tags or hides them is not verified. The text in the prompt box and the text that is sent do not pass through it.
+- The review pane cuts the draft it draws at 9000 characters. A very long rewrite hides the end of the message, which holds the `<hard rule>` block. The text that is sent is whole.
+- The mod cannot check what Claude writes. The `<hard rule>` block is in the message you send as the mod built it. Whether the prompt Claude writes carries those sentences unchanged depends on the instruction.
+- A message that you upgrade again is cleaned of the instruction lines it holds. If the rewrite model words an instruction line differently, that line stays in the `<source>` part, and a tag inside it makes the mod add no wrapper.
 
 ## Source
 

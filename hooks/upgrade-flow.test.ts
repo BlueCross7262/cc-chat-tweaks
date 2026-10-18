@@ -5,7 +5,7 @@ import { CLASSIFY_SYSTEM } from './upgrade-prompts'
 
 const PLUGIN = 'cc-chat-tweaks'
 const PANE = 'prompt-upgrade'
-const USAGE_LINE = /^Prompt (ask|rewrite|revise): /
+const USAGE_LINE = /^Prompt (ask|rewrite): /
 const LONG = 'please summarise the attached design document for me'
 const USAGE = { input_tokens: 1, output_tokens: 1 }
 
@@ -225,28 +225,6 @@ test('Use recommended and upgrade answers the open questions and rewrites', asyn
   const ui = await mountPane($)
   await $.ui.press({ plugin: PLUGIN, key: '권장안으로 업그레이드', requestId: PANE })
   expect((await ui.find({ type: 'Markdown' }))?.text).toContain('Upgraded with the recommended answer.')
-})
-
-test('a revision replaces the draft and Undo brings the previous one back', async ($, on) => {
-  const s = world($, on, { answers: [JSON.stringify({ questions: [] }), 'First draft.', 'Second draft.'] })
-  await submit($, LONG)
-  await settle(s)
-  const ui = await mountPane($)
-  expect((await ui.find({ type: 'Markdown' }))?.text).toContain('First draft.')
-  await $.ui.input({ plugin: PLUGIN, key: 'revise', text: 'make it shorter', requestId: PANE })
-  expect((await ui.find({ type: 'Markdown' }))?.text).toContain('Second draft.')
-  await $.ui.press({ plugin: PLUGIN, key: '수정 되돌리기', requestId: PANE })
-  expect((await ui.find({ type: 'Markdown' }))?.text).toContain('First draft.')
-})
-
-test('a failed revision keeps the draft and says so', async ($, on) => {
-  const s = world($, on, { answers: [JSON.stringify({ questions: [] }), 'First draft.', null] })
-  await submit($, LONG)
-  await settle(s)
-  const ui = await mountPane($)
-  await $.ui.input({ plugin: PLUGIN, key: 'revise', text: 'make it shorter', requestId: PANE })
-  expect((await ui.find({ type: 'Markdown' }))?.text).toContain('First draft.')
-  expect(await ui.find({ type: 'Text', text: /unchanged/ })).toBeDefined()
 })
 
 test('Edit in prompt box fills the draft and lets the next submit through once', async ($, on) => {
@@ -605,19 +583,6 @@ test('the models entry of each call reaches that call and its log line only', as
   expect(rows[1]).toMatch(/^Prompt rewrite: haiku medium · /)
 })
 
-test('the revise call reads models.revise and not the rewrite entry', async ($, on) => {
-  const models = { rewrite: { model: 'opus', effort: 'high' }, revise: { model: 'haiku', effort: 'max' } }
-  const s = world($, on, { extra: { models }, answers: [JSON.stringify({ questions: [] }), 'First draft.', 'Second draft.'] })
-  await submit($, LONG)
-  await settle(s)
-  const ui = await mountPane($)
-  await $.ui.input({ plugin: PLUGIN, key: 'revise', text: 'make it shorter', requestId: PANE })
-  expect((await ui.find({ type: 'Markdown' }))?.text).toContain('Second draft.')
-  expect(s.ids).toEqual(['sonnet', 'opus', 'haiku'])
-  expect(s.efforts).toEqual(['low', 'high', 'max'])
-  expect(s.logs.filter(line => USAGE_LINE.test(line)).at(-1)).toMatch(/^Prompt revise: haiku max · /)
-})
-
 test('the old model keys in the settings reach no call', async ($, on) => {
   const old = { model: 'opus', effort: 'high', 'type-model': 'sonnet', 'type-effort': 'medium' }
   const s = world($, on, { extra: old, answers: [QUESTION, 'Upgraded prompt.'] })
@@ -719,20 +684,87 @@ test('an English prompt with a research type gets no type lines', async ($, on) 
   expect((await ui.find({ type: 'Markdown' }))?.text).not.toContain(COMMON_LINE)
 })
 
-test('a revision of a Korean draft keeps the type lines and the question lines once', async ($, on) => {
+const FLOW_META_FULL = [
+  '너는 프롬프트 엔지니어다.',
+  '아래 <source> 는 내가 AI에게 요청하는 내용이다.',
+  '<source> 의 요청을 수행하는 프롬프트를 먼저 쓴다.',
+  '프롬프트의 작업 부분은 <source> 를 바탕으로 새로 쓴다.',
+  '쓴 프롬프트를 채팅에 출력한 후 이 대화에서 그 프롬프트를 실행한다.',
+  '<hard rule> 의 규칙은 프롬프트를 쓸 때와 실행할 때 모두 지킨다.',
+  '<hard rule> 의 규칙 문장만 쓴 프롬프트에 한 글자도 바꾸지 않고 옮긴다.',
+  '쓴 프롬프트에는 <source> 태그와 <hard rule> 태그를 포함하지 않는다.',
+].join('\n')
+
+const FLOW_META_SHORT = [
+  '너는 프롬프트 엔지니어다.',
+  '아래 <source> 는 내가 AI에게 요청하는 내용이다.',
+  '<source> 의 요청을 수행하는 프롬프트를 먼저 쓴다.',
+  '프롬프트의 작업 부분은 <source> 를 바탕으로 새로 쓴다.',
+  '쓴 프롬프트를 채팅에 출력한 후 이 대화에서 그 프롬프트를 실행한다.',
+  '쓴 프롬프트에는 <source> 태그를 포함하지 않는다.',
+].join('\n')
+
+const FLOW_RESEARCH_RULES = [
+  '충분히 조사한다.',
+  '결과나 결론을 첫 줄에 쓴다.',
+  '확인한 사실과 추측을 구분해 쓴다.',
+  '확인하지 못한 내용은 확인하지 못했다고 쓴다.',
+  '요청하지 않은 배경 설명을 쓰지 않는다.',
+  '여러 단계의 작업이면 할일 목록을 먼저 생성하고 순서대로 진행한다.',
+  '',
+  '모든 주장에 근거를 붙인다.',
+  '근거는 파일 경로와 줄 번호, 실행 결과, 문서 출처 중 하나로 쓴다.',
+  '근거가 없는 내용은 추정이라고 표시한다.',
+  '근거끼리 충돌하면 충돌한 사실을 그대로 쓴다.',
+].join('\n')
+
+test('a silent run of a Korean prompt with a research type puts the whole assembled message in the prompt box', async ($, on) => {
+  const typed = `${KOREAN} +++`
   const s = world($, on, {
+    silent: true,
     useQuestions: false,
-    types: JSON.stringify({ types: ['discuss'] }),
-    answers: ['첨부한 설계 문서를 요약한다.', '첨부한 설계 문서를 짧게 요약한다.'],
+    types: JSON.stringify({ types: ['research'] }),
+    answers: ['첨부한 설계 문서를 요약한다.'],
+    box: typed,
   })
+  await submit($, typed)
+  await settle(s)
+  expect(s.filled).toEqual([
+    `${FLOW_META_FULL}\n\n<source>\n첨부한 설계 문서를 요약한다.\n</source>\n\n<hard rule>\n${FLOW_RESEARCH_RULES}\n</hard rule>`,
+  ])
+  expect(s.entered).toEqual([])
+})
+
+test('a silent run of a Korean prompt with no known type puts the short instruction and the source in the prompt box', async ($, on) => {
+  const typed = `${KOREAN} +++`
+  const s = world($, on, { silent: true, useQuestions: false, answers: ['첨부한 설계 문서를 요약한다.'], box: typed })
+  await submit($, typed)
+  await settle(s)
+  expect(s.filled).toEqual([`${FLOW_META_SHORT}\n\n<source>\n첨부한 설계 문서를 요약한다.\n</source>`])
+})
+
+test('a silent run of an English prompt with a research type puts the rewritten draft alone in the prompt box', async ($, on) => {
+  const typed = `${LONG} +++`
+  const s = world($, on, {
+    silent: true,
+    useQuestions: false,
+    types: JSON.stringify({ types: ['research'] }),
+    answers: ['Summarise the attached design document.'],
+    box: typed,
+  })
+  await submit($, typed)
+  await settle(s)
+  expect(s.filled).toEqual(['Summarise the attached design document.'])
+})
+
+test('the pane shows the assembled message of a Korean prompt as the draft', async ($, on) => {
+  const s = world($, on, { useQuestions: false, types: JSON.stringify({ types: ['research'] }), answers: ['첨부한 설계 문서를 요약한다.'] })
   await submit($, KOREAN)
   await settle(s)
   const ui = await mountPane($)
-  await $.ui.input({ plugin: PLUGIN, key: 'revise', text: '짧게 써 줘', requestId: PANE })
-  const text = (await ui.find({ type: 'Markdown' }))?.text ?? ''
-  expect(text).toContain('첨부한 설계 문서를 짧게 요약한다.')
-  expect(countOf(text, COMMON_LINE)).toBe(1)
-  expect(countOf(text, QUESTION_LINE_ONE)).toBe(1)
+  expect((await ui.find({ type: 'Markdown' }))?.text).toBe(
+    `${FLOW_META_FULL}\n\n<source>\n첨부한 설계 문서를 요약한다.\n</source>\n\n<hard rule>\n${FLOW_RESEARCH_RULES}\n</hard rule>`,
+  )
 })
 
 test('the classify call uses haiku low by default whatever model the upgrade calls use', async ($, on) => {

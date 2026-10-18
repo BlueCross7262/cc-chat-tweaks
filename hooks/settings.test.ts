@@ -116,7 +116,7 @@ test('a call reads only its own entry and the first source with a valid value wi
 
   expect(modelIn(sources, 'ask')).toBe('opus')
   expect(modelIn(sources, 'rewrite')).toBe('haiku')
-  expect(modelIn(sources, 'revise')).toBeUndefined()
+  expect(modelIn(sources, 'classify')).toBeUndefined()
   expect(effortIn(sources, 'ask')).toBe('high')
   expect(effortIn(sources, 'rewrite')).toBeUndefined()
   expect(modelIn([call('ask', { model: 5 }), call('ask', { model: 'sonnet' })], 'ask')).toBe('sonnet')
@@ -153,16 +153,15 @@ test('a call with no valid value falls back to its default: haiku for classify a
   expect(DEFAULT_MODELS).toEqual({
     ask: { model: 'sonnet', effort: 'low' },
     rewrite: { model: 'sonnet', effort: 'low' },
-    revise: { model: 'sonnet', effort: 'low' },
     classify: { model: 'haiku', effort: 'low' },
   })
-  expect(CALL_NAMES).toEqual(['ask', 'rewrite', 'revise', 'classify'])
+  expect(CALL_NAMES).toEqual(['ask', 'rewrite', 'classify'])
   expect(resolveModel([], 'classify')).toBe('haiku')
   expect(resolveEffort([], 'classify')).toBe('low')
   expect(resolveModel([call('rewrite', { model: 'opus' })], 'ask')).toBe('sonnet')
   expect(resolveModel([call('classify', { model: ' opus ' })], 'classify')).toBe('opus')
-  expect(resolveEffort([call('revise', { effort: 'max' })], 'revise')).toBe('max')
-  expect(resolveEffort([call('revise', { effort: 'ultra' })], 'revise')).toBe('low')
+  expect(resolveEffort([call('rewrite', { effort: 'max' })], 'rewrite')).toBe('max')
+  expect(resolveEffort([call('rewrite', { effort: 'ultra' })], 'rewrite')).toBe('low')
 })
 
 test('the old model keys are neither read for a call nor listed as extra keys, and doctor finds them by source', () => {
@@ -300,8 +299,6 @@ test('adds only the missing switches with their default and keeps everything els
     'models.ask.effort',
     'models.rewrite.model',
     'models.rewrite.effort',
-    'models.revise.model',
-    'models.revise.effort',
     'models.classify.model',
     'models.classify.effort',
     'unfolded-tools',
@@ -334,8 +331,8 @@ test('adds only the missing switches with their default and keeps everything els
 })
 
 test('builds the whole section for an empty or malformed file', () => {
-  expect(withMissingDefaults({}).added).toHaveLength(18)
-  expect(withMissingDefaults(null).added).toHaveLength(18)
+  expect(withMissingDefaults({}).added).toHaveLength(16)
+  expect(withMissingDefaults(null).added).toHaveLength(16)
   expect(withMissingDefaults({ ccChatTweaks: 'x' }).settings).toEqual({
     ccChatTweaks: {
       chat: {
@@ -379,7 +376,6 @@ test('a models entry the person already set is kept, and only the missing leaves
 
   expect(models.rewrite).toEqual({ model: 'opus', note: 'mine', effort: 'low' })
   expect(models.ask).toEqual({ effort: null, model: 'sonnet' })
-  expect(models.revise).toEqual({ model: 'sonnet', effort: 'low' })
   expect(models.classify).toEqual({ model: 'haiku', effort: 'low' })
   expect(added).not.toContain('models.rewrite.model')
   expect(added).not.toContain('models.ask.effort')
@@ -435,8 +431,6 @@ test('describes every extra key with its value and the source it came from', () 
     { key: 'models.ask.effort', value: 'high', from: 'user' },
     { key: 'models.rewrite.model', value: 'haiku', from: 'local' },
     { key: 'models.rewrite.effort', value: 'low', from: 'default' },
-    { key: 'models.revise.model', value: 'sonnet', from: 'default' },
-    { key: 'models.revise.effort', value: 'low', from: 'default' },
     { key: 'models.classify.model', value: 'sonnet', from: 'user' },
     { key: 'models.classify.effort', value: 'low', from: 'default' },
     { key: 'unfolded-tools', value: ['AskUserQuestion', 'Skill', 'Agent'], from: 'default' },
@@ -449,8 +443,6 @@ test('describes every extra key with its value and the source it came from', () 
     { key: 'models.ask.effort', value: 'low', from: 'default' },
     { key: 'models.rewrite.model', value: 'sonnet', from: 'default' },
     { key: 'models.rewrite.effort', value: 'low', from: 'default' },
-    { key: 'models.revise.model', value: 'sonnet', from: 'default' },
-    { key: 'models.revise.effort', value: 'low', from: 'default' },
     { key: 'models.classify.model', value: 'haiku', from: 'default' },
     { key: 'models.classify.effort', value: 'low', from: 'default' },
     { key: 'unfolded-tools', value: ['AskUserQuestion', 'Skill', 'Agent'], from: 'default' },
@@ -500,7 +492,6 @@ test('reports nothing to add when every switch is present', () => {
           models: {
             ask: { model: 'sonnet', effort: 'high' },
             rewrite: { model: 'opus', effort: 'low' },
-            revise: { model: 'sonnet', effort: 'low' },
             classify: { model: 'sonnet', effort: 'medium' },
           },
         },

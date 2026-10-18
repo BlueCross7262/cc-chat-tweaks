@@ -132,8 +132,8 @@ test('warns once for each old model key found, naming where it was found and the
   )
 
   expect(checks).toEqual([
-    '[warn] prompt.prompt-upgrade.model in user is ignored. Use prompt.prompt-upgrade.models.<ask|rewrite|revise>.model.',
-    '[warn] prompt.prompt-upgrade.effort in local is ignored. Use prompt.prompt-upgrade.models.<ask|rewrite|revise>.effort.',
+    '[warn] prompt.prompt-upgrade.model in user is ignored. Use prompt.prompt-upgrade.models.<ask|rewrite>.model.',
+    '[warn] prompt.prompt-upgrade.effort in local is ignored. Use prompt.prompt-upgrade.models.<ask|rewrite>.effort.',
     '[warn] prompt.prompt-upgrade.type-model in user is ignored. Use prompt.prompt-upgrade.models.classify.model.',
     '[warn] prompt.prompt-upgrade.type-effort in project is ignored. Use prompt.prompt-upgrade.models.classify.effort.',
   ])
