@@ -13,12 +13,10 @@ export const EMPTY_FLOW: Flow = {
   draft: '',
   skipUntil: 0,
   filled: '',
-  pending: null,
   runId: 0,
   notice: '',
   context: '',
   types: [],
-  took: { ask: 0, rewrite: 0 },
 }
 
 export const PROMPT_TYPES = ['research', 'discuss', 'execute'] as const
@@ -46,20 +44,6 @@ export const buildContext = (turns: readonly { role: string; text: string }[]): 
 
 export const formatMs = (ms: number): string =>
   ms < 1000 ? `${Math.round(ms)}ms` : `${(ms / 1000).toFixed(1)}s`
-
-export const withTook = (flow: Flow, key: keyof Flow['took'], ms: number): Flow => ({
-  ...flow,
-  took: { ...flow.took, [key]: ms },
-})
-
-export const tookText = (flow: Flow): string => {
-  const parts = [
-    flow.took.ask > 0 ? `questions ${formatMs(flow.took.ask)}` : '',
-    flow.took.rewrite > 0 ? `rewrite ${formatMs(flow.took.rewrite)}` : '',
-  ].filter(part => part !== '')
-
-  return parts.length === 0 ? '' : `Took ${parts.join(' · ')}`
-}
 
 export const ASK_LOG_PREFIX = 'Prompt ask:'
 export const REWRITE_LOG_PREFIX = 'Prompt rewrite:'
@@ -108,22 +92,19 @@ export type GateInput = {
   originKind: string | undefined
   hasAttachments: boolean
   hasTurnId: boolean
-  surfaces: readonly string[]
   isEnabled: boolean
   minLen: number
   silentTriggers: readonly string[]
   offTriggers: readonly string[]
-  isSilent: boolean
   skipTrigger: boolean
   now: number
   flow: Flow
 }
 
 export type Gate =
-  | { intercept: true }
-  | { intercept: true; silent: true; text: string }
+  | { intercept: true; text: string }
   | { intercept: true; off: true; text: string }
-  | { intercept: false; reason: string; clearPending?: true; clearSkip?: true }
+  | { intercept: false; reason: string; clearSkip?: true }
 
 export const parseTrigger = (text: string, triggers: readonly string[]): string | null => {
   const list = triggers.filter(trigger => trigger !== '').sort((a, b) => b.length - a.length)
@@ -158,9 +139,6 @@ export const withoutPasted = (text: string): string => text.replace(PASTED, ' ')
 
 export const decideGate = (g: GateInput): Gate => {
   const text = g.text.trim()
-  if (g.flow.pending !== null && text === g.flow.pending) {
-    return { intercept: false, reason: 'resubmit', clearPending: true }
-  }
   const hasTrigger = parseTrigger(text, [...g.silentTriggers, ...g.offTriggers]) !== null
   const filled = g.flow.filled ?? ''
   if (!hasTrigger && filled !== '' && squash(text) === filled) {
@@ -196,14 +174,12 @@ const decideRest = (g: GateInput, text: string, clearSkip: boolean): Gate => {
   }
   if (stripped !== null) {
     if (stripped === '') return pass('trigger-only')
-    return { intercept: true, silent: true, text: stripped }
+    return { intercept: true, text: stripped }
   }
-  if (g.isSilent && !g.skipTrigger) return pass('no-trigger')
+  if (!g.skipTrigger) return pass('no-trigger')
   if (text.length < g.minLen) return pass('short')
   if (withoutPasted(text).length < g.minLen) return pass('pasted-only')
-  if (g.isSilent) return { intercept: true, silent: true, text }
-  if (!g.surfaces.includes('terminal')) return pass('no-terminal')
-  return { intercept: true }
+  return { intercept: true, text }
 }
 
 export const stripFence = (raw: string): string => {
@@ -277,7 +253,6 @@ export const begin = (flow: Flow, original: string, context = ''): Flow => ({
   ...EMPTY_FLOW,
   skipUntil: flow.skipUntil,
   filled: flow.filled ?? '',
-  pending: flow.pending,
   runId: flow.runId + 1,
   phase: 'askLoading',
   original,
@@ -293,7 +268,6 @@ export const reset = (flow: Flow): Flow => ({
   ...EMPTY_FLOW,
   skipUntil: flow.skipUntil,
   filled: flow.filled ?? '',
-  pending: flow.pending,
   runId: flow.runId + 1,
 })
 
@@ -306,16 +280,6 @@ export const withQuestions = (flow: Flow, questions: Question[]): Flow => ({
   phase: questions.length > 0 ? 'questions' : 'rewriteLoading',
 })
 
-export const answer = (flow: Flow, index: number, value: string): Flow => {
-  const v = value.trim()
-  const answers = { ...flow.answers }
-  if (v === '') delete answers[String(index)]
-  else answers[String(index)] = v
-  return { ...flow, answers }
-}
-
-export const hasRecommended = (flow: Flow): boolean => flow.questions.some(q => q.recommended !== undefined)
-
 export const withRecommended = (flow: Flow): Flow => {
   const answers = { ...flow.answers }
   flow.questions.forEach((q, i) => {
@@ -327,16 +291,11 @@ export const withRecommended = (flow: Flow): Flow => {
   return { ...flow, answers }
 }
 
-export const answeredCount = (flow: Flow): number => Object.keys(flow.answers).length
-
 export const parseMinLen = (value: unknown): number =>
   typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 10000 ? value : MIN_LEN
 
 export const clip = (text: string, max: number): string =>
   text.length <= max ? text : `${text.slice(0, max)}...`
-
-export const allAnswered = (flow: Flow): boolean =>
-  flow.questions.length > 0 && answeredCount(flow) >= flow.questions.length
 
 export const rewriteInput = (flow: Flow): string => {
   const lines = flow.questions

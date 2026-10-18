@@ -6,7 +6,6 @@ export const FLAG_DEFAULTS = {
   'use-edit-summary': false,
   'use-prompt-upgrade': true,
   'use-questions': false,
-  'use-silent-upgrade': true,
   'skip-silent-trigger': true,
 } as const
 
@@ -21,7 +20,6 @@ export const FLAG_PATHS: Record<FlagKey, readonly string[]> = {
   'use-edit-summary': CHAT_PATH,
   'use-prompt-upgrade': PROMPT_UPGRADE_PATH,
   'use-questions': PROMPT_UPGRADE_PATH,
-  'use-silent-upgrade': PROMPT_UPGRADE_PATH,
   'skip-silent-trigger': PROMPT_UPGRADE_PATH,
 }
 
@@ -33,7 +31,7 @@ export const GROUP_PATHS: readonly (readonly string[])[] = [CHAT_PATH, TOOL_FOLD
 
 export const pathText = (path: readonly string[]): string => [SETTINGS_NAMESPACE, ...path].join('.')
 
-export const OPTION_KEYS: readonly FlagKey[] = ['use-questions', 'use-silent-upgrade', 'skip-silent-trigger']
+export const OPTION_KEYS: readonly FlagKey[] = ['use-questions', 'skip-silent-trigger']
 
 export const isFeatureKey = (key: FlagKey): boolean => !OPTION_KEYS.includes(key)
 
@@ -96,7 +94,7 @@ export const DEFAULT_MODELS: Record<CallName, { model: string; effort: Effort }>
   rewrite: { model: 'sonnet', effort: 'low' },
   classify: { model: 'haiku', effort: 'low' },
 }
-export const IGNORED_KEYS = ['model', 'effort', 'type-model', 'type-effort'] as const
+export const IGNORED_KEYS = ['model', 'effort', 'type-model', 'type-effort', 'use-silent-upgrade'] as const
 export const MIN_LENGTH_KEY = 'min-length'
 export const SILENT_TRIGGERS_KEY = 'silent-triggers'
 export const MAX_SILENT_TRIGGERS = 10
@@ -365,6 +363,5 @@ export const flagsOf = (sources: readonly unknown[]): Flags => ({
   'use-edit-summary': isFlagOn(sources, 'use-edit-summary'),
   'use-prompt-upgrade': isFlagOn(sources, 'use-prompt-upgrade'),
   'use-questions': isFlagOn(sources, 'use-questions'),
-  'use-silent-upgrade': isFlagOn(sources, 'use-silent-upgrade'),
   'skip-silent-trigger': isFlagOn(sources, 'skip-silent-trigger'),
 })

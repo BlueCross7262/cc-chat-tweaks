@@ -67,7 +67,12 @@ export const checksOf = (input: DoctorInput): string[] => {
   }
 
   for (const { key, from } of input.ignored) {
-    const target = key.startsWith('type-') ? `models.classify.${key.slice('type-'.length)}` : `models.<ask|rewrite>.${key}`
+    const target =
+      key === 'use-silent-upgrade'
+        ? 'skip-silent-trigger'
+        : key.startsWith('type-')
+          ? `models.classify.${key.slice('type-'.length)}`
+          : `models.<ask|rewrite>.${key}`
 
     checks.push(`[warn] prompt.prompt-upgrade.${key} in ${from} is ignored. Use prompt.prompt-upgrade.${target}.`)
   }

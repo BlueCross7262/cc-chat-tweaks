@@ -183,12 +183,32 @@ test('the old model keys are neither read for a call nor listed as extra keys, a
   expect(ignoredKeysOf([['user', up({ models: { ask: { model: 'opus' } } })], ['local', null], ['project', { ccChatTweaks: { chat: { model: 'x' } } }]])).toEqual([])
 })
 
+test('the retired use-silent-upgrade key is listed as ignored for any value, is no flag any more and is left in the file untouched', () => {
+  expect(
+    ignoredKeysOf([
+      ['user', up({ 'use-silent-upgrade': true })],
+      ['local', up({ 'use-silent-upgrade': false })],
+      ['project', up({ 'use-silent-upgrade': {} })],
+    ]),
+  ).toEqual([
+    { key: 'use-silent-upgrade', from: 'user' },
+    { key: 'use-silent-upgrade', from: 'local' },
+    { key: 'use-silent-upgrade', from: 'project' },
+  ])
+  expect(ignoredKeysOf([['user', up({ 'skip-silent-trigger': false })]])).toEqual([])
+  expect(Object.keys(flagsOf([up({ 'use-silent-upgrade': false })]))).not.toContain('use-silent-upgrade')
+  const kept = withMissingDefaults(up({ 'use-silent-upgrade': false }))
+  const group = (kept.settings.ccChatTweaks as { prompt: { 'prompt-upgrade': Record<string, unknown> } }).prompt['prompt-upgrade']
+  expect(group['use-silent-upgrade']).toBe(false)
+  expect(kept.added as readonly string[]).not.toContain('use-silent-upgrade')
+  expect(withMissingDefaults({}).added as readonly string[]).not.toContain('use-silent-upgrade')
+})
+
 test('the defaults when no source sets a key', () => {
   expect(isFlagOn([], 'use-tool-fold')).toBe(false)
   expect(isFlagOn([], 'use-edit-summary')).toBe(false)
   expect(isFlagOn([], 'use-prompt-upgrade')).toBe(true)
   expect(isFlagOn([], 'use-questions')).toBe(false)
-  expect(isFlagOn([], 'use-silent-upgrade')).toBe(true)
   expect(isFlagOn([], 'skip-silent-trigger')).toBe(true)
   expect(isFlagOn([up({ 'skip-silent-trigger': false })], 'skip-silent-trigger')).toBe(false)
   expect(isFlagOn([{ ccChatTweaks: { chat: { 'skip-silent-trigger': false } } }], 'skip-silent-trigger')).toBe(true)
@@ -196,7 +216,7 @@ test('the defaults when no source sets a key', () => {
 })
 
 test('the prompt upgrade keys live under ccChatTweaks.prompt.prompt-upgrade and are read from nowhere else', () => {
-  for (const key of ['use-prompt-upgrade', 'use-questions', 'use-silent-upgrade', 'skip-silent-trigger'] as const) {
+  for (const key of ['use-prompt-upgrade', 'use-questions', 'skip-silent-trigger'] as const) {
     expect(FLAG_PATHS[key]).toEqual(['prompt', 'prompt-upgrade'])
   }
   expect(FLAG_PATHS['use-tool-fold']).toEqual(['chat', 'tool-fold'])
@@ -263,7 +283,6 @@ test('reads every flag at once', () => {
     'use-edit-summary': true,
     'use-prompt-upgrade': true,
     'use-questions': false,
-    'use-silent-upgrade': true,
     'skip-silent-trigger': true,
   })
 })
@@ -290,7 +309,6 @@ test('adds only the missing switches with their default and keeps everything els
     'use-edit-summary',
     'use-prompt-upgrade',
     'use-questions',
-    'use-silent-upgrade',
     'skip-silent-trigger',
     'min-length',
     'silent-triggers',
@@ -315,7 +333,6 @@ test('adds only the missing switches with their default and keeps everything els
         'prompt-upgrade': {
           use: true,
           'use-questions': false,
-          'use-silent-upgrade': true,
           'skip-silent-trigger': true,
           'min-length': 10,
           'silent-triggers': ['+++'],
@@ -331,8 +348,8 @@ test('adds only the missing switches with their default and keeps everything els
 })
 
 test('builds the whole section for an empty or malformed file', () => {
-  expect(withMissingDefaults({}).added).toHaveLength(16)
-  expect(withMissingDefaults(null).added).toHaveLength(16)
+  expect(withMissingDefaults({}).added).toHaveLength(15)
+  expect(withMissingDefaults(null).added).toHaveLength(15)
   expect(withMissingDefaults({ ccChatTweaks: 'x' }).settings).toEqual({
     ccChatTweaks: {
       chat: {
@@ -343,7 +360,6 @@ test('builds the whole section for an empty or malformed file', () => {
         'prompt-upgrade': {
           use: true,
           'use-questions': false,
-          'use-silent-upgrade': true,
           'skip-silent-trigger': true,
           'min-length': 10,
           'silent-triggers': ['+++'],
@@ -484,7 +500,6 @@ test('reports nothing to add when every switch is present', () => {
         'prompt-upgrade': {
           use: false,
           'use-questions': true,
-          'use-silent-upgrade': false,
           'skip-silent-trigger': true,
           'min-length': 25,
           'silent-triggers': ['##', '>>'],

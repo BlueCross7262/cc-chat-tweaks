@@ -19,10 +19,9 @@ Tool folding and the Edit/Write summary are off until you turn them on. The prom
 | `chat.tool-fold` | `use` | `false` | Fold consecutive tool calls into one line. |
 | `chat.tool-fold` | `unfolded-tools` | `["AskUserQuestion", "Skill", "Agent"]` | Option of `use`. The tools that are never folded. Each keeps its own row and ends the run before it. |
 | `chat` | `use-edit-summary` | `false` | Draw `Edit` and `Write` calls as one summary line. |
-| `prompt.prompt-upgrade` | `use` | `true` | Ask clarifying questions about your prompt and rewrite it before it is sent. |
-| `prompt.prompt-upgrade` | `use-questions` | `false` | Option of `use`. When `false`, the prompt is rewritten without questions. |
-| `prompt.prompt-upgrade` | `use-silent-upgrade` | `true` | Option of `use`. When `true`, the pane never opens, and only a prompt with the trigger is upgraded. The recommended answers to the questions are applied when `use-questions` is `true`, and the draft is put in the prompt box without being sent. |
-| `prompt.prompt-upgrade` | `skip-silent-trigger` | `true` | Option of `use-silent-upgrade`. When `true`, the trigger check is skipped and every prompt of `min-length` or more is upgraded without the pane. |
+| `prompt.prompt-upgrade` | `use` | `true` | Rewrite your prompt and put the draft in the prompt box, without sending it. |
+| `prompt.prompt-upgrade` | `use-questions` | `false` | Option of `use`. When `true`, Haiku writes clarifying questions first and the recommended answers are applied. When `false`, the prompt is rewritten without questions. |
+| `prompt.prompt-upgrade` | `skip-silent-trigger` | `true` | Option of `use`. When `true`, the trigger check is skipped and every prompt of `min-length` or more is upgraded. When `false`, only a prompt with the trigger is upgraded. |
 | `prompt.prompt-upgrade` | `silent-triggers` | `["+++"]` | The trigger texts for the silent upgrade, as an array of strings. |
 | `prompt.prompt-upgrade` | `silent-off-triggers` | `["---"]` | The texts that turn the silent upgrade off for one prompt, as an array of strings. The prompt is sent as it is, without the text. `[]` turns this off. |
 | `prompt.prompt-upgrade` | `min-length` | `10` | Shortest prompt that is upgraded, in characters. |
@@ -52,7 +51,7 @@ Tool folding and the Edit/Write summary are off until you turn them on. The prom
 
 The tool folding keys are read only from `ccChatTweaks.chat.tool-fold`. The old `ccChatTweaks.chat.use-tool-fold` and `ccChatTweaks.chat.unfolded-tools` have no effect.
 
-The prompt upgrade keys are read only from `ccChatTweaks.prompt.prompt-upgrade`. Keys left in `ccChatTweaks.prompt` or `ccChatTweaks.chat` by an earlier version have no effect, and neither do the old `use-prompt-upgrade` key (now `use`) and the old `silent-trigger` key.
+The prompt upgrade keys are read only from `ccChatTweaks.prompt.prompt-upgrade`. Keys left in `ccChatTweaks.prompt` or `ccChatTweaks.chat` by an earlier version have no effect, and neither do the old `use-prompt-upgrade` key (now `use`) and the old `silent-trigger` key. The key `use-silent-upgrade` is retired: its value is not read, and the prompt upgrade behaves as it did with `true`. Use `skip-silent-trigger` to choose between upgrading every long prompt and upgrading only a prompt with the trigger.
 
 `/tweaks-doctor` writes the new groups with defaults and leaves the old keys where they are, so move your values by hand. If you had `use-tool-fold` set to `true`, folding is off until you set `chat.tool-fold.use`.
 
@@ -64,7 +63,7 @@ The prompt upgrade keys are read only from `ccChatTweaks.prompt.prompt-upgrade`.
 
 First it writes every key your user `settings.json` lacks, switches and value keys alike, with its default, so you can see and flip them. It never changes a value that is already there. It leaves a file that is not plain JSON alone and says so.
 
-Then it prints each switch and each value key (`unfolded-tools`, `min-length`, `silent-triggers`, `silent-off-triggers` and the eight `models.<call>.model` and `models.<call>.effort` keys) by its path under `ccChatTweaks`, such as `chat.tool-fold.use`, with its value and the source it came from, the fold counters, the prompt upgrade phase and threshold, the environment and a list of checks. The checks include one warning for each old key `model`, `effort`, `type-model` or `type-effort` found in your settings, because the mod no longer reads them.
+Then it prints each switch and each value key (`unfolded-tools`, `min-length`, `silent-triggers`, `silent-off-triggers` and the six `models.<call>.model` and `models.<call>.effort` keys) by its path under `ccChatTweaks`, such as `chat.tool-fold.use`, with its value and the source it came from, the fold counters, the prompt upgrade phase and threshold, the environment and a list of checks. The checks include one warning for each old key `model`, `effort`, `type-model`, `type-effort` or `use-silent-upgrade` found in your settings, because the mod no longer reads them.
 
 ## Features
 
@@ -112,17 +111,16 @@ An `Edit` or `Write` call that is not folded draws as one line. The diff body is
 
 ### `prompt.prompt-upgrade.use`
 
-A prompt you type at the prompt box and send is held back, and a pane opens with four steps: your prompt, questions, rewrite, review.
+A prompt you type at the prompt box and send is held back, upgraded in the background and put back in the prompt box as a draft. You read it and press Enter yourself. With the default `skip-silent-trigger` every prompt of `min-length` or more is upgraded. With `false` only a prompt that starts or ends with the trigger `+++` is. A prompt that starts or ends with `---` is sent as it is.
 
-- Haiku asks up to three questions with 3 to 5 options each. You pick an option, type your own answer, or skip.
+- With `use-questions` `true`, Haiku asks up to three questions with 3 to 5 options each, and the mod answers each one with its recommended option. You are not asked.
 - Haiku rewrites the prompt as prose with one sentence on each line and keeps pasted material as it is, wrapped in `<input>` tags.
 - A Korean prompt is put into one message: an instruction that asks Claude to write a prompt from the rewrite, print it and run it, the rewrite between `<source>` tags, and the answer rules for its type between `<hard rule>` tags. The mod builds the message in code, so the rules reach Claude as they are written.
-- In the review you can edit the draft in the prompt box, send the draft, send the original, or cancel.
 - Each upgraded prompt costs up to three model calls on your plan or API key. The default model is `sonnet`.
-- Prompts typed while a turn runs, prompts with attachments, slash commands, shell commands that start with `!`, prompts with an `@file` or `@agent` mention, prompts that are only pasted material and short prompts pass through unchanged. So does every prompt when the pane cannot be placed or Haiku does not answer.
+- Prompts typed while a turn runs, prompts with attachments, slash commands, shell commands that start with `!`, prompts with an `@file` or `@agent` mention, prompts that are only pasted material and short prompts pass through unchanged. When Haiku does not answer, the prompt box gets your original prompt back and a toast says so.
 - `/prompt-upgrade status | threshold <n> | reset | probe on|off|show|clear` shows and tunes the feature.
 
-Details, controls and limits: [docs/prompt-upgrade.md](docs/prompt-upgrade.md). Proof-of-concept results: [docs/prompt-upgrade-poc-results.md](docs/prompt-upgrade-poc-results.md).
+Details and limits: [docs/prompt-upgrade.md](docs/prompt-upgrade.md). Proof-of-concept results: [docs/prompt-upgrade-poc-results.md](docs/prompt-upgrade-poc-results.md).
 
 ## Develop
 
@@ -137,7 +135,7 @@ The sources are TypeScript loaded as is, with no build step.
 | File | Role |
 |---|---|
 | `hooks/register.tsx` | The hooks module: the tool-call features and the doctor command. It calls `registerUpgrade(on)`. `$` cannot cross an import, so every function that uses it lives in this file or in `hooks/upgrade.tsx`. |
-| `hooks/upgrade.tsx` | The prompt upgrade hooks, pane and command. |
+| `hooks/upgrade.tsx` | The prompt upgrade hooks and command. |
 | `hooks/upgrade-logic.ts` | Pure gate, flow and parsing logic for the prompt upgrade. |
 | `hooks/upgrade-prompts.ts` | The Haiku system prompts for the prompt upgrade. |
 | `hooks/settings.ts` | The `use-*` switches, their defaults, their lookup across settings sources and the missing-switch merge. |

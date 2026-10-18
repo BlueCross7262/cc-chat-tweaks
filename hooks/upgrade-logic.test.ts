@@ -1,8 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
 import {
-  allAnswered,
-  answer,
   askInput,
   begin,
   buildContext,
@@ -15,11 +13,9 @@ import {
   normalizeCompletion,
   parseMinLen,
   formatMs,
-  hasRecommended,
   parseQuestions,
   reset,
   squash,
-  tookText,
   callLog,
   answerLogs,
   ASK_LOG_PREFIX,
@@ -27,7 +23,6 @@ import {
   REWRITE_LOG_PREFIX,
   classifyTail,
   parseTypes,
-  withTook,
   rewriteInput,
   stripFence,
   unwrapDraft,
@@ -43,21 +38,19 @@ const base: GateInput = {
   originKind: 'composer',
   hasAttachments: false,
   hasTurnId: false,
-  surfaces: ['terminal'],
   isEnabled: true,
   minLen: MIN_LEN,
   silentTriggers: [],
   offTriggers: [],
-  isSilent: false,
-  skipTrigger: false,
+  skipTrigger: true,
   now: 1000,
   flow: EMPTY_FLOW,
 }
 
 const gate = (patch: Partial<GateInput>) => decideGate({ ...base, ...patch })
 
-test('intercepts a long composer prompt on a terminal when enabled', () => {
-  expect(gate({})).toEqual({ intercept: true })
+test('intercepts a long composer prompt when enabled', () => {
+  expect(gate({})).toEqual({ intercept: true, text: base.text })
 })
 
 test('passes while disabled', () => {
@@ -79,7 +72,7 @@ test('passes a prompt typed mid-turn, with attachments, a slash command or short
 
 test('the threshold comes from the setting', () => {
   expect(gate({ minLen: 100 })).toMatchObject({ intercept: false, reason: 'short' })
-  expect(gate({ minLen: 5, text: 'sixchr' })).toEqual({ intercept: true })
+  expect(gate({ minLen: 5, text: 'sixchr' })).toEqual({ intercept: true, text: 'sixchr' })
   expect(parseMinLen(undefined)).toBe(MIN_LEN)
   expect(parseMinLen(0)).toBe(MIN_LEN)
   expect(parseMinLen(2.5)).toBe(MIN_LEN)
@@ -92,37 +85,23 @@ test('clip shortens long text only', () => {
   expect(clip('abcdef', 3)).toBe('abc...')
 })
 
-test('never intercepts without a terminal surface', () => {
-  expect(gate({ surfaces: [] })).toMatchObject({ intercept: false, reason: 'no-terminal' })
-  expect(gate({ surfaces: ['vscode'] })).toMatchObject({ intercept: false, reason: 'no-terminal' })
-})
-
 test('passes while a flow is running', () => {
   expect(gate({ flow: { ...EMPTY_FLOW, phase: 'questions' } })).toMatchObject({ reason: 'busy' })
-})
-
-test('lets the resubmitted text through once and asks to clear it', () => {
-  const flow = { ...EMPTY_FLOW, pending: 'final prompt text' }
-  expect(gate({ text: '  final prompt text \n', originKind: 'plugin', flow })).toEqual({
-    intercept: false,
-    reason: 'resubmit',
-    clearPending: true,
-  })
 })
 
 test('the manual-edit pass is spent once and expires', () => {
   const flow = { ...EMPTY_FLOW, skipUntil: 5000 }
   expect(gate({ now: 4000, flow })).toEqual({ intercept: false, reason: 'manual-edit', clearSkip: true })
-  expect(gate({ now: 6000, flow })).toEqual({ intercept: true })
+  expect(gate({ now: 6000, flow })).toEqual({ intercept: true, text: base.text })
 })
 
 test('a prompt with the trigger is upgraded again while a manual-edit pass is open, and the pass stays', () => {
   const flow = { ...EMPTY_FLOW, skipUntil: 5000 }
-  const on = { isSilent: true, silentTriggers: ['+++'], now: 4000, flow }
+  const on = { silentTriggers: ['+++'], now: 4000, flow }
 
-  expect(gate({ ...on, text: base.text + ' +++' })).toEqual({ intercept: true, silent: true, text: base.text })
+  expect(gate({ ...on, text: base.text + ' +++' })).toEqual({ intercept: true, text: base.text })
   expect(gate({ ...on, text: base.text })).toEqual({ intercept: false, reason: 'manual-edit', clearSkip: true })
-  expect(gate({ isSilent: false, silentTriggers: [], now: 4000, flow, text: base.text + ' +++' })).toEqual({
+  expect(gate({ silentTriggers: [], now: 4000, flow, text: base.text + ' +++' })).toEqual({
     intercept: false,
     reason: 'manual-edit',
     clearSkip: true,
@@ -138,7 +117,7 @@ test('squash drops every kind of white space and keeps the characters', () => {
 test('a prompt that holds the same characters as the filled draft passes whatever the white space, with no time limit, and clears the pass', () => {
   const draft = 'Fix the login bug.\nShow the cause.'
   const flow = { ...EMPTY_FLOW, skipUntil: 5000, filled: squash(draft) }
-  const on = { isSilent: true, skipTrigger: true, silentTriggers: ['+++'], flow }
+  const on = { skipTrigger: true, silentTriggers: ['+++'], flow }
 
   for (const text of [draft, 'Fix the login bug. Show the cause.', '  Fix the login bug.\n\n\nShow  the cause.  \n', 'Fixthe loginbug.Showthe cause.']) {
     expect(gate({ ...on, now: 4000, text })).toEqual({ intercept: false, reason: 'unchanged-draft', clearSkip: true })
@@ -148,22 +127,22 @@ test('a prompt that holds the same characters as the filled draft passes whateve
 
 test('an edited draft passes only inside the time limit and a prompt after the time limit is upgraded', () => {
   const flow = { ...EMPTY_FLOW, skipUntil: 5000, filled: squash('Fix the login bug.') }
-  const on = { isSilent: true, skipTrigger: true, silentTriggers: ['+++'], flow }
+  const on = { skipTrigger: true, silentTriggers: ['+++'], flow }
   const edited = 'Fix the login bug in the form.'
 
   expect(gate({ ...on, now: 4000, text: edited })).toEqual({ intercept: false, reason: 'manual-edit', clearSkip: true })
-  expect(gate({ ...on, now: 6000, text: edited.padEnd(40, ' x') })).toMatchObject({ intercept: true, silent: true })
+  expect(gate({ ...on, now: 6000, text: edited.padEnd(40, ' x') })).toMatchObject({ intercept: true })
 })
 
 test('the trigger on an unchanged draft upgrades it again', () => {
   const flow = { ...EMPTY_FLOW, skipUntil: 5000, filled: squash('Fix the login bug.') }
-  const on = { isSilent: true, skipTrigger: true, silentTriggers: ['+++'], flow, now: 999999 }
+  const on = { skipTrigger: true, silentTriggers: ['+++'], flow, now: 999999 }
 
-  expect(gate({ ...on, text: 'Fix the login bug. +++' })).toEqual({ intercept: true, silent: true, text: 'Fix the login bug.' })
+  expect(gate({ ...on, text: 'Fix the login bug. +++' })).toEqual({ intercept: true, text: 'Fix the login bug.' })
 })
 
 test('an empty filled value passes nothing, and begin and reset keep it', () => {
-  expect(gate({ flow: { ...EMPTY_FLOW, filled: '' }, text: base.text })).toEqual({ intercept: true })
+  expect(gate({ flow: { ...EMPTY_FLOW, filled: '' }, text: base.text })).toEqual({ intercept: true, text: base.text })
   const flow = { ...EMPTY_FLOW, filled: 'abc', skipUntil: 9 }
 
   expect(begin(flow, 'x').filled).toBe('abc')
@@ -216,9 +195,7 @@ test('recommended answers fill only the questions that are still open', () => {
     { q: 'two', options: ['c', 'd'], recommended: 0 },
     { q: 'three', options: ['e', 'f'] },
   ])
-  expect(hasRecommended(asked)).toBe(true)
-  expect(hasRecommended(withQuestions(EMPTY_FLOW, [{ q: 'x', options: ['a', 'b'] }]))).toBe(false)
-  const picked = withRecommended(answer(asked, 1, 'd'))
+  const picked = withRecommended({ ...asked, answers: { '1': 'd' } })
   expect(picked.answers).toEqual({ '0': 'a', '1': 'd' })
 })
 
@@ -236,9 +213,6 @@ test('strips the prompt and draft wrapper tags from a Haiku answer and keeps inp
 test('formats Haiku time in ms below a second and in seconds above', () => {
   expect(formatMs(840)).toBe('840ms')
   expect(formatMs(2140)).toBe('2.1s')
-  expect(tookText(EMPTY_FLOW)).toBe('')
-  const flow = withTook(withTook(EMPTY_FLOW, 'ask', 2140), 'rewrite', 840)
-  expect(tookText(flow)).toBe('Took questions 2.1s · rewrite 840ms')
 })
 
 test('drops malformed questions and returns none on bad input', () => {
@@ -265,9 +239,9 @@ test('a new run id makes an older response stale', () => {
   expect(isStale(next, id)).toBe(true)
 })
 
-test('begin and reset keep the resubmit and manual-edit bookkeeping', () => {
-  const flow = { ...EMPTY_FLOW, pending: 'p', skipUntil: 9, runId: 4 }
-  expect(begin(flow, 'x').pending).toBe('p')
+test('begin and reset keep the manual-edit bookkeeping', () => {
+  const flow = { ...EMPTY_FLOW, skipUntil: 9, runId: 4 }
+  expect(begin(flow, 'x').skipUntil).toBe(9)
   expect(reset(flow).skipUntil).toBe(9)
   expect(reset(flow).runId).toBe(5)
 })
@@ -277,26 +251,12 @@ test('no questions goes straight to the rewrite', () => {
   expect(f.phase).toBe('rewriteLoading')
 })
 
-test('answers count, clear on empty and complete when all are given', () => {
-  let f = withQuestions(begin(EMPTY_FLOW, 'orig'), [
-    { q: 'one', options: ['a', 'b'] },
-    { q: 'two', options: ['c', 'd'] },
-  ])
-  expect(f.phase).toBe('questions')
-  f = answer(f, 0, 'a')
-  expect(allAnswered(f)).toBe(false)
-  f = answer(f, 1, 'd')
-  expect(allAnswered(f)).toBe(true)
-  f = answer(f, 1, '  ')
-  expect(allAnswered(f)).toBe(false)
-})
-
 test('the rewrite input lists only the answered questions', () => {
   let f = withQuestions(begin(EMPTY_FLOW, 'orig'), [
     { q: 'one', options: ['a', 'b'] },
     { q: 'two', options: ['c', 'd'] },
   ])
-  f = answer(f, 1, 'd')
+  f = { ...f, answers: { '1': 'd' } }
   expect(rewriteInput(f)).toBe('<prompt>orig</prompt><answers>Q: two\nA: d</answers>')
 })
 
@@ -539,10 +499,10 @@ test('parseTrigger accepts any trigger of the list, mixed at both edges, and tri
   expect(parseTrigger('hello ?? there', ['+++', '>>'])).toBeNull()
 })
 
-test('a trigger intercepts silently with the stripped text and skips the short and terminal checks', () => {
-  const silent = { silentTriggers: ['+++'], minLen: 100, surfaces: [] as string[] }
-  expect(gate({ ...silent, text: '+++ summarise it' })).toEqual({ intercept: true, silent: true, text: 'summarise it' })
-  expect(gate({ ...silent, text: 'summarise it +++' })).toEqual({ intercept: true, silent: true, text: 'summarise it' })
+test('a trigger intercepts with the stripped text and skips the short check', () => {
+  const silent = { silentTriggers: ['+++'], minLen: 100 }
+  expect(gate({ ...silent, text: '+++ summarise it' })).toEqual({ intercept: true, text: 'summarise it' })
+  expect(gate({ ...silent, text: 'summarise it +++' })).toEqual({ intercept: true, text: 'summarise it' })
   expect(gate({ ...silent, text: '+++' })).toMatchObject({ intercept: false, reason: 'trigger-only' })
   expect(gate({ ...silent, text: '+++ /compact now' })).toMatchObject({ intercept: false, reason: 'slash' })
   expect(gate({ ...silent, text: '+++ hi', hasAttachments: true })).toMatchObject({ intercept: false, reason: 'attachments' })
@@ -550,50 +510,40 @@ test('a trigger intercepts silently with the stripped text and skips the short a
   expect(gate({ ...silent, text: '+++ hi', flow: { ...EMPTY_FLOW, phase: 'rewriteLoading' } })).toMatchObject({ intercept: false, reason: 'busy' })
 })
 
-test('with the silent switch on only the trigger starts an upgrade, and a prompt without it passes without a pane', () => {
-  const on = { isSilent: true, silentTriggers: ['+++'] }
+test('without skip-silent-trigger only the trigger starts an upgrade, and a prompt without it passes', () => {
+  const on = { skipTrigger: false, silentTriggers: ['+++'] }
 
   expect(gate({ ...on })).toMatchObject({ intercept: false, reason: 'no-trigger' })
-  expect(gate({ ...on, surfaces: [] })).toMatchObject({ intercept: false, reason: 'no-trigger' })
-  expect(gate({ ...on, text: base.text + ' +++' })).toEqual({ intercept: true, silent: true, text: base.text })
-  expect(gate({ ...on, text: '+++ short' })).toEqual({ intercept: true, silent: true, text: 'short' })
+  expect(gate({ ...on, text: base.text + ' +++' })).toEqual({ intercept: true, text: base.text })
+  expect(gate({ ...on, text: '+++ short' })).toEqual({ intercept: true, text: 'short' })
   expect(gate({ ...on, text: '/compact now please do it' })).toMatchObject({ intercept: false, reason: 'slash' })
   expect(gate({ ...on, originKind: 'peer' })).toMatchObject({ intercept: false, reason: 'origin' })
 })
 
-test('skip-silent-trigger upgrades every long prompt without the pane and keeps the other checks', () => {
-  const on = { isSilent: true, skipTrigger: true, silentTriggers: ['+++'] }
+test('skip-silent-trigger upgrades every long prompt and keeps the other checks', () => {
+  const on = { skipTrigger: true, silentTriggers: ['+++'] }
 
-  expect(gate({ ...on })).toEqual({ intercept: true, silent: true, text: base.text })
-  expect(gate({ ...on, surfaces: [] })).toEqual({ intercept: true, silent: true, text: base.text })
-  expect(gate({ ...on, text: base.text + ' +++' })).toEqual({ intercept: true, silent: true, text: base.text })
+  expect(gate({ ...on })).toEqual({ intercept: true, text: base.text })
+  expect(gate({ ...on, text: base.text + ' +++' })).toEqual({ intercept: true, text: base.text })
   expect(gate({ ...on, text: 'short' })).toMatchObject({ intercept: false, reason: 'short' })
-  expect(gate({ ...on, text: '+++ short' })).toEqual({ intercept: true, silent: true, text: 'short' })
+  expect(gate({ ...on, text: '+++ short' })).toEqual({ intercept: true, text: 'short' })
   expect(gate({ ...on, text: '/compact now please do it' })).toMatchObject({ intercept: false, reason: 'slash' })
   expect(gate({ ...on, originKind: 'peer' })).toMatchObject({ intercept: false, reason: 'origin' })
   expect(gate({ ...on, now: 4000, flow: { ...EMPTY_FLOW, skipUntil: 5000 } })).toMatchObject({ intercept: false, reason: 'manual-edit' })
 })
 
-test('skip-silent-trigger does nothing while the silent switch is off', () => {
-  expect(gate({ isSilent: false, skipTrigger: true })).toEqual({ intercept: true })
-})
-
 test('any trigger of the list starts the silent upgrade', () => {
-  const on = { isSilent: true, silentTriggers: ['+++', '>>'] }
+  const on = { skipTrigger: false, silentTriggers: ['+++', '>>'] }
 
-  expect(gate({ ...on, text: '>> ' + base.text })).toEqual({ intercept: true, silent: true, text: base.text })
-  expect(gate({ ...on, text: base.text + ' +++' })).toEqual({ intercept: true, silent: true, text: base.text })
+  expect(gate({ ...on, text: '>> ' + base.text })).toEqual({ intercept: true, text: base.text })
+  expect(gate({ ...on, text: base.text + ' +++' })).toEqual({ intercept: true, text: base.text })
   expect(gate({ ...on, text: base.text + ' ??' })).toMatchObject({ intercept: false, reason: 'no-trigger' })
 })
 
-test('an empty trigger keeps the ordinary gate and a long prompt still takes the pane path', () => {
-  expect(gate({ silentTriggers: [], text: '+++ ' + base.text })).toEqual({ intercept: true })
-  expect(gate({ silentTriggers: ['+++'] })).toEqual({ intercept: true })
-})
-
-test('a resubmitted rewrite that ends with the trigger is not intercepted again', () => {
-  const flow = { ...EMPTY_FLOW, pending: 'done +++' }
-  expect(gate({ silentTriggers: ['+++'], text: 'done +++', flow })).toMatchObject({ intercept: false, reason: 'resubmit' })
+test('an empty trigger list keeps the trigger text ordinary', () => {
+  expect(gate({ silentTriggers: [], text: '+++ ' + base.text })).toEqual({ intercept: true, text: '+++ ' + base.text })
+  expect(gate({ silentTriggers: ['+++'] })).toEqual({ intercept: true, text: base.text })
+  expect(gate({ silentTriggers: [], skipTrigger: false, text: '+++ ' + base.text })).toMatchObject({ intercept: false, reason: 'no-trigger' })
 })
 
 test('the call log is one row: model, effort, time and the original prompt', () => {
@@ -675,7 +625,7 @@ test('the call log is cut so the whole row stays within the limit', () => {
   expect(callLog(call, 1900, 'abcdef', head.length + 3 + 6, REWRITE_LOG_PREFIX)).toBe(`${head} · abcdef`)
 })
 
-const off = { isSilent: true, skipTrigger: true, silentTriggers: ['+++'], offTriggers: ['---'] }
+const off = { skipTrigger: true, silentTriggers: ['+++'], offTriggers: ['---'] }
 
 test('the off trigger at either end sends the prompt as it is, without the trigger', () => {
   expect(gate({ ...off, text: `${base.text} ---` })).toEqual({ intercept: true, off: true, text: base.text })
@@ -713,8 +663,8 @@ test('a prompt with an @file or @agent mention passes, because the resubmit does
   expect(gate({ text: 'see @C:\\work\\a.ts for the failing case please' })).toMatchObject({ intercept: false, reason: 'mention' })
   expect(gate({ ...off, text: `--- ${base.text} @src/app.ts` })).toMatchObject({ intercept: false, reason: 'mention' })
   expect(gate({ ...off, text: `+++ ${base.text} @src/app.ts` })).toMatchObject({ intercept: false, reason: 'mention' })
-  expect(gate({ text: 'mail me at someone@example.com about the design document' })).toEqual({ intercept: true })
-  expect(gate({ text: 'a lone @ sign in the prompt about the design document' })).toEqual({ intercept: true })
+  expect(gate({ text: 'mail me at someone@example.com about the design document' })).toMatchObject({ intercept: true })
+  expect(gate({ text: 'a lone @ sign in the prompt about the design document' })).toMatchObject({ intercept: true })
 })
 
 const PASTE = '<pasted_content id="1926"> PS Z:\\Work> powershell -File run.ps1 FAIL: cannot verify master key </pasted_content id="1926">'
@@ -723,8 +673,8 @@ test('a prompt that is only pasted material passes, and one with enough text of 
   expect(gate({ text: PASTE })).toMatchObject({ intercept: false, reason: 'pasted-only' })
   expect(gate({ text: `why?\n${PASTE}` })).toMatchObject({ intercept: false, reason: 'pasted-only' })
   expect(gate({ ...off, text: PASTE })).toMatchObject({ intercept: false, reason: 'pasted-only' })
-  expect(gate({ text: `please find the cause of this failure\n${PASTE}` })).toEqual({ intercept: true })
-  expect(gate({ ...off, text: `+++ ${PASTE}` })).toMatchObject({ intercept: true, silent: true })
+  expect(gate({ text: `please find the cause of this failure\n${PASTE}` })).toMatchObject({ intercept: true })
+  expect(gate({ ...off, text: `+++ ${PASTE}` })).toMatchObject({ intercept: true })
 })
 
 test('with no off trigger the text is ordinary', () => {

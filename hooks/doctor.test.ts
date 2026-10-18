@@ -139,6 +139,22 @@ test('warns once for each old model key found, naming where it was found and the
   ])
 })
 
+test('warns for the retired use-silent-upgrade key whatever its value and names skip-silent-trigger instead', () => {
+  const checks = checksOf(
+    input({
+      ignored: [
+        { key: 'use-silent-upgrade', from: 'user' },
+        { key: 'use-silent-upgrade', from: 'local' },
+      ],
+    }),
+  )
+
+  expect(checks).toEqual([
+    '[warn] prompt.prompt-upgrade.use-silent-upgrade in user is ignored. Use prompt.prompt-upgrade.skip-silent-trigger.',
+    '[warn] prompt.prompt-upgrade.use-silent-upgrade in local is ignored. Use prompt.prompt-upgrade.skip-silent-trigger.',
+  ])
+})
+
 test('warns when folding is on and no run has been tracked', () => {
   const checks = checksOf(input({
       runs: {

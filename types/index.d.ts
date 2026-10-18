@@ -20,12 +20,10 @@ export type Flow = {
   draft: string
   skipUntil: number
   filled: string
-  pending: string | null
   runId: number
   notice: string
   context: string
   types: string[]
-  took: { ask: number; rewrite: number }
 }
 
 declare module 'claude-code' {

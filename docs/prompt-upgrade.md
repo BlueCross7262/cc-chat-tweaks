@@ -1,8 +1,8 @@
 # Prompt Upgrade (`prompt.prompt-upgrade.use`)
 
 A feature of cc-chat-tweaks.
-It intercepts a prompt you submit, asks Haiku for up to three clarifying questions, rewrites the prompt as prose, and sends it after you review it.
-A Korean prompt is sent as a message that asks Claude to write a prompt from the rewrite, print it in the chat and run it.
+It intercepts a prompt you submit, rewrites it as prose with Haiku, and puts the draft in the prompt box. You read it and press Enter yourself.
+For a Korean prompt the draft is a message that asks Claude to write a prompt from the rewrite, print it in the chat and run it.
 
 ## Security notice
 
@@ -36,17 +36,23 @@ A key that is absent uses its default.
 | Key | Default | Feature |
 |---|---|---|
 | `use` | `true` | Intercept your prompts and upgrade them. |
-| `use-questions` | `false` | Ask Haiku for clarifying questions. When `false`, the mod rewrites the prompt at once. |
-| `use-silent-upgrade` | `true` | Option of `use`. When `true`, the pane never opens, and only a prompt with the trigger is upgraded. The recommended answers to the questions are applied when `use-questions` is `true`, and the draft is put in the prompt box without being sent. When `false`, the pane runs for every prompt and the trigger is ordinary text. |
-| `skip-silent-trigger` | `true` | Option of `use-silent-upgrade`. When `true`, the trigger check is skipped and every prompt of `min-length` or more is upgraded without the pane. It has no effect while `use-silent-upgrade` is `false`. |
+| `use-questions` | `false` | Ask Haiku for clarifying questions. The mod answers each question with its recommended option, and you are not asked. When `false`, the mod rewrites the prompt at once. |
+| `skip-silent-trigger` | `true` | Option of `use`. When `true`, the trigger check is skipped and every prompt of `min-length` or more is upgraded. When `false`, only a prompt with the trigger is upgraded and any other prompt passes through unchanged. |
 | `silent-triggers` | `["+++"]` | The trigger texts, as an array of strings. Any one of them at the start or the end of a prompt is a trigger. Each entry is 1 to 32 characters after trimming. An entry that is blank or not text is dropped, a repeated entry counts once, and only the first 10 entries are used. An array with no valid entry uses the default. The old key `silent-trigger` is not read. |
-| `silent-off-triggers` | `["---"]` | Option of `use-silent-upgrade`. The texts that turn the silent upgrade off for one prompt, as an array of strings. Any one of them at the start or the end of a prompt is a trigger. The entry rules are those of `silent-triggers`, except that an empty array `[]` is valid and turns the opt-out off. It has no effect while `use-silent-upgrade` is `false`. |
+| `silent-off-triggers` | `["---"]` | Option of `use`. The texts that turn the silent upgrade off for one prompt, as an array of strings. Any one of them at the start or the end of a prompt is a trigger. The entry rules are those of `silent-triggers`, except that an empty array `[]` is valid and turns the opt-out off. |
 | `min-length` | `10` | Shortest prompt that is intercepted, in characters. A whole number from 1 to 10000. It beats the value set by `/prompt-upgrade threshold`. |
 | `models.<call>.model` | `sonnet`, and `haiku` for `classify` | The model of one call. `<call>` is `ask` (the questions), `rewrite` or `classify` (the prompt type). An alias or a full model id, 1 to 100 characters after trimming. A blank or non-text value, or a `models` entry that is not an object, uses the default. |
 | `models.<call>.effort` | `low` | The effort of the same call: `low`, `medium`, `high`, `xhigh` or `max`. Any other value uses the default. |
 
 Each call reads only its own entry. The first source that holds a valid value wins.
 The old keys `model`, `effort`, `type-model` and `type-effort` are not read. `/tweaks-doctor` shows a warning for each one it finds, with the key to use instead (`type-model` and `type-effort` map to `models.classify`, the others to `models.ask` and `models.rewrite`).
+
+The key `use-silent-upgrade` is retired. The mod does not read its value, whether it is `true` or `false`, and `/tweaks-doctor` shows a warning for it that names `skip-silent-trigger`. `/tweaks-doctor` leaves the key where it is, so remove it by hand. The prompt upgrade behaves as it did with `true`, and `skip-silent-trigger` decides which prompts are upgraded. For a user who had `false`, this changes four things:
+
+- There is no pane. The draft goes to the prompt box and nothing is sent until you press Enter.
+- `+++` at an edge of a prompt is now removed and starts the upgrade, and `---` at an edge sends the prompt as it is.
+- The upgrade no longer checks the surface, so a surface without a terminal gets it too.
+- With `use-questions` `true` the recommended answers are applied. You can no longer answer a question yourself.
 
 ```json
 {
@@ -55,7 +61,6 @@ The old keys `model`, `effort`, `type-model` and `type-effort` are not read. `/t
       "prompt-upgrade": {
         "use": true,
         "use-questions": false,
-        "use-silent-upgrade": true,
         "skip-silent-trigger": true,
         "silent-triggers": ["+++"],
         "silent-off-triggers": ["---"],
@@ -81,16 +86,16 @@ A model the engine refuses makes the call fail, and the flow ends with your orig
 |---|---|
 | `/prompt-upgrade status` | Shows each switch with its value and source, the model and effort of each of the three calls (`ask`, `rewrite` and `classify`), the threshold and the current phase. |
 | `/prompt-upgrade threshold <n>` | Sets the shortest prompt that is intercepted, in characters. The default is 10. The value lives in `$.store`. A `min-length` in settings beats it, and the reply says so. |
-| `/prompt-upgrade reset` | Closes the pane and puts the original prompt back in the prompt box. |
+| `/prompt-upgrade reset` | Drops the running upgrade and puts the original prompt back in the prompt box. |
 | `/prompt-upgrade probe on \| off \| show \| clear` | Records a PoC sample per submit. See `prompt-upgrade-poc-results.md`. |
 
 ## Flow
 
 ```
-Your prompt > Questions > Rewrite > Review
+Your prompt > Questions > Rewrite > Draft in the prompt box
 ```
 
-- A prompt typed at the prompt box is dropped and a pane opens.
+- A prompt typed at the prompt box is dropped and the upgrade starts in the background.
 - Haiku also reads up to the last six messages of the conversation (500 characters each, 3000 in all), so a prompt such as "fix the code above" has something to refer to.
 - At the same time, one prompt type call sorts the prompt into `research`, `discuss` and `execute`, one or more in the order the prompt asks for them.
   - It runs on every upgrade, with or without `use-questions`, and with the questions call when there is one.
@@ -104,37 +109,24 @@ Your prompt > Questions > Rewrite > Review
   - Before the mod builds the message, it cleans the rewrite. It removes every line that repeats a fixed line or an instruction line, ignoring white space and the word "나에게", and every line that holds only one of the four tags. It reduces a run of blank lines to one blank line outside `<input>` blocks, and trims both ends. So a message that is upgraded again gets one fresh wrapper, and the draft never holds the same rule twice.
   - If a tag still stands inside a line of the draft, for example when the prompt talks about the tags, the mod adds no wrapper. The draft then ends with the fixed lines once, as a plain rewrite.
   - A prompt that has no Korean characters gets the rewrite alone, with no instruction and no fixed lines.
-- Haiku asks up to three questions with 3 to 5 options each.
-  - Pick an option, type your own answer, or skip.
-  - `나머지 건너뛰고 업그레이드` goes on with the answers so far.
-  - `권장안으로 업그레이드` fills the open questions with the recommended options and goes on.
+- With `use-questions` `true`, Haiku asks up to three questions with 3 to 5 options each.
+  - The mod answers each question with its recommended option. A question with no recommended option stays unanswered.
+  - You are not asked.
 - Haiku rewrites the prompt as prose with one sentence on each line.
   - The mod does not break lines itself. The line breaks are what Haiku wrote.
   - Pasted material stays as it is, wrapped in `<input>` tags.
-- In the review you can:
-
-| Control | Key | Effect |
-|---|---|---|
-| `이 프롬프트 보내기` | `s` | Sends the draft and clears the prompt box. |
-| `입력창에서 편집` | `e` | Closes the pane and puts the draft in the prompt box. Your next submit passes once: any time for the same characters as the draft, and within 5 minutes for anything else. |
-| `원문 그대로 보내기` | `o` | Sends the prompt you typed. |
-| `취소` | `c` | Closes the pane and puts the original back in the prompt box. |
-
-The keys fire while the pane holds the focus.
-Press Tab to move to a button, or click it.
+- The mod puts the draft in the prompt box. It does not send it.
 
 ## Silent upgrade
 
-`use-silent-upgrade` only hides the pane. It does not make the upgrade run on every prompt.
+The upgrade has no pane. It runs in the background after the mod takes the prompt.
 
-The trigger (`+++` by default) at the start or the end of a prompt is what starts the upgrade.
+The trigger (`+++` by default) at the start or the end of a prompt is what starts the upgrade, unless `skip-silent-trigger` is `true`.
 
-- While `use-silent-upgrade` is `true`, a prompt with the trigger is upgraded without the pane.
-- While `use-silent-upgrade` is `true`, a prompt without the trigger passes through unchanged. The pane does not open and nothing is upgraded.
-- While `use-silent-upgrade` is `false`, the pane runs for every prompt of `min-length` or more, and the trigger is ordinary text.
+- A prompt with the trigger is upgraded.
+- While `skip-silent-trigger` is `false`, a prompt without the trigger passes through unchanged and nothing is upgraded.
 - A prompt with the trigger skips the `min-length` check.
-- While `skip-silent-trigger` is `true`, the trigger check is skipped. Every prompt of `min-length` or more is upgraded without the pane, whether it has the trigger or not. A prompt with the trigger still has the trigger removed and still skips the `min-length` check.
-- `skip-silent-trigger` has no effect while `use-silent-upgrade` is `false`.
+- While `skip-silent-trigger` is `true`, the trigger check is skipped. Every prompt of `min-length` or more is upgraded, whether it has the trigger or not. A prompt with the trigger still has the trigger removed and still skips the `min-length` check.
 - An off trigger (`---` by default) at the start or the end of a prompt turns the silent upgrade off for that prompt only. Nothing is upgraded and no model call is made.
   - The off trigger is removed and the rest is sent as it is. Repeated triggers at an edge go too.
   - It works with `skip-silent-trigger` `true` too, which is its main use.
@@ -149,7 +141,6 @@ The trigger (`+++` by default) at the start or the end of a prompt is what start
 - Haiku then rewrites the prompt once with those answers, and the mod puts the result in the prompt box. It does not send it.
 - If the questions call fails, the rewrite goes on without answers.
 - You read the draft in the prompt box, edit it if you want, and press Enter yourself.
-- The pane is not opened, so there is no review pane.
 - The mod remembers the characters of the draft it put in the prompt box, with every space, tab and line break dropped.
 - A prompt that holds the same characters passes through, however its spaces and line breaks differ, and however long you waited. So the draft goes out without a second upgrade, and the pass is spent.
 - A prompt that holds other characters is an edited draft or a new prompt, and the mod cannot tell which. Within 5 minutes it passes through once. After 5 minutes it is upgraded.
@@ -160,12 +151,12 @@ The trigger (`+++` by default) at the start or the end of a prompt is what start
 - If the box holds other text than the baseline when the draft is ready, you typed something meanwhile. The mod leaves the box alone and puts the draft on your clipboard. A toast says so.
 - If something unexpected fails after the prompt was taken, the text without the trigger is put back in the prompt box.
 - A prompt you send while the silent upgrade is still running passes through as it is, trigger included.
-- The `min-length` check and the terminal-surface check do not apply to a prompt with the trigger. The terminal-surface check does not apply to any silent upgrade.
+- The `min-length` check does not apply to a prompt with the trigger.
 - A trigger on its own, a prompt with an attachment, and a prompt that starts with `/` or `!` (after the trigger) pass through with the trigger text in them.
-- A prompt you type after `입력창에서 편집` or after a silent draft passes through once when it holds the same characters as the draft, or within 5 minutes when it holds other characters. A prompt with the trigger is not passed this way. It is upgraded again.
+- A prompt you type after a silent draft passes through once when it holds the same characters as the draft, or within 5 minutes when it holds other characters. A prompt with the trigger is not passed this way. It is upgraded again.
 - Not verified: what the prompt box and the up-arrow history hold after the mod takes the prompt.
   - A prompt with an off trigger enters as the prompt you typed, so the history is expected to hold it. Check it in a real session.
-  - The paths that drop the prompt and submit it again as a plugin prompt may leave nothing in the history. The pane `이 프롬프트 보내기` and `원문 그대로 보내기` are such paths.
+  - A prompt that the mod drops for an upgrade may leave nothing in the history.
 
 ## Usage log
 
@@ -179,7 +170,7 @@ cc-chat-tweaks: Prompt rewrite: sonnet low · 1.9s · fix the login bug
 - The engine puts the plugin name `cc-chat-tweaks: ` in front of every row. The mod does not write it, and `$.ui.log` takes only the text and the sink, so the mod cannot remove it.
 - The row holds a call prefix, the model alias and effort, the time, and the prompt you typed without the trigger, each part set off by ` · `.
 - The prefix names the call: `Prompt ask:` for the questions call, and `Prompt rewrite:` for the rewrite call.
-- A silent run applies the recommended answers on its own and writes one `Prompt answer:` row for each answer it applies. A row holds the question and its answer, as `question → answer`. A question with no recommended answer writes no row, and a run with no applied answer writes none. The pane path writes no such row, because you pick the answers there.
+- A run with questions applies the recommended answers on its own and writes one `Prompt answer:` row for each answer it applies. A row holds the question and its answer, as `question → answer`. A question with no recommended answer writes no row, and a run with no applied answer writes none.
 - The prompt type call writes its own row. It holds `Prompt classify:`, the model alias and effort, the time, and the types it found, each part set off by ` · `. It ends with `none` when the call found no known type and with `failed` when the call failed. It does not hold the prompt.
 - One log call is one row. A line break inside the text of a call is not drawn as a break, and shows as a garbled character. So the mod turns every run of spaces and line breaks in the prompt into one space, and never puts a line break in a log.
 - The whole row is cut at 2000 characters with `...`.
@@ -197,25 +188,21 @@ cc-chat-tweaks: Prompt rewrite: sonnet low · 1.9s · fix the login bug
 - It carries an image or another attachment.
 - It starts with `/`.
 - It starts with `!`, which makes it a shell command.
-- It holds an `@file` or `@agent` mention: an `@` at the start or after a white space, then path characters. The resubmit does not expand mentions, so the upgraded prompt would lose the file. An address such as `a@b.com` is not a mention. A trigger or an off trigger does not change this, and the trigger text stays in the prompt.
+- It holds an `@file` or `@agent` mention: an `@` at the start or after a white space, then path characters. The draft is plain text, so the upgraded prompt would lose the file. An address such as `a@b.com` is not a mention. A trigger or an off trigger does not change this, and the trigger text stays in the prompt.
 - It is only pasted material. The mod removes every `<pasted_content ...>...</pasted_content>` block and counts what is left. If that is shorter than the threshold, the prompt passes. A prompt with a trigger skips this check, like the other length check.
 - It is shorter than the threshold.
-- No terminal surface is attached.
 - A flow is already running.
-- The pane cannot be placed.
 
-Every failure path ends with your original prompt: a Haiku error or timeout shows the original as the draft, and an error in the mod passes the prompt on.
+Every failure path ends with your original prompt: a Haiku error or timeout puts the original in the prompt box and a toast says so, and an error in the mod passes the prompt on.
 
 ## Limits
 
-- The resubmitted prompt is sent as a plugin prompt.
-  - `@file` mentions and pasted images are not expanded again.
-  - Prompts with attachments are not intercepted for this reason.
+- The draft is put in the prompt box as plain text.
+  - Attachments and `@file` mentions of the original are not carried over.
+  - Prompts with attachments or mentions are not intercepted for this reason.
 - Haiku sees only a short slice of the conversation (see Flow).
   - A prompt that refers to something older than that cannot be improved.
-  - The mod does not detect such prompts. Use `원문 그대로 보내기`.
-- The review pane draws the message through the engine's Markdown component. Whether it shows the `<source>` and `<hard rule>` tags or hides them is not verified. The text in the prompt box and the text that is sent do not pass through it.
-- The review pane cuts the draft it draws at 9000 characters. A very long rewrite hides the end of the message, which holds the `<hard rule>` block. The text that is sent is whole.
+  - The mod does not detect such prompts. Put an off trigger at an edge of the prompt to send it as it is.
 - The mod cannot check what Claude writes. The `<hard rule>` block is in the message you send as the mod built it. Whether the prompt Claude writes carries those sentences unchanged depends on the instruction.
 - A message that you upgrade again is cleaned of the instruction lines it holds. If the rewrite model words an instruction line differently, that line stays in the `<source>` part, and a tag inside it makes the mod add no wrapper.
 
@@ -223,9 +210,9 @@ Every failure path ends with your original prompt: a Haiku error or timeout show
 
 | File | Role |
 |---|---|
-| `hooks/upgrade.tsx` | The feature's hooks, pane and `/prompt-upgrade` command. `register.tsx` calls `registerUpgrade(on)`. |
+| `hooks/upgrade.tsx` | The feature's hooks and `/prompt-upgrade` command. `register.tsx` calls `registerUpgrade(on)`. |
 | `hooks/upgrade-logic.ts` | Pure gate, flow and parsing logic. |
 | `hooks/upgrade-prompts.ts` | The Haiku system prompts and call limits. |
 
 `session.start` has one hook for the whole module, so `register.tsx` registers the `/prompt-upgrade` command there.
-A flow left open by a reload is closed at the first prompt after the reload, and a toast carries the full text of the earlier prompt.
+A flow left open by a reload is reset at the first prompt after the reload, and a toast carries the full text of the earlier prompt.
