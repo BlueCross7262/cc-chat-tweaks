@@ -184,7 +184,6 @@ cc-chat-tweaks: Prompt rewrite: sonnet low · 1.9s · fix the login bug
 - `use` is not `true`.
 - The prompt does not come from your own Enter at the prompt box.
   - Notifications, peer messages, scheduled prompts, SDK and `-p` turns pass through.
-- You typed it while a turn was running.
 - It carries an image or another attachment.
 - It starts with `/`.
 - It starts with `!`, which makes it a shell command.

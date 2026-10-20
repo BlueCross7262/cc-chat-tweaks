@@ -91,7 +91,6 @@ export type GateInput = {
   text: string
   originKind: string | undefined
   hasAttachments: boolean
-  hasTurnId: boolean
   isEnabled: boolean
   minLen: number
   silentTriggers: readonly string[]
@@ -160,7 +159,6 @@ const decideRest = (g: GateInput, text: string, clearSkip: boolean): Gate => {
   if (g.flow.phase !== 'idle') return pass('busy')
   // UNVERIFIED: only the user's own Enter (origin kind composer) is intercepted; every other origin passes
   if (g.originKind !== 'composer') return pass('origin')
-  if (g.hasTurnId) return pass('mid-turn')
   if (g.hasAttachments) return pass('attachments')
   const stripped = parseTrigger(text, g.silentTriggers)
   const isOff = parseTrigger(text, g.offTriggers) !== null

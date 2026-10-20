@@ -134,8 +134,39 @@ test('a prompt with an attachment, a slash command and a peer message pass throu
   expect(await submit($, LONG, { attachments: [{ type: 'image' }] })).toMatchObject({ text: LONG })
   expect(await submit($, '/compact the conversation please')).toMatchObject({ text: '/compact the conversation please' })
   expect(await submit($, LONG, { origin: { kind: 'peer' } })).toMatchObject({ text: LONG })
-  expect(await submit($, LONG, { turnId: 'turn-1' })).toMatchObject({ text: LONG })
+  expect(await submit($, LONG, { origin: { kind: 'peer' }, turnId: 'turn-1' })).toMatchObject({ text: LONG })
   expect(s.models).toEqual([])
+})
+
+test('a prompt the person types while a turn runs is upgraded like any other', async ($, on) => {
+  const s = world($, on, { useQuestions: false, extra: { 'skip-silent-trigger': true }, answers: ['Draft typed mid-turn.'], box: LONG })
+  const result = await submit($, LONG, { turnId: 'turn-1' })
+  await settle(s)
+  expect(result).toMatchObject({ drop: expect.any(String) })
+  expect(s.models).toHaveLength(1)
+  expect(s.filled).toEqual(['Draft typed mid-turn.'])
+  expect(s.entered).toEqual([])
+})
+
+test('the draft filled for a mid-turn prompt passes the next submit while the turn still runs', async ($, on) => {
+  const s = world($, on, { useQuestions: false, extra: { 'skip-silent-trigger': true }, answers: ['Draft typed mid-turn.'], box: LONG })
+  await submit($, LONG, { turnId: 'turn-1' })
+  await settle(s)
+  const again = await submit($, 'Draft typed mid-turn.', { turnId: 'turn-1' })
+  expect(again).toMatchObject({ text: 'Draft typed mid-turn.' })
+  expect(again).not.toHaveProperty('drop')
+  expect(s.models).toHaveLength(1)
+  expect(s.entered).toEqual(['Draft typed mid-turn.'])
+})
+
+test('the off trigger sends a prompt typed while a turn runs as it is', async ($, on) => {
+  const s = world($, on, { extra: { 'skip-silent-trigger': true }, answers: ['Never used.'] })
+  const result = await submit($, `${LONG} ---`, { turnId: 'turn-1' })
+  await settle(s)
+  expect(result).toMatchObject({ text: LONG })
+  expect(result).not.toHaveProperty('drop')
+  expect(s.models).toEqual([])
+  expect(s.entered).toEqual([LONG])
 })
 
 const LONG_DRAFT = Array(120).fill('a long upgraded draft').join(' ')
@@ -590,6 +621,7 @@ const FLOW_RESEARCH_RULES = [
   '확인한 사실과 추측을 구분해 쓴다.',
   '확인하지 못한 내용은 확인하지 못했다고 쓴다.',
   '요청하지 않은 배경 설명을 쓰지 않는다.',
+  '이미 있는 할일 목록 중 이번 프롬프트와 관련없는 항목은 삭제한다.',
   '여러 단계의 작업이면 할일 목록을 먼저 생성하고 순서대로 진행한다.',
   '',
   '모든 주장에 근거를 붙인다.',

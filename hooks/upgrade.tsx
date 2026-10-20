@@ -384,7 +384,6 @@ const interceptOrPass = async ($: EngineInterface, e: PromptSubmitInput) => {
     text: e.text,
     originKind: e.origin?.kind,
     hasAttachments: (e.attachments?.length ?? 0) > 0,
-    hasTurnId: e.turnId !== undefined,
     isEnabled,
     minLen,
     silentTriggers,

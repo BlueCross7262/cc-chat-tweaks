@@ -37,7 +37,6 @@ const base: GateInput = {
   text: 'please summarise the attached design document for me',
   originKind: 'composer',
   hasAttachments: false,
-  hasTurnId: false,
   isEnabled: true,
   minLen: MIN_LEN,
   silentTriggers: [],
@@ -63,8 +62,7 @@ test('passes every origin except the person at the composer', () => {
   }
 })
 
-test('passes a prompt typed mid-turn, with attachments, a slash command or short text', () => {
-  expect(gate({ hasTurnId: true })).toMatchObject({ reason: 'mid-turn' })
+test('passes a prompt with attachments, a slash command or short text', () => {
   expect(gate({ hasAttachments: true })).toMatchObject({ reason: 'attachments' })
   expect(gate({ text: '/compact now please' })).toMatchObject({ reason: 'slash' })
   expect(gate({ text: 'short' })).toMatchObject({ reason: 'short' })
@@ -295,6 +293,7 @@ const COMMON_TAIL = [
   '확인한 사실과 추측을 구분해 쓴다.',
   '확인하지 못한 내용은 확인하지 못했다고 쓴다.',
   '요청하지 않은 배경 설명을 쓰지 않는다.',
+  '이미 있는 할일 목록 중 이번 프롬프트와 관련없는 항목은 삭제한다.',
   '여러 단계의 작업이면 할일 목록을 먼저 생성하고 순서대로 진행한다.',
 ].join('\n')
 
