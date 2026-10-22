@@ -7,6 +7,7 @@ import type {
 } from 'claude-code'
 
 import type { Flow } from '../types'
+import { recount } from './char-count'
 import {
   answerLogs,
   ASK_LOG_PREFIX,
@@ -162,7 +163,10 @@ const restoreText = async ($: EngineInterface, text: string): Promise<void> => {
   } catch {
     isFilled = false
   }
-  if (isFilled) return
+  if (isFilled) {
+    await recount($)
+    return
+  }
   let isCopied = false
   try {
     isCopied = (await $.ui.copy({ text })).isCopied
@@ -433,7 +437,11 @@ export const registerUpgrade = (on: Parameters<Register>[0]): void => {
       await abandon($, cause)
     }
 
-    return next(rewritten === null ? e : { ...e, text: rewritten })
+    const submitted = await next(rewritten === null ? e : { ...e, text: rewritten })
+
+    await recount($)
+
+    return submitted
   })
 
   on('ui.render', { component: 'Pane', requestId: PROBE_PANE }, async ($, e) => {

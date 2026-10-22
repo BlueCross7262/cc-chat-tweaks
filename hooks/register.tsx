@@ -37,6 +37,7 @@ import {
   viewOf,
   type Header,
 } from './runs'
+import { registerCharCount } from './char-count'
 import { formatReport, versionText, type DoctorInput } from './doctor'
 import { COMMAND as UPGRADE_COMMAND, COMMAND_HELP, KEY_MIN_LEN, registerUpgrade } from './upgrade'
 import { EMPTY_FLOW, MIN_LEN, parseMinLen } from './upgrade-logic'
@@ -104,6 +105,7 @@ const recordDuration = async (
 
 export const register: Register = on => {
   registerUpgrade(on)
+  registerCharCount(on)
 
   on('session.start', async ($, e, next) => {
     const blinkTick = async (): Promise<void> => {

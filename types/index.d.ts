@@ -28,6 +28,6 @@ export type Flow = {
 
 declare module 'claude-code' {
   interface PluginState {
-    'cc-chat-tweaks': { expanded: string[]; runs: RunState; blink: boolean; flow: Flow }
+    'cc-chat-tweaks': { expanded: string[]; runs: RunState; blink: boolean; flow: Flow; charCount: number }
   }
 }

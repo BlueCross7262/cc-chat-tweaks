@@ -1,14 +1,14 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "cc-chat-tweaks",
-  "description": "Claude Code chat tweaks: folded tool-call rows, Edit/Write summaries and prompt upgrade",
+  "description": "Claude Code chat tweaks: folded tool-call rows, Edit/Write summaries, prompt upgrade and a prompt character count",
   "owner": {
     "name": "BlueCross7262"
   },
   "plugins": [
     {
       "name": "cc-chat-tweaks",
-      "description": "Chat tweaks for Claude Code: folded tool-call rows, an Edit/Write summary row and a prompt upgrade step, each switched by a use-* setting.",
+      "description": "Chat tweaks for Claude Code: folded tool-call rows, an Edit/Write summary row, a prompt upgrade step and a prompt character count, each switched by a use-* setting.",
       "version": "0.0.53",
       "author": {
         "name": "BlueCross7262"

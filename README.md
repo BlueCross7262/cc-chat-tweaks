@@ -12,7 +12,7 @@ Answer `y` to add the marketplace, then pick a scope.
 
 ## Settings
 
-Tool folding and the Edit/Write summary are off until you turn them on. The prompt upgrade is on by default, and it needs no setting to run. Switches live under `ccChatTweaks` in any settings file (`settings.json`, `settings.local.json`, project or user). Tool folding sits in `ccChatTweaks.chat.tool-fold`, the Edit/Write summary in `ccChatTweaks.chat` and the prompt upgrade in `ccChatTweaks.prompt.prompt-upgrade`. A later prompt feature gets its own group under `ccChatTweaks.prompt`. A boolean in a higher-precedence source wins. A key that is absent uses its default.
+Tool folding, the Edit/Write summary and the character count are off until you turn them on. The prompt upgrade is on by default, and it needs no setting to run. Switches live under `ccChatTweaks` in any settings file (`settings.json`, `settings.local.json`, project or user). Tool folding sits in `ccChatTweaks.chat.tool-fold`, the Edit/Write summary in `ccChatTweaks.chat`, the prompt upgrade in `ccChatTweaks.prompt.prompt-upgrade` and the character count in `ccChatTweaks.prompt.char-count`. A later prompt feature gets its own group under `ccChatTweaks.prompt`. A boolean in a higher-precedence source wins. A key that is absent uses its default.
 
 | Group | Key | Default | Feature |
 |---|---|---|---|
@@ -28,6 +28,7 @@ Tool folding and the Edit/Write summary are off until you turn them on. The prom
 | `prompt.prompt-upgrade` | `models.ask.model`, `models.ask.effort` | `sonnet`, `low` | The model and effort of the questions call. The model is an alias or a full model id. The effort is `low`, `medium`, `high`, `xhigh` or `max`. |
 | `prompt.prompt-upgrade` | `models.rewrite.model`, `models.rewrite.effort` | `sonnet`, `low` | The model and effort of the rewrite call. |
 | `prompt.prompt-upgrade` | `models.classify.model`, `models.classify.effort` | `haiku`, `low` | The model and effort of the prompt type call. |
+| `prompt.char-count` | `use` | `false` | Show the number of characters in the prompt box at the right end of the line under it. |
 
 ```json
 {
@@ -43,6 +44,9 @@ Tool folding and the Edit/Write summary are off until you turn them on. The prom
       "prompt-upgrade": {
         "use": true,
         "use-questions": false
+      },
+      "char-count": {
+        "use": true
       }
     }
   }
@@ -122,6 +126,22 @@ A prompt you type at the prompt box and send is held back, upgraded in the backg
 
 Details and limits: [docs/prompt-upgrade.md](docs/prompt-upgrade.md). Proof-of-concept results: [docs/prompt-upgrade-poc-results.md](docs/prompt-upgrade-poc-results.md).
 
+### `prompt.char-count.use`
+
+The number of characters in the prompt box shows as `N자` among the dim mode labels at the right end of the line under the prompt box:
+
+```
+? for shortcuts                                    focus & 12자
+```
+
+- A character is one grapheme, the unit you see: `안녕` is 2, `👨‍👩‍👧` is 1 and `é` written as `e` plus a combining accent is 1. Where the runtime has no `Intl.Segmenter`, the count falls back to code points, and those two examples count 5 and 2.
+- Spaces and line breaks count.
+- The label is left out while the box is empty.
+- The count follows each key and paste, a draft the prompt upgrade puts in the box, and text another plugin fills in.
+- A prompt that is sent as it is gets the box counted again after it is sent. A prompt that the prompt upgrade holds back keeps the old count until the draft lands in the box.
+- The terminal and desktop surfaces draw the mode labels. Other surfaces show no count.
+- After you change the switch, run `/reload-plugins`.
+
 ## Develop
 
 ```
@@ -134,8 +154,10 @@ The sources are TypeScript loaded as is, with no build step.
 
 | File | Role |
 |---|---|
-| `hooks/register.tsx` | The hooks module: the tool-call features and the doctor command. It calls `registerUpgrade(on)`. `$` cannot cross an import, so every function that uses it lives in this file or in `hooks/upgrade.tsx`. |
+| `hooks/register.tsx` | The hooks module: the tool-call features and the doctor command. It calls `registerUpgrade(on)` and `registerCharCount(on)`. `$` crosses an import only into a function declaration, so a function that takes `$` from another file is written `function name($) { ... }`, as `recount` in `hooks/char-count.tsx` is. |
 | `hooks/upgrade.tsx` | The prompt upgrade hooks and command. |
+| `hooks/char-count.tsx` | The character count hooks and `recount`, which the prompt upgrade calls after it fills the box and after a prompt is sent. |
+| `hooks/char-count-logic.ts` | Pure grapheme and code point counting and the `N자` label. |
 | `hooks/upgrade-logic.ts` | Pure gate, flow and parsing logic for the prompt upgrade. |
 | `hooks/upgrade-prompts.ts` | The Haiku system prompts for the prompt upgrade. |
 | `hooks/settings.ts` | The `use-*` switches, their defaults, their lookup across settings sources and the missing-switch merge. |
