@@ -1,4 +1,5 @@
 import type { Flow, Phase, Question } from '../types'
+import { countChars } from './char-count-logic'
 
 export const MIN_LEN = 10
 export const SKIP_TTL_MS = 5 * 60 * 1000
@@ -175,8 +176,8 @@ const decideRest = (g: GateInput, text: string, clearSkip: boolean): Gate => {
     return { intercept: true, text: stripped }
   }
   if (!g.skipTrigger) return pass('no-trigger')
-  if (text.length < g.minLen) return pass('short')
-  if (withoutPasted(text).length < g.minLen) return pass('pasted-only')
+  if (countChars(text) < g.minLen) return pass('short')
+  if (countChars(withoutPasted(text)) < g.minLen) return pass('pasted-only')
   return { intercept: true, text }
 }
 

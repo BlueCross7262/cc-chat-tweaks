@@ -71,6 +71,15 @@ test('passes a prompt with attachments, a slash command or short text', () => {
 test('the threshold comes from the setting', () => {
   expect(gate({ minLen: 100 })).toMatchObject({ intercept: false, reason: 'short' })
   expect(gate({ minLen: 5, text: 'sixchr' })).toEqual({ intercept: true, text: 'sixchr' })
+})
+
+test('the length check counts graphemes, as the character count label does, after trimming the ends', () => {
+  expect(gate({ minLen: 3, text: '😀😀' })).toMatchObject({ intercept: false, reason: 'short' })
+  expect(gate({ minLen: 2, text: '👨‍👩‍👧' })).toMatchObject({ intercept: false, reason: 'short' })
+  expect(gate({ minLen: 2, text: 'e\u0301' })).toMatchObject({ intercept: false, reason: 'short' })
+  expect(gate({ minLen: 3, text: '😀 😀' })).toEqual({ intercept: true, text: '😀 😀' })
+  expect(gate({ minLen: 5, text: '  안녕 하  ' })).toMatchObject({ intercept: false, reason: 'short' })
+  expect(gate({ minLen: 4, text: '  안녕 하  ' })).toEqual({ intercept: true, text: '안녕 하' })
   expect(parseMinLen(undefined)).toBe(MIN_LEN)
   expect(parseMinLen(0)).toBe(MIN_LEN)
   expect(parseMinLen(2.5)).toBe(MIN_LEN)

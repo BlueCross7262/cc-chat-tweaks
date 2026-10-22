@@ -24,7 +24,7 @@ Tool folding, the Edit/Write summary and the character count are off until you t
 | `prompt.prompt-upgrade` | `skip-silent-trigger` | `true` | Option of `use`. When `true`, the trigger check is skipped and every prompt of `min-length` or more is upgraded. When `false`, only a prompt with the trigger is upgraded. |
 | `prompt.prompt-upgrade` | `silent-triggers` | `["+++"]` | The trigger texts for the silent upgrade, as an array of strings. |
 | `prompt.prompt-upgrade` | `silent-off-triggers` | `["---"]` | The texts that turn the silent upgrade off for one prompt, as an array of strings. The prompt is sent as it is, without the text. `[]` turns this off. |
-| `prompt.prompt-upgrade` | `min-length` | `10` | Shortest prompt that is upgraded, in characters. |
+| `prompt.prompt-upgrade` | `min-length` | `10` | Shortest prompt that is upgraded, in characters. A character is a grapheme, the unit the character count label uses, and white space at both ends is left out. |
 | `prompt.prompt-upgrade` | `models.ask.model`, `models.ask.effort` | `sonnet`, `low` | The model and effort of the questions call. The model is an alias or a full model id. The effort is `low`, `medium`, `high`, `xhigh` or `max`. |
 | `prompt.prompt-upgrade` | `models.rewrite.model`, `models.rewrite.effort` | `sonnet`, `low` | The model and effort of the rewrite call. |
 | `prompt.prompt-upgrade` | `models.classify.model`, `models.classify.effort` | `haiku`, `low` | The model and effort of the prompt type call. |
