@@ -62,7 +62,7 @@ export const checksOf = (input: DoctorInput): string[] => {
 
   if (!input.flags.some(report => report.value && isFeatureKey(report.key))) {
     checks.push(
-      '[info] Every feature is off, so the mod draws nothing. Set a use switch to true in settings.json to turn it on (use under ccChatTweaks.chat.tool-fold, use-edit-summary under ccChatTweaks.chat, use under ccChatTweaks.prompt.prompt-upgrade).',
+      '[info] Every feature is off, so the mod draws nothing. Set a use switch to true in settings.json to turn it on (use under ccChatTweaks.chat.tool-fold, use-edit-summary under ccChatTweaks.chat, use under ccChatTweaks.prompt.prompt-upgrade, use under ccChatTweaks.prompt.char-count).',
     )
   }
 

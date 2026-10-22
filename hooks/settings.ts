@@ -7,6 +7,7 @@ export const FLAG_DEFAULTS = {
   'use-prompt-upgrade': true,
   'use-questions': false,
   'skip-silent-trigger': true,
+  'use-char-count': false,
 } as const
 
 export type FlagKey = keyof typeof FLAG_DEFAULTS
@@ -14,6 +15,7 @@ export type FlagKey = keyof typeof FLAG_DEFAULTS
 export const CHAT_PATH: readonly string[] = ['chat']
 export const TOOL_FOLD_PATH: readonly string[] = ['chat', 'tool-fold']
 export const PROMPT_UPGRADE_PATH: readonly string[] = ['prompt', 'prompt-upgrade']
+export const CHAR_COUNT_PATH: readonly string[] = ['prompt', 'char-count']
 
 export const FLAG_PATHS: Record<FlagKey, readonly string[]> = {
   'use-tool-fold': TOOL_FOLD_PATH,
@@ -21,13 +23,14 @@ export const FLAG_PATHS: Record<FlagKey, readonly string[]> = {
   'use-prompt-upgrade': PROMPT_UPGRADE_PATH,
   'use-questions': PROMPT_UPGRADE_PATH,
   'skip-silent-trigger': PROMPT_UPGRADE_PATH,
+  'use-char-count': CHAR_COUNT_PATH,
 }
 
-const FLAG_PROPS: Partial<Record<FlagKey, string>> = { 'use-tool-fold': 'use', 'use-prompt-upgrade': 'use' }
+const FLAG_PROPS: Partial<Record<FlagKey, string>> = { 'use-tool-fold': 'use', 'use-prompt-upgrade': 'use', 'use-char-count': 'use' }
 
 export const propOf = (key: FlagKey): string => FLAG_PROPS[key] ?? key
 
-export const GROUP_PATHS: readonly (readonly string[])[] = [CHAT_PATH, TOOL_FOLD_PATH, PROMPT_UPGRADE_PATH]
+export const GROUP_PATHS: readonly (readonly string[])[] = [CHAT_PATH, TOOL_FOLD_PATH, PROMPT_UPGRADE_PATH, CHAR_COUNT_PATH]
 
 export const pathText = (path: readonly string[]): string => [SETTINGS_NAMESPACE, ...path].join('.')
 
@@ -364,4 +367,5 @@ export const flagsOf = (sources: readonly unknown[]): Flags => ({
   'use-prompt-upgrade': isFlagOn(sources, 'use-prompt-upgrade'),
   'use-questions': isFlagOn(sources, 'use-questions'),
   'skip-silent-trigger': isFlagOn(sources, 'skip-silent-trigger'),
+  'use-char-count': isFlagOn(sources, 'use-char-count'),
 })

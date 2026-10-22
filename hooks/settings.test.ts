@@ -210,6 +210,7 @@ test('the defaults when no source sets a key', () => {
   expect(isFlagOn([], 'use-prompt-upgrade')).toBe(true)
   expect(isFlagOn([], 'use-questions')).toBe(false)
   expect(isFlagOn([], 'skip-silent-trigger')).toBe(true)
+  expect(isFlagOn([], 'use-char-count')).toBe(false)
   expect(isFlagOn([up({ 'skip-silent-trigger': false })], 'skip-silent-trigger')).toBe(false)
   expect(isFlagOn([{ ccChatTweaks: { chat: { 'skip-silent-trigger': false } } }], 'skip-silent-trigger')).toBe(true)
   expect(isFlagOn([{}, { ccChatTweaks: {} }, { ccChatTweaks: { chat: {} } }], 'use-tool-fold')).toBe(false)
@@ -246,6 +247,17 @@ test('tool folding is switched by ccChatTweaks.chat.tool-fold.use and by nothing
   expect(isFlagOn([{ ccChatTweaks: { chat: { 'use-edit-summary': true } } }], 'use-edit-summary')).toBe(true)
 })
 
+test('the character count is switched by ccChatTweaks.prompt.char-count.use and by nothing else', () => {
+  expect(FLAG_PATHS['use-char-count']).toEqual(['prompt', 'char-count'])
+  expect(propOf('use-char-count')).toBe('use')
+  expect(isFlagOn([{ ccChatTweaks: { prompt: { 'char-count': { use: true } } } }], 'use-char-count')).toBe(true)
+  expect(isFlagOn([{ ccChatTweaks: { prompt: { 'char-count': { use: false } } } }, { ccChatTweaks: { prompt: { 'char-count': { use: true } } } }], 'use-char-count')).toBe(false)
+  expect(isFlagOn([{ ccChatTweaks: { prompt: { 'char-count': { use: 'yes' } } } }], 'use-char-count')).toBe(false)
+  expect(isFlagOn([{ ccChatTweaks: { prompt: { 'use-char-count': true } } }], 'use-char-count')).toBe(false)
+  expect(isFlagOn([{ ccChatTweaks: { prompt: { 'prompt-upgrade': { use: true } } } }], 'use-char-count')).toBe(false)
+  expect(isFlagOn([{ ccChatTweaks: { 'char-count': { use: true } } }], 'use-char-count')).toBe(false)
+})
+
 test('the label of a key is the path of its setting under ccChatTweaks', () => {
   expect(labelOf('use-tool-fold')).toBe('chat.tool-fold.use')
   expect(labelOf('use-edit-summary')).toBe('chat.use-edit-summary')
@@ -253,6 +265,7 @@ test('the label of a key is the path of its setting under ccChatTweaks', () => {
   expect(labelOf('use-prompt-upgrade')).toBe('prompt.prompt-upgrade.use')
   expect(labelOf('use-questions')).toBe('prompt.prompt-upgrade.use-questions')
   expect(labelOf('min-length')).toBe('prompt.prompt-upgrade.min-length')
+  expect(labelOf('use-char-count')).toBe('prompt.char-count.use')
 })
 
 test('a boolean in a source overrides the default in both directions', () => {
@@ -284,6 +297,7 @@ test('reads every flag at once', () => {
     'use-prompt-upgrade': true,
     'use-questions': false,
     'skip-silent-trigger': true,
+    'use-char-count': false,
   })
 })
 
@@ -310,6 +324,7 @@ test('adds only the missing switches with their default and keeps everything els
     'use-prompt-upgrade',
     'use-questions',
     'skip-silent-trigger',
+    'use-char-count',
     'min-length',
     'silent-triggers',
     'silent-off-triggers',
@@ -339,6 +354,7 @@ test('adds only the missing switches with their default and keeps everything els
           'silent-off-triggers': ['---'],
           models: DEFAULT_MODELS,
         },
+        'char-count': { use: false },
       },
       other: 1,
     },
@@ -348,8 +364,8 @@ test('adds only the missing switches with their default and keeps everything els
 })
 
 test('builds the whole section for an empty or malformed file', () => {
-  expect(withMissingDefaults({}).added).toHaveLength(15)
-  expect(withMissingDefaults(null).added).toHaveLength(15)
+  expect(withMissingDefaults({}).added).toHaveLength(16)
+  expect(withMissingDefaults(null).added).toHaveLength(16)
   expect(withMissingDefaults({ ccChatTweaks: 'x' }).settings).toEqual({
     ccChatTweaks: {
       chat: {
@@ -366,6 +382,7 @@ test('builds the whole section for an empty or malformed file', () => {
           'silent-off-triggers': ['---'],
           models: DEFAULT_MODELS,
         },
+        'char-count': { use: false },
       },
     },
   })
@@ -510,6 +527,7 @@ test('reports nothing to add when every switch is present', () => {
             classify: { model: 'sonnet', effort: 'medium' },
           },
         },
+        'char-count': { use: true },
       },
     },
   }
