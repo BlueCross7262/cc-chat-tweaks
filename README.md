@@ -128,10 +128,10 @@ Details and limits: [docs/prompt-upgrade.md](docs/prompt-upgrade.md). Proof-of-c
 
 ### `prompt.char-count.use`
 
-The number of characters in the prompt box shows as `N자` among the dim mode labels at the right end of the line under the prompt box:
+The number of characters in the prompt box shows as a bare number among the dim mode labels at the right end of the line under the prompt box:
 
 ```
-? for shortcuts                                    focus & 12자
+? for shortcuts                                    focus & 12
 ```
 
 - A character is one grapheme, the unit you see: `안녕` is 2, `👨‍👩‍👧` is 1 and `é` written as `e` plus a combining accent is 1. Where the runtime has no `Intl.Segmenter`, the count falls back to code points, and those two examples count 5 and 2.
@@ -157,7 +157,7 @@ The sources are TypeScript loaded as is, with no build step.
 | `hooks/register.tsx` | The hooks module: the tool-call features and the doctor command. It calls `registerUpgrade(on)` and `registerCharCount(on)`. `$` crosses an import only into a function declaration, so a function that takes `$` from another file is written `function name($) { ... }`, as `recount` in `hooks/char-count.tsx` is. |
 | `hooks/upgrade.tsx` | The prompt upgrade hooks and command. |
 | `hooks/char-count.tsx` | The character count hooks and `recount`, which the prompt upgrade calls after it fills the box and after a prompt is sent. |
-| `hooks/char-count-logic.ts` | Pure grapheme and code point counting and the `N자` label. |
+| `hooks/char-count-logic.ts` | Pure grapheme and code point counting and the label, the count alone. |
 | `hooks/upgrade-logic.ts` | Pure gate, flow and parsing logic for the prompt upgrade. |
 | `hooks/upgrade-prompts.ts` | The Haiku system prompts for the prompt upgrade. |
 | `hooks/settings.ts` | The `use-*` switches, their defaults, their lookup across settings sources and the missing-switch merge. |

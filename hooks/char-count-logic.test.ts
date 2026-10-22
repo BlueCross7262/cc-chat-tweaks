@@ -31,7 +31,7 @@ test('countChars uses the segmenter it gets and falls back to code points with n
   expect(countChars(`${ACCENT}안`)).toBe(2)
 })
 
-test('the label is the count followed by 자', () => {
-  expect(countLabel(1)).toBe('1자')
-  expect(countLabel(123)).toBe('123자')
+test('the label is the count alone', () => {
+  expect(countLabel(1)).toBe('1')
+  expect(countLabel(123)).toBe('123')
 })

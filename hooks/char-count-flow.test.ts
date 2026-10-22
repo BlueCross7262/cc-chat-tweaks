@@ -68,16 +68,16 @@ const modesLine = async ($: Engine): Promise<string> => {
 test('typed text adds its character count to the mode labels', async ($, on) => {
   world($, on)
   await type($, '', '안녕')
-  expect(await modesLine($)).toBe('focus & 2자')
+  expect(await modesLine($)).toBe('focus & 2')
   await type($, '안녕', '👨‍👩‍👧')
-  expect(await modesLine($)).toBe('focus & 3자')
+  expect(await modesLine($)).toBe('focus & 3')
 })
 
 test('a deletion lowers the count and an empty box shows no label', async ($, on) => {
   world($, on)
   await type($, '', 'abc')
   await edit($, { origin: composer, text: 'abc', cursor: 3, start: 2, end: 3, inputText: '' })
-  expect(await modesLine($)).toBe('focus & 2자')
+  expect(await modesLine($)).toBe('focus & 2')
   await edit($, { origin: composer, text: 'ab', cursor: 2, start: 0, end: 2, inputText: '' })
   expect(await modesLine($)).toBe('focus')
 })
@@ -91,7 +91,7 @@ test('the labels stay as they are while the switch is off', async ($, on) => {
 test('text another plugin fills in is counted', async ($, on) => {
   world($, on)
   await $.prompt.fill({ text: 'hello', mode: 'replace', origin: { kind: 'plugin', name: 'other' } } as never)
-  expect(await modesLine($)).toBe('focus & 5자')
+  expect(await modesLine($)).toBe('focus & 5')
 })
 
 test('sending the prompt clears the count', async ($, on) => {
@@ -108,5 +108,5 @@ test('the draft the prompt upgrade puts in the box is counted', async ($, on) =>
   await box.clock.advance(0)
   await box.clock.advance(300)
   expect(box.text).toBe(DRAFT)
-  expect(await modesLine($)).toBe(`focus & ${[...new Intl.Segmenter().segment(DRAFT)].length}자`)
+  expect(await modesLine($)).toBe(`focus & ${[...new Intl.Segmenter().segment(DRAFT)].length}`)
 })

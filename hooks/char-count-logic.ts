@@ -10,4 +10,4 @@ const defaultSegmenter = (): Segmenter | null =>
 export const countChars = (text: string, segmenter: Segmenter | null = defaultSegmenter()): number =>
   segmenter === null ? countCodePoints(text) : countGraphemes(text, segmenter)
 
-export const countLabel = (count: number): string => `${count}자`
+export const countLabel = (count: number): string => String(count)
