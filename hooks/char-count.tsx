@@ -2,6 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import { countChars, countLabel } from './char-count-logic'
+import { decorateEdit } from './draft-label'
 import { flagsOf, SETTINGS_SOURCES } from './settings'
 
 const countAtom = atom({ plugin: 'cc-chat-tweaks', key: 'charCount' } as const, 0)
@@ -35,7 +36,7 @@ export const registerCharCount = (on: Parameters<Register>[0]): void => {
       return box
     }
 
-    return box
+    return decorateEdit($, box)
   })
 
   on('prompt.fill', async ($, e, next) => {

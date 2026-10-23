@@ -6,8 +6,9 @@ import type {
   Register,
 } from 'claude-code'
 
-import type { Flow } from '../types'
+import type { Flow, Wrap } from '../types'
 import { recount } from './char-count'
+import { labelFor, type Label } from './draft-label'
 import {
   answerLogs,
   ASK_LOG_PREFIX,
@@ -30,12 +31,14 @@ import {
   squash,
   rewriteInput,
   SKIP_TTL_MS,
+  splitMeta,
   toPhase,
   withDraft,
-  withMeta,
   withQuestions,
   withRecommended,
   unwrapDraft,
+  isDraftEdit,
+  wrapText,
 } from './upgrade-logic'
 import { CALLS, CLASSIFY_SYSTEM, Q_SYSTEM, R_SYSTEM } from './upgrade-prompts'
 import {
@@ -61,6 +64,11 @@ const LOG_ROW_MAX = 2000
 const flowAtom = atom({ plugin: 'cc-chat-tweaks', key: 'flow' } as const, EMPTY_FLOW)
 
 const FAILED_NOTICE = 'Haiku did not answer. Showing the original prompt.'
+
+const WRAP_NOTICE = 'Prompt Upgrade keeps the instruction and rules out of the box. They are added when you send.'
+
+const DIFFERS_NOTICE =
+  'Prompt Upgrade sent your text as it is because it differs from the draft. The instruction and rules were not added.'
 
 type Call = { model: string; effort: ModelEffort; maxTokens: number; timeoutMs: number }
 
@@ -156,10 +164,10 @@ const startClassify = ($: EngineInterface, flow: Flow): void => {
 
 const takeTypes = (id: number, fallback: string[]): Promise<string[]> => classifying.get(id) ?? Promise.resolve(fallback)
 
-const restoreText = async ($: EngineInterface, text: string): Promise<void> => {
+const restoreText = async ($: EngineInterface, text: string, decorations?: Label[]): Promise<void> => {
   let isFilled = false
   try {
-    isFilled = (await $.prompt.fill({ text })).isFilled
+    isFilled = (await $.prompt.fill(decorations === undefined ? { text } : { text, decorations })).isFilled
   } catch {
     isFilled = false
   }
@@ -182,7 +190,7 @@ const restoreText = async ($: EngineInterface, text: string): Promise<void> => {
 
 const toOriginal = async ($: EngineInterface, id: number, notice: string): Promise<void> => {
   try {
-    await setIf($, id, f => withDraft(f, f.original, notice))
+    await setIf($, id, f => ({ ...withDraft(f, f.original, notice), draftWrap: null }))
   } catch {
     return
   }
@@ -196,11 +204,12 @@ const startRewrite = async ($: EngineInterface, id: number): Promise<void> => {
     const f = await setIf($, id, cur => ({ ...cur, types }))
     if (isStale(f, id)) return
     const done = await callModel($, 'rewrite', R_SYSTEM, rewriteInput(f), REWRITE_LOG_PREFIX)
-    await setIf($, id, cur =>
-      done.text === null
-        ? withDraft(cur, cur.original, FAILED_NOTICE)
-        : withDraft(cur, withMeta(unwrapDraft(done.text), cur.original, types)),
-    )
+    await setIf($, id, cur => {
+      if (done.text === null) return { ...withDraft(cur, cur.original, FAILED_NOTICE), draftWrap: null }
+      const { box, wrap } = splitMeta(unwrapDraft(done.text), cur.original, types)
+
+      return { ...withDraft(cur, box), draftWrap: wrap }
+    })
   } catch {
     await toOriginal($, id, FAILED_NOTICE)
   }
@@ -239,24 +248,26 @@ const isBoxFree = async ($: EngineInterface, typed: string, baseline: string | n
   return current === null || current === '' || current === typed.trim() || current === baseline
 }
 
-const fillDraft = async ($: EngineInterface, draft: string): Promise<void> => {
+const fillDraft = async ($: EngineInterface, draft: string, wrap: Wrap | null): Promise<void> => {
   const now = await $.clock.now()
-  await setFlow($, cur => ({ ...reset(cur), skipUntil: now + SKIP_TTL_MS, filled: squash(draft) }))
-  await restoreText($, draft)
+  await setFlow($, cur => ({ ...reset(cur), skipUntil: now + SKIP_TTL_MS, filled: squash(draft), wrap }))
+  await restoreText($, draft, wrap === null ? undefined : labelFor(wrap))
+  if (wrap !== null) $.ui.toast(WRAP_NOTICE)
 }
 
-const parkDraft = async ($: EngineInterface, draft: string): Promise<void> => {
+const parkDraft = async ($: EngineInterface, draft: string, wrap: Wrap | null): Promise<void> => {
   await setFlow($, reset)
+  const whole = wrap === null ? draft : wrapText(draft, wrap)
   let isCopied = false
   try {
-    isCopied = (await $.ui.copy({ text: draft })).isCopied
+    isCopied = (await $.ui.copy({ text: whole })).isCopied
   } catch {
     isCopied = false
   }
   $.ui.toast(
     isCopied
       ? 'Prompt Upgrade left the prompt box alone because you typed in it. The upgraded prompt is on your clipboard.'
-      : `Prompt Upgrade left the prompt box alone because you typed in it. Upgraded prompt: ${draft}`,
+      : `Prompt Upgrade left the prompt box alone because you typed in it. Upgraded prompt: ${whole}`,
   )
 }
 
@@ -281,8 +292,8 @@ const runSilent = async ($: EngineInterface, id: number, typed: string, useQuest
     const f = await getFlow($)
     if (isStale(f, id) || f.phase !== 'review') return
     if (f.notice !== '') $.ui.toast(f.notice)
-    if (await isBoxFree($, typed, baseline)) await fillDraft($, f.draft)
-    else await parkDraft($, f.draft)
+    if (await isBoxFree($, typed, baseline)) await fillDraft($, f.draft, f.draftWrap ?? null)
+    else await parkDraft($, f.draft, f.draftWrap ?? null)
   } catch {
     await recoverSilent($, id)
   }
@@ -381,6 +392,18 @@ const readContext = async ($: EngineInterface): Promise<string> => {
   }
 }
 
+const WRAP_REASONS: readonly string[] = ['unchanged-draft', 'manual-edit']
+
+const wrapSubmitted = (e: PromptSubmitInput, reason: string, filled: string, wrap: Wrap): { text: string } | 'differs' | null => {
+  if (!WRAP_REASONS.includes(reason)) return null
+  const text = e.text.trim()
+  if (e.origin?.kind !== 'composer' || (e.attachments?.length ?? 0) > 0) return null
+  if (text.startsWith('/') || text.startsWith('!')) return null
+  if (reason === 'unchanged-draft' || isDraftEdit(filled, e.text)) return { text: wrapText(text, wrap) }
+
+  return 'differs'
+}
+
 const interceptOrPass = async ($: EngineInterface, e: PromptSubmitInput) => {
   const { isEnabled, useQuestions, skipTrigger, minLen, silentTriggers, offTriggers } = await settingsOf($)
   const flow = await getFlow($)
@@ -396,7 +419,11 @@ const interceptOrPass = async ($: EngineInterface, e: PromptSubmitInput) => {
     now: await $.clock.now(),
     flow,
   })
-  if (gate.intercept && 'off' in gate) return { rewrite: gate.text }
+  if (gate.intercept && 'off' in gate) {
+    await setFlow($, f => ({ ...f, wrap: null })).catch(() => undefined)
+
+    return { rewrite: gate.text }
+  }
   if (gate.intercept) {
     const context = await readContext($)
     const started = await setFlow($, f => begin(f, gate.text, context))
@@ -406,7 +433,13 @@ const interceptOrPass = async ($: EngineInterface, e: PromptSubmitInput) => {
     // UNVERIFIED: what a dropped prompt leaves in the prompt box and the input history
     return { drop: DROP_REASON }
   }
-  if (gate.clearSkip) await setFlow($, f => ({ ...f, skipUntil: 0, filled: '' }))
+  if (gate.clearSkip) {
+    const wrap = flow.wrap ?? null
+    await setFlow($, f => ({ ...f, skipUntil: 0, filled: '', wrap: null }))
+    const verdict = wrap === null ? null : wrapSubmitted(e, gate.reason, flow.filled ?? '', wrap)
+    if (verdict === 'differs') $.ui.toast(DIFFERS_NOTICE)
+    else if (verdict !== null) return { rewrite: verdict.text }
+  }
 
   return null
 }

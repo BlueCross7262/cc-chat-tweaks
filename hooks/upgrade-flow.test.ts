@@ -20,6 +20,7 @@ type Setup = {
   logs: string[]
   copied: string[]
   toasts: string[]
+  decorations: unknown[]
   prompts: string[]
   classified: { model: string; effort: string; prompt: string }[]
   classifyLogs: string[]
@@ -32,7 +33,7 @@ const world = (
   on: On,
   options: { isFilled?: boolean; isCopied?: boolean; answers?: Array<string | null>; enabled?: boolean; useQuestions?: boolean; box?: string | string[]; extra?: Record<string, unknown>; failFills?: number; types?: string | null } = {},
 ): Setup => {
-  const s: Setup = { entered: [], origins: [], filled: [], closed: [], models: [], efforts: [], ids: [], events: [], logs: [], copied: [], toasts: [], prompts: [], classified: [], classifyLogs: [], opens: 0, clock: undefined }
+  const s: Setup = { entered: [], origins: [], filled: [], closed: [], models: [], efforts: [], ids: [], events: [], logs: [], copied: [], toasts: [], decorations: [], prompts: [], classified: [], classifyLogs: [], opens: 0, clock: undefined }
   const answers = [...(options.answers ?? [])]
   s.clock = mock.clock(on, { now: 1000 })
   on('ui.toast', (_$, e) => {
@@ -53,6 +54,7 @@ const world = (
   let failFills = options.failFills ?? 0
   on('prompt.fill', (_$, e) => {
     s.filled.push((e as { text: string }).text)
+    s.decorations.push((e as { decorations?: unknown }).decorations)
     s.events.push(`fill:${(e as { text: string }).text}`)
     if (failFills > 0) {
       failFills -= 1
@@ -91,6 +93,11 @@ const world = (
     if (text.startsWith('Prompt classify:')) s.classifyLogs.push(text)
     else s.logs.push(text)
     return { value: undefined } as never
+  })
+  on('prompt.edit', (_$, e) => {
+    const edit = e as { text: string; start: number; end: number; inputText: string }
+    const text = edit.text.slice(0, edit.start) + edit.inputText + edit.text.slice(edit.end)
+    return { text, cursor: edit.start + edit.inputText.length } as never
   })
   on('prompt.submit', (_$, e) => {
     s.entered.push((e as { text: string }).text)
@@ -542,11 +549,13 @@ const KOREAN = '첨부한 설계 문서의 내용을 요약해 줄 수 있을까
 const QUESTION_LINE_ONE = '대화 중에 선택지가 생기면 AskUserQuestion 도구로 나에게 권장안과 함께 질문한다.'
 const QUESTION_LINE_TWO = '권장 보기는 선택지 목록의 맨 앞에 둔다.'
 
-test('a Korean prompt with a discuss type ends its draft with the two question lines', async ($, on) => {
+test('a Korean prompt with a discuss type sends its draft with the two question lines', async ($, on) => {
   const s = world($, on, { useQuestions: false, extra: { 'skip-silent-trigger': true }, types: JSON.stringify({ types: ['discuss'] }), answers: ['첨부한 설계 문서를 요약한다.'] })
   await submit($, KOREAN)
   await settle(s)
-  const text = s.filled[0] ?? ''
+  expect(s.filled).toEqual(['첨부한 설계 문서를 요약한다.'])
+  await submit($, s.filled[0] ?? '')
+  const text = s.entered[0] ?? ''
   expect(text).toContain('첨부한 설계 문서를 요약한다.')
   expect(text).toContain(QUESTION_LINE_ONE)
   expect(text).toContain(QUESTION_LINE_TWO)
@@ -556,16 +565,22 @@ test('a Korean prompt with a research type only gets no question lines', async (
   const s = world($, on, { useQuestions: false, extra: { 'skip-silent-trigger': true }, types: JSON.stringify({ types: ['research'] }), answers: ['첨부한 설계 문서를 요약한다.'] })
   await submit($, KOREAN)
   await settle(s)
-  expect(s.filled).toHaveLength(1)
-  expect(s.filled[0]).not.toContain(QUESTION_LINE_ONE)
+  expect(s.filled).toEqual(['첨부한 설계 문서를 요약한다.'])
+  await submit($, s.filled[0] ?? '')
+  expect(s.entered).toHaveLength(1)
+  expect(s.entered[0]).toContain('<hard rule>')
+  expect(s.entered[0]).not.toContain(QUESTION_LINE_ONE)
 })
 
 test('a Korean prompt with an execute type only gets no question lines', async ($, on) => {
   const s = world($, on, { useQuestions: false, extra: { 'skip-silent-trigger': true }, types: JSON.stringify({ types: ['execute'] }), answers: ['첨부한 설계 문서를 요약한다.'] })
   await submit($, KOREAN)
   await settle(s)
-  expect(s.filled).toHaveLength(1)
-  expect(s.filled[0]).not.toContain(QUESTION_LINE_ONE)
+  expect(s.filled).toEqual(['첨부한 설계 문서를 요약한다.'])
+  await submit($, s.filled[0] ?? '')
+  expect(s.entered).toHaveLength(1)
+  expect(s.entered[0]).toContain('<hard rule>')
+  expect(s.entered[0]).not.toContain(QUESTION_LINE_ONE)
 })
 
 test('an English prompt with a research type gets no question lines', async ($, on) => {
@@ -579,11 +594,13 @@ const COMMON_LINE = '충분히 조사한다.'
 const EXECUTE_LINE = '바꾼 파일을 경로로 나열한다.'
 const countOf = (text: string, part: string): number => text.split(part).length - 1
 
-test('a Korean prompt with an execute type only ends its draft with the common and execute lines', async ($, on) => {
+test('a Korean prompt with an execute type only sends its draft with the common and execute lines', async ($, on) => {
   const s = world($, on, { useQuestions: false, extra: { 'skip-silent-trigger': true }, types: JSON.stringify({ types: ['execute'] }), answers: ['첨부한 설계 문서를 요약한다.'] })
   await submit($, KOREAN)
   await settle(s)
-  const text = s.filled[0] ?? ''
+  expect(s.filled).toEqual(['첨부한 설계 문서를 요약한다.'])
+  await submit($, s.filled[0] ?? '')
+  const text = s.entered[0] ?? ''
   expect(text).toContain(COMMON_LINE)
   expect(text).toContain(EXECUTE_LINE)
 })
@@ -630,7 +647,7 @@ const FLOW_RESEARCH_RULES = [
   '근거끼리 충돌하면 충돌한 사실을 그대로 쓴다.',
 ].join('\n')
 
-test('a silent run of a Korean prompt with a research type puts the whole assembled message in the prompt box', async ($, on) => {
+test('a silent run of a Korean prompt with a research type puts the body alone in the prompt box and sends the whole assembled message', async ($, on) => {
   const typed = `${KOREAN} +++`
   const s = world($, on, {
     useQuestions: false,
@@ -640,18 +657,22 @@ test('a silent run of a Korean prompt with a research type puts the whole assemb
   })
   await submit($, typed)
   await settle(s)
-  expect(s.filled).toEqual([
+  expect(s.filled).toEqual(['첨부한 설계 문서를 요약한다.'])
+  expect(s.entered).toEqual([])
+  await submit($, '첨부한 설계 문서를 요약한다.')
+  expect(s.entered).toEqual([
     `${FLOW_META_FULL}\n\n<hard rule>\n${FLOW_RESEARCH_RULES}\n</hard rule>\n\n<source>\n첨부한 설계 문서를 요약한다.\n</source>`,
   ])
-  expect(s.entered).toEqual([])
 })
 
-test('a silent run of a Korean prompt with no known type puts the short instruction and the source in the prompt box', async ($, on) => {
+test('a silent run of a Korean prompt with no known type puts the body alone in the prompt box and sends the short instruction and the source', async ($, on) => {
   const typed = `${KOREAN} +++`
   const s = world($, on, { useQuestions: false, answers: ['첨부한 설계 문서를 요약한다.'], box: typed })
   await submit($, typed)
   await settle(s)
-  expect(s.filled).toEqual([`${FLOW_META_SHORT}\n\n<source>\n첨부한 설계 문서를 요약한다.\n</source>`])
+  expect(s.filled).toEqual(['첨부한 설계 문서를 요약한다.'])
+  await submit($, '첨부한 설계 문서를 요약한다.')
+  expect(s.entered).toEqual([`${FLOW_META_SHORT}\n\n<source>\n첨부한 설계 문서를 요약한다.\n</source>`])
 })
 
 test('a silent run of an English prompt with a research type puts the rewritten draft alone in the prompt box', async ($, on) => {
@@ -701,4 +722,161 @@ test('a Haiku call that fails still logs its line', async ($, on) => {
   await submit($, LONG)
   await settle(s)
   expect(s.logs.filter(line => USAGE_LINE.test(line)).length).toBeGreaterThan(0)
+})
+
+const BODY = '첨부한 설계 문서를 요약한다.'
+const shortWrapped = (body: string): string => `${FLOW_META_SHORT}\n\n<source>\n${body}\n</source>`
+const DIFFERENT = '오늘 점심 메뉴를 추천해 주면 좋겠다 그리고 날씨도 알려 줘'
+
+const filledRun = async ($: Engine, on: On) => {
+  const typed = `${KOREAN} +++`
+  const s = world($, on, { useQuestions: false, answers: [BODY], box: typed })
+  await submit($, typed)
+  await settle(s)
+
+  return s
+}
+
+test('a Korean draft in the prompt box says the instruction and the rules are added when it is sent', async ($, on) => {
+  const s = await filledRun($, on)
+  expect(s.filled).toEqual([BODY])
+  expect(s.toasts.join(' ')).toMatch(/added when you send/)
+})
+
+const SHORT_LABEL = '[+9 lines added on send]\n'
+const labelAt = () => [{ start: 0, end: 0, virtualText: SHORT_LABEL, dimColor: true }]
+type EditResult = { text: string; decorations?: unknown[] }
+const editAt = ($: Engine, text: string, start: number, end: number, inputText: string) =>
+  ($.prompt as unknown as { edit: (e: unknown) => Promise<EditResult> }).edit({ text, cursor: end, start, end, inputText })
+
+test('a Korean draft is filled with a dim label line above the text that counts the lines added on send', async ($, on) => {
+  const s = await filledRun($, on)
+  expect(s.filled).toEqual([BODY])
+  expect(s.decorations).toEqual([labelAt()])
+})
+
+test('the label stays on the draft while it is edited and goes when the text is another prompt or empty', async ($, on) => {
+  await filledRun($, on)
+  const added = await editAt($, BODY, BODY.length, BODY.length, ' 표')
+  expect(added.text).toBe(`${BODY} 표`)
+  expect(added.decorations).toEqual(labelAt())
+  const changed = await editAt($, BODY, 6, 8, '내용')
+  expect(changed.decorations).toEqual(labelAt())
+  const other = await editAt($, BODY, 0, BODY.length, DIFFERENT)
+  expect(other.decorations ?? []).toEqual([])
+  const empty = await editAt($, BODY, 0, BODY.length, '')
+  expect(empty.decorations ?? []).toEqual([])
+})
+
+test('no label after the pass is spent and none on a draft with nothing aside', async ($, on) => {
+  const s = await filledRun($, on)
+  await submit($, BODY)
+  expect(s.entered).toEqual([shortWrapped(BODY)])
+  const spent = await editAt($, BODY, BODY.length, BODY.length, ' 표')
+  expect(spent.decorations ?? []).toEqual([])
+})
+
+test('an English draft is filled with no label and its edits get none', async ($, on) => {
+  const typed = `${LONG} +++`
+  const s = world($, on, { useQuestions: false, answers: ['Summarise the attached design document.'], box: typed })
+  await submit($, typed)
+  await settle(s)
+  expect(s.decorations).toEqual([undefined])
+  const edited = await editAt($, 'Summarise the attached design document.', 0, 0, 'x')
+  expect(edited.decorations ?? []).toEqual([])
+})
+
+test('an English draft keeps nothing aside, says nothing and is sent as it is', async ($, on) => {
+  const typed = `${LONG} +++`
+  const s = world($, on, { useQuestions: false, answers: ['Summarise the attached design document.'], box: typed })
+  await submit($, typed)
+  await settle(s)
+  expect(s.toasts).toEqual([])
+  await submit($, 'Summarise the attached design document.')
+  expect(s.entered).toEqual(['Summarise the attached design document.'])
+})
+
+test('the filled draft is sent with the instruction and the rules even after the time limit, and the pass is spent', async ($, on) => {
+  const s = await filledRun($, on)
+  await s.clock?.advance(AFTER_PASS)
+  await submit($, `  ${BODY}  `)
+  expect(s.entered).toEqual([shortWrapped(BODY)])
+  await submit($, BODY)
+  expect(s.entered).toEqual([shortWrapped(BODY), BODY])
+})
+
+test('a draft with text added is sent with the instruction and the rules', async ($, on) => {
+  const s = await filledRun($, on)
+  await submit($, `${BODY}\n표로 정리한다.`)
+  expect(s.entered).toEqual([shortWrapped(`${BODY}\n표로 정리한다.`)])
+  expect(s.toasts.join(' ')).not.toMatch(/differs from the draft/)
+})
+
+test('a draft with a few characters changed is sent with the instruction and the rules', async ($, on) => {
+  const s = await filledRun($, on)
+  await submit($, '첨부한 설계 문서를 정리한다.')
+  expect(s.entered).toEqual([shortWrapped('첨부한 설계 문서를 정리한다.')])
+})
+
+test('a text that differs from the draft is sent as it is, says so, and spends the pass', async ($, on) => {
+  const s = await filledRun($, on)
+  await submit($, DIFFERENT)
+  expect(s.entered).toEqual([DIFFERENT])
+  expect(s.toasts.join(' ')).toMatch(/differs from the draft/)
+  await submit($, BODY)
+  expect(s.entered).toEqual([DIFFERENT, BODY])
+})
+
+test('the off trigger sends the draft as it is, and the wrapper is gone for the next submit', async ($, on) => {
+  const s = await filledRun($, on)
+  await submit($, `${BODY} ---`)
+  expect(s.entered).toEqual([BODY])
+  await submit($, BODY)
+  expect(s.entered).toEqual([BODY, BODY])
+  expect(s.toasts.join(' ')).not.toMatch(/differs from the draft/)
+})
+
+const NEVER_WRAPPED: Array<[string, string, Record<string, unknown>]> = [
+  ['a peer message', `${BODY}\n표로 정리한다.`, { origin: { kind: 'peer' } }],
+  ['a slash command', '/compact the conversation please', {}],
+  ['a shell command', '!ls -la the current folder now', {}],
+  ['a prompt with an attachment', `${BODY}\n표로 정리한다.`, { attachments: [{ type: 'image' }] }],
+]
+
+for (const [name, text, extra] of NEVER_WRAPPED) {
+  test(`${name} inside the time limit is never wrapped`, async ($, on) => {
+    const s = await filledRun($, on)
+    await submit($, text, extra)
+    expect(s.entered).toEqual([text])
+    expect(s.toasts.join(' ')).not.toMatch(/differs from the draft/)
+  })
+}
+
+test('a pasted message that already holds the wrapper is sent as it is and says the wrapper was left out', async ($, on) => {
+  const s = await filledRun($, on)
+  const pasted = `<pasted_content id="1">${shortWrapped(BODY)}</pasted_content id="1">`
+  await submit($, pasted)
+  expect(s.entered).toEqual([pasted])
+  expect(s.toasts.join(' ')).toMatch(/differs from the draft/)
+})
+
+test('a draft parked on the clipboard because the person typed meanwhile is the whole assembled message', async ($, on) => {
+  const typed = `${KOREAN} +++`
+  const s = world($, on, { useQuestions: false, answers: [BODY], box: ['', 'something typed later'] })
+  await submit($, typed)
+  await settle(s)
+  expect(s.filled).toEqual([])
+  expect(s.copied).toEqual([shortWrapped(BODY)])
+  expect(s.toasts.join(' ')).toMatch(/clipboard/)
+})
+
+test('the original a failed Haiku call leaves in the box is sent with no wrapper and no notice', async ($, on) => {
+  const typed = `${KOREAN} +++`
+  const s = world($, on, { useQuestions: false, answers: [null], box: typed })
+  await submit($, typed)
+  await settle(s)
+  expect(s.filled).toEqual([KOREAN])
+  expect(s.toasts.join(' ')).not.toMatch(/added when you send/)
+  await submit($, KOREAN)
+  expect(s.entered).toEqual([KOREAN])
 })

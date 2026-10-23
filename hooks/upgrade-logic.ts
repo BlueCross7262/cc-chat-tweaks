@@ -1,4 +1,4 @@
-import type { Flow, Phase, Question } from '../types'
+import type { Flow, Phase, Question, Wrap } from '../types'
 import { countChars } from './char-count-logic'
 
 export const MIN_LEN = 10
@@ -18,6 +18,8 @@ export const EMPTY_FLOW: Flow = {
   notice: '',
   context: '',
   types: [],
+  wrap: null,
+  draftWrap: null,
 }
 
 export const PROMPT_TYPES = ['research', 'discuss', 'execute'] as const
@@ -252,6 +254,7 @@ export const begin = (flow: Flow, original: string, context = ''): Flow => ({
   ...EMPTY_FLOW,
   skipUntil: flow.skipUntil,
   filled: flow.filled ?? '',
+  wrap: flow.wrap ?? null,
   runId: flow.runId + 1,
   phase: 'askLoading',
   original,
@@ -267,6 +270,7 @@ export const reset = (flow: Flow): Flow => ({
   ...EMPTY_FLOW,
   skipUntil: flow.skipUntil,
   filled: flow.filled ?? '',
+  wrap: flow.wrap ?? null,
   runId: flow.runId + 1,
 })
 
@@ -401,8 +405,12 @@ const tidyBody = (text: string): string =>
     .join('')
     .trim()
 
-export const withMeta = (draft: string, original: string, types: readonly string[]): string => {
-  if (!HANGUL.test(original)) return draft
+export const splitMeta = (
+  draft: string,
+  original: string,
+  types: readonly string[],
+): { box: string; wrap: Wrap | null } => {
+  if (!HANGUL.test(original)) return { box: draft, wrap: null }
 
   const blocks = typeBlocks(types)
   const hasRules = blocks.length > 0
@@ -416,13 +424,72 @@ export const withMeta = (draft: string, original: string, types: readonly string
       .filter(line => !META_TAGS.includes(line.trim()))
       .join('\n'),
   )
-  const tail = typeTail(types)
-  if (META_TAGS.some(tag => body.includes(tag))) return hasRules ? `${body}\n\n${tail}` : body
+  if (META_TAGS.some(tag => body.includes(tag))) return { box: hasRules ? `${body}\n\n${typeTail(types)}` : body, wrap: null }
 
+  return { box: body, wrap: { types: [...new Set(types.filter(isPromptType))] } }
+}
+
+export const wrapText = (body: string, wrap: Wrap): string => {
+  const hasRules = typeBlocks(wrap.types).length > 0
   const head = (hasRules ? META_FULL_LINES : META_SHORT_LINES).join('\n')
   const source = `<source>\n${body}\n</source>`
 
-  return hasRules ? `${head}\n\n<hard rule>\n${tail}\n</hard rule>\n\n${source}` : `${head}\n\n${source}`
+  return hasRules ? `${head}\n\n<hard rule>\n${typeTail(wrap.types)}\n</hard rule>\n\n${source}` : `${head}\n\n${source}`
+}
+
+export const withMeta = (draft: string, original: string, types: readonly string[]): string => {
+  const { box, wrap } = splitMeta(draft, original, types)
+
+  return wrap === null ? box : wrapText(box, wrap)
+}
+
+const META_FLAT_LINES: readonly string[] = [...new Set([...META_FULL_LINES, ...META_SHORT_LINES].map(squash))]
+
+const hasMeta = (raw: string): boolean => {
+  if (META_TAGS.some(tag => raw.includes(tag))) return true
+  const flat = squash(raw)
+
+  return META_FLAT_LINES.some(line => flat.includes(line))
+}
+
+const EDIT_MIN_LEN = 5
+const EDIT_RATIO = 0.2
+const EDIT_CELLS_MAX = 10_000_000
+
+const nearestEdit = (base: string, text: string): number => {
+  const n = base.length
+  let prev = new Int32Array(n + 1)
+  let cur = new Int32Array(n + 1)
+  for (let i = 0; i <= n; i += 1) prev[i] = i
+  let best = prev[n] as number
+  for (let j = 0; j < text.length; j += 1) {
+    const code = text.charCodeAt(j)
+    cur[0] = 0
+    for (let i = 1; i <= n; i += 1) {
+      const swap = (prev[i - 1] as number) + (base.charCodeAt(i - 1) === code ? 0 : 1)
+      const drop = (prev[i] as number) + 1
+      const add = (cur[i - 1] as number) + 1
+      cur[i] = Math.min(swap, drop, add)
+    }
+    if ((cur[n] as number) < best) best = cur[n] as number
+    const spare = prev
+    prev = cur
+    cur = spare
+  }
+
+  return best
+}
+
+export const wrapLabel = (wrap: Wrap): string => `[+${wrapText('x', wrap).split('\n').length - 1} lines added on send]`
+
+export const isDraftEdit = (base: string, raw: string, cellsMax = EDIT_CELLS_MAX): boolean => {
+  if (base.length < EDIT_MIN_LEN) return false
+  if (hasMeta(raw)) return false
+  const text = squash(raw)
+  if (text.includes(base)) return true
+  if (base.length * text.length > cellsMax) return false
+
+  return nearestEdit(base, text) <= Math.floor(base.length * EDIT_RATIO)
 }
 
 export const withDraft = (flow: Flow, draft: string, notice = ''): Flow => ({

@@ -12,6 +12,8 @@ export type Phase = 'idle' | 'askLoading' | 'questions' | 'rewriteLoading' | 're
 
 export type Question = { q: string; options: string[]; recommended?: number }
 
+export type Wrap = { types: string[] }
+
 export type Flow = {
   phase: Phase
   original: string
@@ -24,6 +26,8 @@ export type Flow = {
   notice: string
   context: string
   types: string[]
+  wrap?: Wrap | null
+  draftWrap?: Wrap | null
 }
 
 declare module 'claude-code' {

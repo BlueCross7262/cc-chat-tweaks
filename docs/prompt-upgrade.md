@@ -101,7 +101,9 @@ Your prompt > Questions > Rewrite > Draft in the prompt box
   - It runs on every upgrade, with or without `use-questions`, and with the questions call when there is one.
   - The rewrite waits for it. The rewrite uses the types only to order the sentences and to choose how each request is phrased. It adds no request that is not in your prompt.
   - If the call fails or finds no known type, the rewrite goes on without types.
-  - When the prompt has Korean characters, the mod puts the rewrite into one message with an instruction in front. The message is built in code, after the rewrite call, so the model never sees the fixed lines and cannot change them.
+  - When the prompt has Korean characters, the mod builds one message from the rewrite with an instruction in front.
+    The message is built in code, after the rewrite call, so the model never sees the fixed lines and cannot change them.
+    The prompt box holds the rewrite alone. The mod adds the instruction and the fixed lines when you send the draft.
   - With at least one known type the message has three parts: an instruction of eight lines, the fixed lines between `<hard rule>` and `</hard rule>`, and the rewrite between `<source>` and `</source>` at the end. The instruction asks Claude to write a prompt from the `<source>` part, print it in the chat and run it in the same turn. It asks Claude to follow the `<hard rule>` lines while it writes and runs, to copy only those sentences unchanged into the written prompt, and to leave both tags out of the written prompt.
   - With no known type the message has the six-line short instruction and the `<source>` part only. The two lines about `<hard rule>` and the block itself are left out.
   - The fixed lines are the common answer rules, then the rules of each type in the order of the types. The common rules ask for a thorough investigation, the result first, facts apart from guesses, no unrequested background, and a task list first, then the steps in order, for work of several steps. The `research` rules ask for evidence on every claim. The `discuss` rules ask for one recommendation first with the pros and cons of each option. The `execute` rules ask for done, failed and skipped work, the changed files, and how the change was checked.
@@ -116,6 +118,12 @@ Your prompt > Questions > Rewrite > Draft in the prompt box
   - The mod does not break lines itself. The line breaks are what Haiku wrote.
   - Pasted material stays as it is, wrapped in `<input>` tags.
 - The mod puts the draft in the prompt box. It does not send it.
+  - For a Korean prompt the box holds the rewrite alone. The instruction and the fixed lines are not in the box.
+  - A toast says the instruction and the rules are added when you send.
+  - A dim label such as `[+9 lines added on send]` stands alone on the first line of the box, and the text starts on the second line. The number is the count of lines the mod adds.
+    The label is drawn only. It is not part of the text, so it is never sent or copied.
+    It stays while the text is the draft or a small edit of it, and goes when the text is another prompt, when the box is empty and after the send.
+  - A prompt without Korean characters, a draft that names a tag, and the original that comes back after a Haiku failure have nothing aside. They go out as the box holds them.
 
 ## Silent upgrade
 
@@ -132,6 +140,8 @@ The trigger (`+++` by default) at the start or the end of a prompt is what start
   - It works with `skip-silent-trigger` `true` too, which is its main use.
   - It skips the `min-length` check and beats an open manual-edit pass.
   - If the prompt has both an off trigger and a trigger, the off trigger wins and both are removed.
+  - On a draft that has an instruction and rules aside, the off trigger sends the draft without them.
+    This is the way to send the rewrite alone. The instruction and the rules are dropped for that send.
   - An off trigger on its own and a prompt that starts with `/` or `!` (after the triggers) pass through with the text in them. So does a prompt with an attachment.
   - The prompt enters as the prompt you typed, with the trigger removed. The mod does not drop it and does not submit it a second time.
 
@@ -143,7 +153,18 @@ The trigger (`+++` by default) at the start or the end of a prompt is what start
 - You read the draft in the prompt box, edit it if you want, and press Enter yourself.
 - The mod remembers the characters of the draft it put in the prompt box, with every space, tab and line break dropped.
 - A prompt that holds the same characters passes through, however its spaces and line breaks differ, and however long you waited. So the draft goes out without a second upgrade, and the pass is spent.
-- A prompt that holds other characters is an edited draft or a new prompt, and the mod cannot tell which. Within 5 minutes it passes through once. After 5 minutes it is upgraded.
+- A draft that has an instruction and rules aside goes out with them.
+  - The mod builds the whole message when the draft is sent. The model receives the same message as before.
+  - The conversation shows the whole message, not only what the prompt box held.
+- A prompt that holds other characters is an edited draft or a new prompt. Within 5 minutes it passes through once. After 5 minutes it is upgraded.
+- An edited draft gets the instruction and the rules when the edit is small.
+  - Text added before or after the draft keeps them. So does a pasted block added to the draft.
+  - A change of at most a fifth of the draft's characters keeps them. A character inserted, deleted or replaced counts as one change.
+  - A draft of fewer than 5 characters is matched only when the text holds it unchanged.
+  - A text that changes more is sent as it is, and a toast says the instruction and the rules were not added.
+  - A text that already holds a `<source>` or `<hard rule>` tag, or an instruction line, is sent as it is, with the same toast. So pasting the whole message again never adds them twice.
+  - A prompt that is not from your own Enter at the prompt box, a slash or shell command, and a prompt with an attachment are sent as they are, with no toast.
+  - The check ignores white space. For a very long text it looks for the draft unchanged only.
 - A prompt with the trigger is upgraded again instead, and the pass stays open.
 - Only the white space is ignored. A changed letter, digit or punctuation mark counts as an edit.
 - If Haiku fails, the prompt box gets the prompt as you wrote it, without the trigger, and a toast says so.
@@ -202,7 +223,8 @@ Every failure path ends with your original prompt: a Haiku error or timeout puts
 - Haiku sees only a short slice of the conversation (see Flow).
   - A prompt that refers to something older than that cannot be improved.
   - The mod does not detect such prompts. Put an off trigger at an edge of the prompt to send it as it is.
-- The mod cannot check what Claude writes. The `<hard rule>` block is in the message you send as the mod built it. Whether the prompt Claude writes carries those sentences unchanged depends on the instruction.
+- The mod cannot check what Claude writes. The `<hard rule>` block is in the message the mod sends, and it is not in the prompt box. Whether the prompt Claude writes carries those sentences unchanged depends on the instruction.
+- If the mod fails while it adds the instruction and the rules, your text goes out as you typed it, without them. A log row says why when the log call works.
 - A message that you upgrade again is cleaned of the instruction lines it holds. If the rewrite model words an instruction line differently, that line stays in the `<source>` part, and a tag inside it makes the mod add no wrapper.
 
 ## Source

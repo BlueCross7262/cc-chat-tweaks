@@ -119,7 +119,10 @@ A prompt you type at the prompt box and send is held back, upgraded in the backg
 
 - With `use-questions` `true`, Haiku asks up to three questions with 3 to 5 options each, and the mod answers each one with its recommended option. You are not asked.
 - Haiku rewrites the prompt as prose with one sentence on each line and keeps pasted material as it is, wrapped in `<input>` tags.
-- A Korean prompt is put into one message: an instruction that asks Claude to write a prompt from the rewrite, print it and run it, the answer rules for its type between `<hard rule>` tags, and the rewrite between `<source>` tags at the end. The mod builds the message in code, so the rules reach Claude as they are written.
+- A Korean prompt is sent as one message: an instruction that asks Claude to write a prompt from the rewrite, print it and run it, the answer rules for its type between `<hard rule>` tags, and the rewrite between `<source>` tags at the end. The mod builds the message in code, so the rules reach Claude as they are written.
+  - The prompt box holds the rewrite alone. The mod adds the instruction and the rules when you send the draft, and a toast and a dim label line such as `[+9 lines added on send]` above the text say so.
+  - A draft with a small edit gets them too. A text that differs from the draft is sent as it is, and a toast says the instruction and rules were not added.
+  - Put `---` at an edge of the draft to send the rewrite without them.
 - Each upgraded prompt costs up to three model calls on your plan or API key. The default model is `sonnet`.
 - A prompt you type while a turn runs is upgraded like any other. The draft lands in the prompt box and the turn keeps running. Press Enter on the draft to send it. Prompts with attachments, slash commands, shell commands that start with `!`, prompts with an `@file` or `@agent` mention, prompts that are only pasted material and short prompts pass through unchanged. When Haiku does not answer, the prompt box gets your original prompt back and a toast says so.
 - `/prompt-upgrade status | threshold <n> | reset | probe on|off|show|clear` shows and tunes the feature.

@@ -8,6 +8,7 @@ import {
   parseTrigger,
   EMPTY_FLOW,
   clip,
+  isDraftEdit,
   isStale,
   MIN_LEN,
   normalizeCompletion,
@@ -15,6 +16,7 @@ import {
   formatMs,
   parseQuestions,
   reset,
+  splitMeta,
   squash,
   callLog,
   answerLogs,
@@ -30,8 +32,11 @@ import {
   withMeta,
   withQuestions,
   withRecommended,
+  wrapLabel,
+  wrapText,
   type GateInput,
 } from './upgrade-logic'
+import type { Flow } from '../types'
 
 const base: GateInput = {
   text: 'please summarise the attached design document for me',
@@ -448,6 +453,133 @@ test('an assembled message that is upgraded again gets one fresh wrapper', () =>
   expect(withMeta(once, once, ['research'])).toBe(once)
   const shortOnce = withMeta('원인을 찾는다.', '원인을 찾아 줘', [])
   expect(withMeta(shortOnce, shortOnce, [])).toBe(shortOnce)
+})
+
+test('splitMeta puts the body alone in the box and wrapText builds the message withMeta built before', () => {
+  const first = splitMeta('원인을 찾는다.', '원인을 찾아 줘', ['research'])
+  expect(first.box).toBe('원인을 찾는다.')
+  expect(first.wrap).toEqual({ types: ['research'] })
+  expect(wrapText(first.box, first.wrap!)).toBe(wrapped('원인을 찾는다.', RESEARCH_RULES))
+  const several = splitMeta('원인을 찾고 고친다.', '원인을 찾고 고쳐 줘', ['execute', 'research', 'execute', 'plan'])
+  expect(several.wrap).toEqual({ types: ['execute', 'research'] })
+  expect(wrapText(several.box, several.wrap!)).toBe(
+    wrapped('원인을 찾고 고친다.', `${COMMON_TAIL}\n\n${EXECUTE_TAIL}\n\n${RESEARCH_TAIL}`),
+  )
+})
+
+test('wrapLabel counts the lines the wrapper adds around the body', () => {
+  expect(wrapLabel({ types: [] })).toBe('[+9 lines added on send]')
+  expect(wrapLabel({ types: ['research'] })).toBe(`[+${wrapped('x', RESEARCH_RULES).split('\n').length - 1} lines added on send]`)
+})
+
+test('splitMeta keeps a wrap with no type, and wrapText then builds the short instruction and the source only', () => {
+  for (const types of [[], ['plan']]) {
+    const { box, wrap } = splitMeta('원인을 찾는다.', '원인을 찾아 줘', types)
+    expect(box).toBe('원인을 찾는다.')
+    expect(wrap).toEqual({ types: [] })
+    expect(wrapText(box, wrap!)).toBe(`${META_SHORT}\n\n<source>\n원인을 찾는다.\n</source>`)
+  }
+})
+
+test('splitMeta drops the repeated rule lines from the box', () => {
+  const draft = '두 안을 비교한다.\n결과나 결론을 첫 줄에 쓴다.\n각 단계에 파일 경로로 근거를 붙인다.'
+  expect(splitMeta(draft, '두 안을 비교해 줘', ['discuss'])).toEqual({
+    box: '두 안을 비교한다.\n각 단계에 파일 경로로 근거를 붙인다.',
+    wrap: { types: ['discuss'] },
+  })
+})
+
+test('splitMeta leaves no wrap for a prompt without hangul and for a draft that names a tag', () => {
+  expect(splitMeta('Find the cause.', 'find the cause', ['research'])).toEqual({ box: 'Find the cause.', wrap: null })
+  expect(splitMeta('`<hard rule>` 태그는 없어?', '태그가 없는지 알려 줘', ['research'])).toEqual({
+    box: `\`<hard rule>\` 태그는 없어?\n\n${RESEARCH_RULES}`,
+    wrap: null,
+  })
+  expect(splitMeta('`<source>` 는 무엇인지 설명한다.', '설명해 줘', [])).toEqual({
+    box: '`<source>` 는 무엇인지 설명한다.',
+    wrap: null,
+  })
+})
+
+test('begin and reset keep the wrap together with the filled draft and clear the draft wrap', () => {
+  const flow: Flow = { ...EMPTY_FLOW, skipUntil: 5, filled: 'abc', wrap: { types: ['research'] }, draftWrap: { types: ['execute'] } }
+  expect(EMPTY_FLOW).toMatchObject({ wrap: null, draftWrap: null })
+  expect(reset(flow)).toMatchObject({ skipUntil: 5, filled: 'abc', wrap: { types: ['research'] }, draftWrap: null })
+  expect(begin(flow, '원문')).toMatchObject({ skipUntil: 5, filled: 'abc', wrap: { types: ['research'] }, draftWrap: null })
+  const { wrap: _wrap, draftWrap: _draftWrap, ...legacy } = flow
+  expect(reset(legacy as Flow)).toMatchObject({ wrap: null, draftWrap: null })
+  expect(begin(legacy as Flow, '원문')).toMatchObject({ wrap: null, draftWrap: null })
+  expect(withDraft(flow, '본문')).toMatchObject({ wrap: { types: ['research'] }, draftWrap: { types: ['execute'] } })
+})
+
+const DRAFT = '로그인 기능에서 발생하는 버그를 찾는다.'
+const DRAFT_BASE = squash(DRAFT)
+
+const UNRELATED_SENTENCES = [
+  'README 의 설치 절차를 영어로 번역한다.',
+  '배포 스크립트가 실패한 이유를 알려 준다.',
+  '데이터베이스 인덱스를 추가하면 쿼리 시간이 줄어드는지 비교한다.',
+  '새 화면의 색상 대비가 접근성 기준을 넘는지 확인한다.',
+  '오늘 회의에서 나온 결정을 세 줄로 정리한다.',
+  '캐시 만료 시간을 바꾸는 설정 파일의 위치를 찾는다.',
+  '번역 키가 누락된 언어 파일을 모두 나열한다.',
+  '테스트가 간헐적으로 실패하는 원인을 추적한다.',
+]
+
+const unrelatedText = (length: number): string => {
+  let text = ''
+  for (let i = 0; text.length < length; i += 1) text += `${UNRELATED_SENTENCES[(i * 3) % UNRELATED_SENTENCES.length]} `
+  return text
+}
+
+test('isDraftEdit accepts the draft, the draft with text added and the draft with a few characters changed', () => {
+  expect(isDraftEdit(DRAFT_BASE, DRAFT)).toBe(true)
+  expect(isDraftEdit(DRAFT_BASE, `${DRAFT}\n그리고 테스트도 추가한다.`)).toBe(true)
+  expect(isDraftEdit(DRAFT_BASE, `앞에 한 줄을 더한다.\n${DRAFT}`)).toBe(true)
+  expect(isDraftEdit(DRAFT_BASE, `${DRAFT}\n<pasted_content id="1">오류 로그</pasted_content id="1">`)).toBe(true)
+  expect(isDraftEdit(DRAFT_BASE, DRAFT.replace('버그', '에러'))).toBe(true)
+  expect(isDraftEdit(DRAFT_BASE, DRAFT.replace('에서', ''))).toBe(true)
+  expect(isDraftEdit(DRAFT_BASE, `${DRAFT.replace('찾는다', '고친다')}\n${unrelatedText(300)}`)).toBe(true)
+})
+
+test('isDraftEdit refuses a text that changes more than a fifth of the draft and a new prompt, short or long', () => {
+  expect(isDraftEdit(DRAFT_BASE, DRAFT.replace('발생하는 ', ''))).toBe(false)
+  expect(isDraftEdit(DRAFT_BASE, '전혀 다른 질문을 새로 입력해서 제출한다.')).toBe(false)
+  for (const length of [300, 2000]) expect(isDraftEdit(DRAFT_BASE, unrelatedText(length))).toBe(false)
+  expect(isDraftEdit(DRAFT_BASE, '')).toBe(false)
+  expect(isDraftEdit('', DRAFT)).toBe(false)
+})
+
+test('isDraftEdit allows fewer changes in a short draft and none below five characters', () => {
+  const short = squash('원인을 찾는다.')
+  expect(isDraftEdit(short, '원인을 찾는지.')).toBe(true)
+  expect(isDraftEdit(short, '이유를 찾는다.')).toBe(false)
+  expect(isDraftEdit(squash('고쳐 줘'), '고쳐 줘')).toBe(false)
+  expect(isDraftEdit(squash('원인을 찾아'), '원인을 찾아 줘')).toBe(true)
+})
+
+test('isDraftEdit skips the edit distance above the cell limit but still finds the draft unchanged', () => {
+  const edited = `${DRAFT.replace('버그', '에러')}\n${unrelatedText(300)}`
+  expect(isDraftEdit(DRAFT_BASE, edited)).toBe(true)
+  expect(isDraftEdit(DRAFT_BASE, edited, 100)).toBe(false)
+  expect(isDraftEdit(DRAFT_BASE, `${DRAFT}\n${unrelatedText(300)}`, 100)).toBe(true)
+})
+
+test('isDraftEdit never accepts a text that already holds a wrapper tag or an instruction line', () => {
+  const full = withMeta('원인을 찾는다.', '원인을 찾아 줘', ['research'])
+  const base = squash('원인을 찾는다.')
+  expect(isDraftEdit(base, '원인을 찾는다.')).toBe(true)
+  expect(isDraftEdit(base, full)).toBe(false)
+  expect(isDraftEdit(base, `<pasted_content id="1">${full}</pasted_content id="1">`)).toBe(false)
+  expect(isDraftEdit(base, '원인을 찾는다.\n<hard rule>')).toBe(false)
+  expect(isDraftEdit(base, '원인을 찾는다.\n<source>')).toBe(false)
+  expect(isDraftEdit(base, '원인을 찾는다. 너는 프롬프트 엔지니어다. 추가')).toBe(false)
+})
+
+test('isDraftEdit answers a huge text by exact inclusion only', () => {
+  const huge = '가'.repeat(2_000_000)
+  expect(isDraftEdit(DRAFT_BASE, huge)).toBe(false)
+  expect(isDraftEdit(DRAFT_BASE, `${huge}${DRAFT}`)).toBe(true)
 })
 
 test('the classify log tail names the types, none for an empty list and failed for no answer', () => {
