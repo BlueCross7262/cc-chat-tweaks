@@ -419,9 +419,10 @@ export const withMeta = (draft: string, original: string, types: readonly string
   const tail = typeTail(types)
   if (META_TAGS.some(tag => body.includes(tag))) return hasRules ? `${body}\n\n${tail}` : body
 
-  const head = `${(hasRules ? META_FULL_LINES : META_SHORT_LINES).join('\n')}\n\n<source>\n${body}\n</source>`
+  const head = (hasRules ? META_FULL_LINES : META_SHORT_LINES).join('\n')
+  const source = `<source>\n${body}\n</source>`
 
-  return hasRules ? `${head}\n\n<hard rule>\n${tail}\n</hard rule>` : head
+  return hasRules ? `${head}\n\n<hard rule>\n${tail}\n</hard rule>\n\n${source}` : `${head}\n\n${source}`
 }
 
 export const withDraft = (flow: Flow, draft: string, notice = ''): Flow => ({

@@ -349,7 +349,7 @@ const META_SHORT = [
 const RESEARCH_RULES = `${COMMON_TAIL}\n\n${RESEARCH_TAIL}`
 
 const wrapped = (source: string, rules: string) =>
-  `${META_FULL}\n\n<source>\n${source}\n</source>\n\n<hard rule>\n${rules}\n</hard rule>`
+  `${META_FULL}\n\n<hard rule>\n${rules}\n</hard rule>\n\n<source>\n${source}\n</source>`
 
 test('a Korean draft is wrapped with the instruction, the source and the hard rule block', () => {
   expect(withMeta('원인을 찾는다.', '원인을 찾아 줘', ['research'])).toBe(wrapped('원인을 찾는다.', RESEARCH_RULES))
@@ -365,7 +365,11 @@ test('the instruction is the eight lines of the full form and the six lines of t
   const full = withMeta('원인을 찾는다.', '원인을 찾아 줘', ['research']).split('\n')
   expect(full.slice(0, 8)).toEqual(META_FULL.split('\n'))
   expect(full[8]).toBe('')
-  expect(full[9]).toBe('<source>')
+  expect(full[9]).toBe('<hard rule>')
+  expect(full.at(-4)).toBe('')
+  expect(full.at(-3)).toBe('<source>')
+  expect(full.at(-2)).toBe('원인을 찾는다.')
+  expect(full.at(-1)).toBe('</source>')
   const short = withMeta('원인을 찾는다.', '원인을 찾아 줘', []).split('\n')
   expect(short.slice(0, 6)).toEqual(META_SHORT.split('\n'))
   expect(short[6]).toBe('')

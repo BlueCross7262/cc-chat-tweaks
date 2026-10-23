@@ -641,7 +641,7 @@ test('a silent run of a Korean prompt with a research type puts the whole assemb
   await submit($, typed)
   await settle(s)
   expect(s.filled).toEqual([
-    `${FLOW_META_FULL}\n\n<source>\n첨부한 설계 문서를 요약한다.\n</source>\n\n<hard rule>\n${FLOW_RESEARCH_RULES}\n</hard rule>`,
+    `${FLOW_META_FULL}\n\n<hard rule>\n${FLOW_RESEARCH_RULES}\n</hard rule>\n\n<source>\n첨부한 설계 문서를 요약한다.\n</source>`,
   ])
   expect(s.entered).toEqual([])
 })
