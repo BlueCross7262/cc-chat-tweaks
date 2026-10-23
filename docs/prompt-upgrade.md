@@ -119,7 +119,6 @@ Your prompt > Questions > Rewrite > Draft in the prompt box
   - Pasted material stays as it is, wrapped in `<input>` tags.
 - The mod puts the draft in the prompt box. It does not send it.
   - For a Korean prompt the box holds the rewrite alone. The instruction and the fixed lines are not in the box.
-  - A toast says the instruction and the rules are added when you send.
   - A dim label such as `[+9 lines added on send]` stands alone on the first line of the box, and the text starts on the second line. The number is the count of lines the mod adds.
     The label is drawn only. It is not part of the text, so it is never sent or copied.
     It stays while the text is the draft or a small edit of it, and goes when the text is another prompt, when the box is empty and after the send.

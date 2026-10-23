@@ -65,8 +65,6 @@ const flowAtom = atom({ plugin: 'cc-chat-tweaks', key: 'flow' } as const, EMPTY_
 
 const FAILED_NOTICE = 'Haiku did not answer. Showing the original prompt.'
 
-const WRAP_NOTICE = 'Prompt Upgrade keeps the instruction and rules out of the box. They are added when you send.'
-
 const DIFFERS_NOTICE =
   'Prompt Upgrade sent your text as it is because it differs from the draft. The instruction and rules were not added.'
 
@@ -252,7 +250,6 @@ const fillDraft = async ($: EngineInterface, draft: string, wrap: Wrap | null): 
   const now = await $.clock.now()
   await setFlow($, cur => ({ ...reset(cur), skipUntil: now + SKIP_TTL_MS, filled: squash(draft), wrap }))
   await restoreText($, draft, wrap === null ? undefined : labelFor(wrap))
-  if (wrap !== null) $.ui.toast(WRAP_NOTICE)
 }
 
 const parkDraft = async ($: EngineInterface, draft: string, wrap: Wrap | null): Promise<void> => {

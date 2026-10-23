@@ -737,10 +737,10 @@ const filledRun = async ($: Engine, on: On) => {
   return s
 }
 
-test('a Korean draft in the prompt box says the instruction and the rules are added when it is sent', async ($, on) => {
+test('a Korean draft in the prompt box raises no toast, because the label says what is added when it is sent', async ($, on) => {
   const s = await filledRun($, on)
   expect(s.filled).toEqual([BODY])
-  expect(s.toasts.join(' ')).toMatch(/added when you send/)
+  expect(s.toasts).toEqual([])
 })
 
 const SHORT_LABEL = '[+9 lines added on send]\n'
@@ -876,7 +876,7 @@ test('the original a failed Haiku call leaves in the box is sent with no wrapper
   await submit($, typed)
   await settle(s)
   expect(s.filled).toEqual([KOREAN])
-  expect(s.toasts.join(' ')).not.toMatch(/added when you send/)
+  expect(s.toasts.join(' ')).toMatch(/did not answer/)
   await submit($, KOREAN)
   expect(s.entered).toEqual([KOREAN])
 })
