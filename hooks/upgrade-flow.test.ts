@@ -755,7 +755,7 @@ test('a Korean draft is filled with a dim label line above the text that counts 
   expect(s.decorations).toEqual([labelAt()])
 })
 
-test('the label stays on the draft while it is edited and goes when the text is another prompt or empty', async ($, on) => {
+test('the label stays on the draft whatever the edit and goes when the box is empty', async ($, on) => {
   await filledRun($, on)
   const added = await editAt($, BODY, BODY.length, BODY.length, ' 표')
   expect(added.text).toBe(`${BODY} 표`)
@@ -763,7 +763,7 @@ test('the label stays on the draft while it is edited and goes when the text is 
   const changed = await editAt($, BODY, 6, 8, '내용')
   expect(changed.decorations).toEqual(labelAt())
   const other = await editAt($, BODY, 0, BODY.length, DIFFERENT)
-  expect(other.decorations ?? []).toEqual([])
+  expect(other.decorations).toEqual(labelAt())
   const empty = await editAt($, BODY, 0, BODY.length, '')
   expect(empty.decorations ?? []).toEqual([])
 })
@@ -818,13 +818,23 @@ test('a draft with a few characters changed is sent with the instruction and the
   expect(s.entered).toEqual([shortWrapped('첨부한 설계 문서를 정리한다.')])
 })
 
-test('a text that differs from the draft is sent as it is, says so, and spends the pass', async ($, on) => {
+test('a text other than the draft is sent with the instruction and the rules, and spends the pass', async ($, on) => {
   const s = await filledRun($, on)
   await submit($, DIFFERENT)
-  expect(s.entered).toEqual([DIFFERENT])
-  expect(s.toasts.join(' ')).toMatch(/differs from the draft/)
+  expect(s.entered).toEqual([shortWrapped(DIFFERENT)])
+  expect(s.toasts.join(' ')).not.toMatch(/differs from the draft/)
   await submit($, BODY)
-  expect(s.entered).toEqual([DIFFERENT, BODY])
+  expect(s.entered).toEqual([shortWrapped(DIFFERENT), BODY])
+})
+
+test('a draft with its last line deleted is sent with the instruction and the rules', async ($, on) => {
+  const typed = `${KOREAN} +++`
+  const s = world($, on, { useQuestions: false, answers: [`${BODY}\n결과를 표로 정리해서 보여 준다.`], box: typed })
+  await submit($, typed)
+  await settle(s)
+  await submit($, BODY)
+  expect(s.entered).toEqual([shortWrapped(BODY)])
+  expect(s.toasts.join(' ')).not.toMatch(/differs from the draft/)
 })
 
 test('the off trigger sends the draft as it is, and the wrapper is gone for the next submit', async ($, on) => {

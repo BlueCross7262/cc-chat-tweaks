@@ -121,7 +121,7 @@ Your prompt > Questions > Rewrite > Draft in the prompt box
   - For a Korean prompt the box holds the rewrite alone. The instruction and the fixed lines are not in the box.
   - A dim label such as `[+9 lines added on send]` stands alone on the first line of the box, and the text starts on the second line. The number is the count of lines the mod adds.
     The label is drawn only. It is not part of the text, so it is never sent or copied.
-    It stays while the text is the draft or a small edit of it, and goes when the text is another prompt, when the box is empty and after the send.
+    It stays while the text is the draft or an edit of it, whatever the size of the edit, and goes when the text holds a wrapper tag or an instruction line, when the box is empty and after the send.
   - A prompt without Korean characters, a draft that names a tag, and the original that comes back after a Haiku failure have nothing aside. They go out as the box holds them.
 
 ## Silent upgrade
@@ -156,14 +156,10 @@ The trigger (`+++` by default) at the start or the end of a prompt is what start
   - The mod builds the whole message when the draft is sent. The model receives the same message as before.
   - The conversation shows the whole message, not only what the prompt box held.
 - A prompt that holds other characters is an edited draft or a new prompt. Within 5 minutes it passes through once. After 5 minutes it is upgraded.
-- An edited draft gets the instruction and the rules when the edit is small.
-  - Text added before or after the draft keeps them. So does a pasted block added to the draft.
-  - A change of at most a fifth of the draft's characters keeps them. A character inserted, deleted or replaced counts as one change.
-  - A draft of fewer than 5 characters is matched only when the text holds it unchanged.
-  - A text that changes more is sent as it is, and a toast says the instruction and the rules were not added.
-  - A text that already holds a `<source>` or `<hard rule>` tag, or an instruction line, is sent as it is, with the same toast. So pasting the whole message again never adds them twice.
+- An edited draft gets the instruction and the rules, whatever the size of the edit.
+  - Text added, deleted or replaced anywhere keeps them. So does a whole line deleted, and so does a text that is another prompt.
+  - A text that already holds a `<source>` or `<hard rule>` tag, or an instruction line, is sent as it is, and a toast says the instruction and the rules were not added. So pasting the whole message again never adds them twice.
   - A prompt that is not from your own Enter at the prompt box, a slash or shell command, and a prompt with an attachment are sent as they are, with no toast.
-  - The check ignores white space. For a very long text it looks for the draft unchanged only.
 - A prompt with the trigger is upgraded again instead, and the pass stays open.
 - Only the white space is ignored. A changed letter, digit or punctuation mark counts as an edit.
 - If Haiku fails, the prompt box gets the prompt as you wrote it, without the trigger, and a toast says so.

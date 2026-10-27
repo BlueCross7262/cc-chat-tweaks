@@ -452,45 +452,9 @@ const hasMeta = (raw: string): boolean => {
   return META_FLAT_LINES.some(line => flat.includes(line))
 }
 
-const EDIT_MIN_LEN = 5
-const EDIT_RATIO = 0.2
-const EDIT_CELLS_MAX = 10_000_000
-
-const nearestEdit = (base: string, text: string): number => {
-  const n = base.length
-  let prev = new Int32Array(n + 1)
-  let cur = new Int32Array(n + 1)
-  for (let i = 0; i <= n; i += 1) prev[i] = i
-  let best = prev[n] as number
-  for (let j = 0; j < text.length; j += 1) {
-    const code = text.charCodeAt(j)
-    cur[0] = 0
-    for (let i = 1; i <= n; i += 1) {
-      const swap = (prev[i - 1] as number) + (base.charCodeAt(i - 1) === code ? 0 : 1)
-      const drop = (prev[i] as number) + 1
-      const add = (cur[i - 1] as number) + 1
-      cur[i] = Math.min(swap, drop, add)
-    }
-    if ((cur[n] as number) < best) best = cur[n] as number
-    const spare = prev
-    prev = cur
-    cur = spare
-  }
-
-  return best
-}
-
 export const wrapLabel = (wrap: Wrap): string => `[+${wrapText('x', wrap).split('\n').length - 1} lines added on send]`
 
-export const isDraftEdit = (base: string, raw: string, cellsMax = EDIT_CELLS_MAX): boolean => {
-  if (base.length < EDIT_MIN_LEN) return false
-  if (hasMeta(raw)) return false
-  const text = squash(raw)
-  if (text.includes(base)) return true
-  if (base.length * text.length > cellsMax) return false
-
-  return nearestEdit(base, text) <= Math.floor(base.length * EDIT_RATIO)
-}
+export const isDraftEdit = (base: string, raw: string): boolean => base !== '' && squash(raw) !== '' && !hasMeta(raw)
 
 export const withDraft = (flow: Flow, draft: string, notice = ''): Flow => ({
   ...flow,

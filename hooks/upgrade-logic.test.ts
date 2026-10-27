@@ -542,27 +542,19 @@ test('isDraftEdit accepts the draft, the draft with text added and the draft wit
   expect(isDraftEdit(DRAFT_BASE, `${DRAFT.replace('찾는다', '고친다')}\n${unrelatedText(300)}`)).toBe(true)
 })
 
-test('isDraftEdit refuses a text that changes more than a fifth of the draft and a new prompt, short or long', () => {
-  expect(isDraftEdit(DRAFT_BASE, DRAFT.replace('발생하는 ', ''))).toBe(false)
-  expect(isDraftEdit(DRAFT_BASE, '전혀 다른 질문을 새로 입력해서 제출한다.')).toBe(false)
-  for (const length of [300, 2000]) expect(isDraftEdit(DRAFT_BASE, unrelatedText(length))).toBe(false)
+test('isDraftEdit accepts a text whatever the size of the change', () => {
+  expect(isDraftEdit(DRAFT_BASE, DRAFT.replace('발생하는 ', ''))).toBe(true)
+  expect(isDraftEdit(DRAFT_BASE, '전혀 다른 질문을 새로 입력해서 제출한다.')).toBe(true)
+  for (const length of [300, 2000]) expect(isDraftEdit(DRAFT_BASE, unrelatedText(length))).toBe(true)
+  expect(isDraftEdit(squash('원인을 찾는다.'), '이유를 찾는다.')).toBe(true)
+  expect(isDraftEdit(squash('고쳐 줘'), '고쳐 줘')).toBe(true)
+  expect(isDraftEdit(squash('고쳐 줘'), '다른 요청이다.')).toBe(true)
+})
+
+test('isDraftEdit refuses an empty draft and an empty text', () => {
   expect(isDraftEdit(DRAFT_BASE, '')).toBe(false)
+  expect(isDraftEdit(DRAFT_BASE, ' \n\t ')).toBe(false)
   expect(isDraftEdit('', DRAFT)).toBe(false)
-})
-
-test('isDraftEdit allows fewer changes in a short draft and none below five characters', () => {
-  const short = squash('원인을 찾는다.')
-  expect(isDraftEdit(short, '원인을 찾는지.')).toBe(true)
-  expect(isDraftEdit(short, '이유를 찾는다.')).toBe(false)
-  expect(isDraftEdit(squash('고쳐 줘'), '고쳐 줘')).toBe(false)
-  expect(isDraftEdit(squash('원인을 찾아'), '원인을 찾아 줘')).toBe(true)
-})
-
-test('isDraftEdit skips the edit distance above the cell limit but still finds the draft unchanged', () => {
-  const edited = `${DRAFT.replace('버그', '에러')}\n${unrelatedText(300)}`
-  expect(isDraftEdit(DRAFT_BASE, edited)).toBe(true)
-  expect(isDraftEdit(DRAFT_BASE, edited, 100)).toBe(false)
-  expect(isDraftEdit(DRAFT_BASE, `${DRAFT}\n${unrelatedText(300)}`, 100)).toBe(true)
 })
 
 test('isDraftEdit never accepts a text that already holds a wrapper tag or an instruction line', () => {
@@ -576,9 +568,9 @@ test('isDraftEdit never accepts a text that already holds a wrapper tag or an in
   expect(isDraftEdit(base, '원인을 찾는다. 너는 프롬프트 엔지니어다. 추가')).toBe(false)
 })
 
-test('isDraftEdit answers a huge text by exact inclusion only', () => {
+test('isDraftEdit accepts a huge text', () => {
   const huge = '가'.repeat(2_000_000)
-  expect(isDraftEdit(DRAFT_BASE, huge)).toBe(false)
+  expect(isDraftEdit(DRAFT_BASE, huge)).toBe(true)
   expect(isDraftEdit(DRAFT_BASE, `${huge}${DRAFT}`)).toBe(true)
 })
 
