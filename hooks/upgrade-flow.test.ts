@@ -591,7 +591,7 @@ test('an English prompt with a research type gets no question lines', async ($, 
 })
 
 const COMMON_LINE = '충분히 조사한다.'
-const EXECUTE_LINE = '바꾼 파일을 경로로 나열한다.'
+const EXECUTE_LINE = '완료한 작업, 실패한 작업, 하지 않은 작업을 나눠 쓴다.'
 const countOf = (text: string, part: string): number => text.split(part).length - 1
 
 test('a Korean prompt with an execute type only sends its draft with the common and execute lines', async ($, on) => {
