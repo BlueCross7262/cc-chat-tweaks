@@ -66,7 +66,7 @@ const flowAtom = atom({ plugin: 'cc-chat-tweaks', key: 'flow' } as const, EMPTY_
 const FAILED_NOTICE = 'Haiku did not answer. Showing the original prompt.'
 
 const DIFFERS_NOTICE =
-  'Prompt Upgrade sent your text as it is because it differs from the draft. The instruction and rules were not added.'
+  'Prompt Upgrade sent your text as it is because it already holds a wrapper tag or an instruction line. The instruction and rules were not added again.'
 
 type Call = { model: string; effort: ModelEffort; maxTokens: number; timeoutMs: number }
 

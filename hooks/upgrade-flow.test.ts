@@ -809,7 +809,7 @@ test('a draft with text added is sent with the instruction and the rules', async
   const s = await filledRun($, on)
   await submit($, `${BODY}\n표로 정리한다.`)
   expect(s.entered).toEqual([shortWrapped(`${BODY}\n표로 정리한다.`)])
-  expect(s.toasts.join(' ')).not.toMatch(/differs from the draft/)
+  expect(s.toasts.join(' ')).not.toMatch(/already holds a wrapper tag/)
 })
 
 test('a draft with a few characters changed is sent with the instruction and the rules', async ($, on) => {
@@ -822,7 +822,7 @@ test('a text other than the draft is sent with the instruction and the rules, an
   const s = await filledRun($, on)
   await submit($, DIFFERENT)
   expect(s.entered).toEqual([shortWrapped(DIFFERENT)])
-  expect(s.toasts.join(' ')).not.toMatch(/differs from the draft/)
+  expect(s.toasts.join(' ')).not.toMatch(/already holds a wrapper tag/)
   await submit($, BODY)
   expect(s.entered).toEqual([shortWrapped(DIFFERENT), BODY])
 })
@@ -834,7 +834,7 @@ test('a draft with its last line deleted is sent with the instruction and the ru
   await settle(s)
   await submit($, BODY)
   expect(s.entered).toEqual([shortWrapped(BODY)])
-  expect(s.toasts.join(' ')).not.toMatch(/differs from the draft/)
+  expect(s.toasts.join(' ')).not.toMatch(/already holds a wrapper tag/)
 })
 
 test('the off trigger sends the draft as it is, and the wrapper is gone for the next submit', async ($, on) => {
@@ -843,7 +843,7 @@ test('the off trigger sends the draft as it is, and the wrapper is gone for the 
   expect(s.entered).toEqual([BODY])
   await submit($, BODY)
   expect(s.entered).toEqual([BODY, BODY])
-  expect(s.toasts.join(' ')).not.toMatch(/differs from the draft/)
+  expect(s.toasts.join(' ')).not.toMatch(/already holds a wrapper tag/)
 })
 
 const NEVER_WRAPPED: Array<[string, string, Record<string, unknown>]> = [
@@ -858,7 +858,7 @@ for (const [name, text, extra] of NEVER_WRAPPED) {
     const s = await filledRun($, on)
     await submit($, text, extra)
     expect(s.entered).toEqual([text])
-    expect(s.toasts.join(' ')).not.toMatch(/differs from the draft/)
+    expect(s.toasts.join(' ')).not.toMatch(/already holds a wrapper tag/)
   })
 }
 
@@ -867,7 +867,7 @@ test('a pasted message that already holds the wrapper is sent as it is and says 
   const pasted = `<pasted_content id="1">${shortWrapped(BODY)}</pasted_content id="1">`
   await submit($, pasted)
   expect(s.entered).toEqual([pasted])
-  expect(s.toasts.join(' ')).toMatch(/differs from the draft/)
+  expect(s.toasts.join(' ')).toMatch(/already holds a wrapper tag/)
 })
 
 test('a draft parked on the clipboard because the person typed meanwhile is the whole assembled message', async ($, on) => {
