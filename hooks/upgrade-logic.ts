@@ -357,9 +357,6 @@ const TYPE_LINES: Readonly<Record<PromptType, readonly string[]>> = {
   ],
   execute: [
     '완료한 작업, 실패한 작업, 하지 않은 작업을 나눠 쓴다.',
-    '바꾼 파일을 경로로 나열한다.',
-    '검증 방법과 그 결과를 쓴다.',
-    '검증을 실행하지 못했으면 실행하지 못했다고 쓴다.',
   ],
 }
 
