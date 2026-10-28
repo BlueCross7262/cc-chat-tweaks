@@ -37,6 +37,7 @@ import {
   viewOf,
   type Header,
 } from './runs'
+import { drawAnswer } from './answer-colors'
 import { registerCharCount } from './char-count'
 import { formatReport, versionText, type DoctorInput } from './doctor'
 import { COMMAND as UPGRADE_COMMAND, COMMAND_HELP, KEY_MIN_LEN, registerUpgrade } from './upgrade'
@@ -239,7 +240,7 @@ export const register: Register = on => {
       : SHOW_ROW
 
     if (view.showRow && !(isEditTool(e.props.tool) && !e.props.isErrored && flags['use-edit-summary'])) {
-      return next(e)
+      return (flags['use-answer-colors'] ? drawAnswer($, e) : null) ?? next(e)
     }
 
     const { Box } = $.ui.resolve(e)

@@ -211,6 +211,7 @@ test('the defaults when no source sets a key', () => {
   expect(isFlagOn([], 'use-questions')).toBe(false)
   expect(isFlagOn([], 'skip-silent-trigger')).toBe(true)
   expect(isFlagOn([], 'use-char-count')).toBe(false)
+  expect(isFlagOn([], 'use-answer-colors')).toBe(false)
   expect(isFlagOn([up({ 'skip-silent-trigger': false })], 'skip-silent-trigger')).toBe(false)
   expect(isFlagOn([{ ccChatTweaks: { chat: { 'skip-silent-trigger': false } } }], 'skip-silent-trigger')).toBe(true)
   expect(isFlagOn([{}, { ccChatTweaks: {} }, { ccChatTweaks: { chat: {} } }], 'use-tool-fold')).toBe(false)
@@ -258,6 +259,16 @@ test('the character count is switched by ccChatTweaks.prompt.char-count.use and 
   expect(isFlagOn([{ ccChatTweaks: { 'char-count': { use: true } } }], 'use-char-count')).toBe(false)
 })
 
+test('the answer colours are switched by ccChatTweaks.chat.answer-colors.use and by nothing else', () => {
+  expect(FLAG_PATHS['use-answer-colors']).toEqual(['chat', 'answer-colors'])
+  expect(propOf('use-answer-colors')).toBe('use')
+  expect(isFlagOn([{ ccChatTweaks: { chat: { 'answer-colors': { use: true } } } }], 'use-answer-colors')).toBe(true)
+  expect(isFlagOn([{ ccChatTweaks: { chat: { 'answer-colors': { use: false } } } }, { ccChatTweaks: { chat: { 'answer-colors': { use: true } } } }], 'use-answer-colors')).toBe(false)
+  expect(isFlagOn([{ ccChatTweaks: { chat: { 'answer-colors': { use: 'yes' } } } }], 'use-answer-colors')).toBe(false)
+  expect(isFlagOn([{ ccChatTweaks: { chat: { 'use-answer-colors': true } } }], 'use-answer-colors')).toBe(false)
+  expect(isFlagOn([{ ccChatTweaks: { 'answer-colors': { use: true } } }], 'use-answer-colors')).toBe(false)
+})
+
 test('the label of a key is the path of its setting under ccChatTweaks', () => {
   expect(labelOf('use-tool-fold')).toBe('chat.tool-fold.use')
   expect(labelOf('use-edit-summary')).toBe('chat.use-edit-summary')
@@ -266,6 +277,7 @@ test('the label of a key is the path of its setting under ccChatTweaks', () => {
   expect(labelOf('use-questions')).toBe('prompt.prompt-upgrade.use-questions')
   expect(labelOf('min-length')).toBe('prompt.prompt-upgrade.min-length')
   expect(labelOf('use-char-count')).toBe('prompt.char-count.use')
+  expect(labelOf('use-answer-colors')).toBe('chat.answer-colors.use')
 })
 
 test('a boolean in a source overrides the default in both directions', () => {
@@ -298,6 +310,7 @@ test('reads every flag at once', () => {
     'use-questions': false,
     'skip-silent-trigger': true,
     'use-char-count': false,
+    'use-answer-colors': false,
   })
 })
 
@@ -325,6 +338,7 @@ test('adds only the missing switches with their default and keeps everything els
     'use-questions',
     'skip-silent-trigger',
     'use-char-count',
+    'use-answer-colors',
     'min-length',
     'silent-triggers',
     'silent-off-triggers',
@@ -342,6 +356,7 @@ test('adds only the missing switches with their default and keeps everything els
       chat: {
         'tool-fold': { use: true, 'unfolded-tools': ['AskUserQuestion', 'Skill', 'Agent'] },
         'use-edit-summary': false,
+        'answer-colors': { use: false },
       },
       prompt: {
         later: { 'a-future-key': 1 },
@@ -364,13 +379,14 @@ test('adds only the missing switches with their default and keeps everything els
 })
 
 test('builds the whole section for an empty or malformed file', () => {
-  expect(withMissingDefaults({}).added).toHaveLength(16)
-  expect(withMissingDefaults(null).added).toHaveLength(16)
+  expect(withMissingDefaults({}).added).toHaveLength(17)
+  expect(withMissingDefaults(null).added).toHaveLength(17)
   expect(withMissingDefaults({ ccChatTweaks: 'x' }).settings).toEqual({
     ccChatTweaks: {
       chat: {
         'tool-fold': { use: false, 'unfolded-tools': ['AskUserQuestion', 'Skill', 'Agent'] },
         'use-edit-summary': false,
+        'answer-colors': { use: false },
       },
       prompt: {
         'prompt-upgrade': {
@@ -512,7 +528,7 @@ test('the default unfolded list written to a file is a copy', () => {
 test('reports nothing to add when every switch is present', () => {
   const full = {
     ccChatTweaks: {
-      chat: { 'tool-fold': { use: true, 'unfolded-tools': ['Bash'] }, 'use-edit-summary': false },
+      chat: { 'tool-fold': { use: true, 'unfolded-tools': ['Bash'] }, 'use-edit-summary': false, 'answer-colors': { use: true } },
       prompt: {
         'prompt-upgrade': {
           use: false,

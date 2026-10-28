@@ -12,13 +12,14 @@ Answer `y` to add the marketplace, then pick a scope.
 
 ## Settings
 
-Tool folding, the Edit/Write summary and the character count are off until you turn them on. The prompt upgrade is on by default, and it needs no setting to run. Switches live under `ccChatTweaks` in any settings file (`settings.json`, `settings.local.json`, project or user). Tool folding sits in `ccChatTweaks.chat.tool-fold`, the Edit/Write summary in `ccChatTweaks.chat`, the prompt upgrade in `ccChatTweaks.prompt.prompt-upgrade` and the character count in `ccChatTweaks.prompt.char-count`. A later prompt feature gets its own group under `ccChatTweaks.prompt`. A boolean in a higher-precedence source wins. A key that is absent uses its default.
+Tool folding, the Edit/Write summary, the answer colours and the character count are off until you turn them on. The prompt upgrade is on by default, and it needs no setting to run. Switches live under `ccChatTweaks` in any settings file (`settings.json`, `settings.local.json`, project or user). Tool folding sits in `ccChatTweaks.chat.tool-fold`, the Edit/Write summary in `ccChatTweaks.chat`, the answer colours in `ccChatTweaks.chat.answer-colors`, the prompt upgrade in `ccChatTweaks.prompt.prompt-upgrade` and the character count in `ccChatTweaks.prompt.char-count`. A later prompt feature gets its own group under `ccChatTweaks.prompt`. A boolean in a higher-precedence source wins. A key that is absent uses its default.
 
 | Group | Key | Default | Feature |
 |---|---|---|---|
 | `chat.tool-fold` | `use` | `false` | Fold consecutive tool calls into one line. |
 | `chat.tool-fold` | `unfolded-tools` | `["AskUserQuestion", "Skill", "Agent"]` | Option of `use`. The tools that are never folded. Each keeps its own row and ends the run before it. |
 | `chat` | `use-edit-summary` | `false` | Draw `Edit` and `Write` calls as one summary line. |
+| `chat.answer-colors` | `use` | `false` | Draw the row that holds your answers to Claude's questions in three colours: title, question and answer. |
 | `prompt.prompt-upgrade` | `use` | `true` | Rewrite your prompt and put the draft in the prompt box, without sending it. |
 | `prompt.prompt-upgrade` | `use-questions` | `false` | Option of `use`. When `true`, Haiku writes clarifying questions first and the recommended answers are applied. When `false`, the prompt is rewritten without questions. |
 | `prompt.prompt-upgrade` | `skip-silent-trigger` | `true` | Option of `use`. When `true`, the trigger check is skipped and every prompt of `min-length` or more is upgraded. When `false`, only a prompt with the trigger is upgraded. |
@@ -38,7 +39,10 @@ Tool folding, the Edit/Write summary and the character count are off until you t
         "use": true,
         "unfolded-tools": ["AskUserQuestion", "Skill", "Agent"]
       },
-      "use-edit-summary": false
+      "use-edit-summary": false,
+      "answer-colors": {
+        "use": true
+      }
     },
     "prompt": {
       "prompt-upgrade": {
@@ -113,6 +117,21 @@ An `Edit` or `Write` call that is not folded draws as one line. The diff body is
 ● Write(notes.md) +12
 ```
 
+### `chat.answer-colors.use`
+
+The row the engine draws after you answer an `AskUserQuestion` dialog is drawn again with one colour for each zone, in the cyan family from dimmest to brightest:
+
+```
+● User answered Claude's questions:
+  ⎿  · <question> → <answer>
+```
+
+- The title and its `●` are `rgb(95,158,160)`, the question with its `·` and `→` is `rgb(143,188,203)` and the answer is `rgb(184,240,255)`. The `⎿` keeps the theme's dim colour.
+- A free text response is drawn as `· <response>`, the answer in the answer colour. As in the engine row, the question rows are left out when there is a response and no follow-up.
+- The title text follows the engine's: `User asked Claude for more questions` is drawn for a follow-up.
+- An answer the dialog filled in by itself after an idle time, an errored call and every other tool keep the engine row.
+- The colours are constants in `hooks/answer-view.ts`. They are not settings.
+
 ### `prompt.prompt-upgrade.use`
 
 A prompt you type at the prompt box and send is held back, upgraded in the background and put back in the prompt box as a draft. You read it and press Enter yourself. With the default `skip-silent-trigger` every prompt of `min-length` or more is upgraded. With `false` only a prompt that starts or ends with the trigger `+++` is. A prompt that starts or ends with `---` is sent as it is.
@@ -161,6 +180,8 @@ The sources are TypeScript loaded as is, with no build step.
 | `hooks/register.tsx` | The hooks module: the tool-call features and the doctor command. It calls `registerUpgrade(on)` and `registerCharCount(on)`. `$` crosses an import only into a function declaration, so a function that takes `$` from another file is written `function name($) { ... }`, as `recount` in `hooks/char-count.tsx` is. |
 | `hooks/upgrade.tsx` | The prompt upgrade hooks and command. |
 | `hooks/char-count.tsx` | The character count hooks and `recount`, which the prompt upgrade calls after it fills the box and after a prompt is sent. |
+| `hooks/answer-colors.tsx` | `drawAnswer`, which draws the answer row in three colours. `register.tsx` calls it from its `ToolResult` hook. |
+| `hooks/answer-view.ts` | Pure reading of an `AskUserQuestion` result into a title, rows and a response, and the three colours. |
 | `hooks/char-count-logic.ts` | Pure grapheme and code point counting and the label, the count alone. |
 | `hooks/upgrade-logic.ts` | Pure gate, flow and parsing logic for the prompt upgrade. |
 | `hooks/upgrade-prompts.ts` | The Haiku system prompts for the prompt upgrade. |
