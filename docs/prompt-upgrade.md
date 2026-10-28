@@ -123,6 +123,9 @@ Your prompt > Questions > Rewrite > Draft in the prompt box
     The label is drawn only. It is not part of the text, so it is never sent or copied.
     It stays while the text is the draft or an edit of it, whatever the size of the edit, and goes when the text holds a wrapper tag or an instruction line, when the box is empty and after the send.
   - A prompt without Korean characters, a draft that names a tag, and the original that comes back after a Haiku failure have nothing aside. They go out as the box holds them.
+  - The prompt row in the chat shows only the part between `<source>` and `</source>`. The instruction and the `<hard rule>` block are not drawn, in the ctrl+o view too.
+    This changes the drawing only. The message the model gets still holds the instruction and the fixed lines.
+    A row is cut only when its text is a wrapper that the mod built and the person sent from the prompt box. Any other row is drawn as it is.
 
 ## Silent upgrade
 
@@ -215,6 +218,9 @@ Every failure path ends with your original prompt: a Haiku error or timeout puts
 - The draft is put in the prompt box as plain text.
   - Attachments and `@file` mentions of the original are not carried over.
   - Prompts with attachments or mentions are not intercepted for this reason.
+- The chat row hides the instruction and the fixed lines only when the sent text starts with the instruction exactly and ends with the closed `<source>` part.
+  - A row whose instruction line was edited by hand, and a row of a message stored before the mod set an origin, show the whole text.
+  - Nothing in the chat shows the fixed lines for a row that is cut, so ctrl+o does not show what the model got either.
 - Haiku sees only a short slice of the conversation (see Flow).
   - A prompt that refers to something older than that cannot be improved.
   - The mod does not detect such prompts. Put an off trigger at an edge of the prompt to send it as it is.

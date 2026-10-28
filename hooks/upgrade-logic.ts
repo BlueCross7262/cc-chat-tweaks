@@ -434,6 +434,34 @@ export const wrapText = (body: string, wrap: Wrap): string => {
   return hasRules ? `${head}\n\n<hard rule>\n${typeTail(wrap.types)}\n</hard rule>\n\n${source}` : `${head}\n\n${source}`
 }
 
+
+const SOURCE_OPEN = '<source>\n'
+const SOURCE_CLOSE = '\n</source>'
+const RULES_OPEN = '<hard rule>\n'
+const RULES_CLOSE = '\n</hard rule>\n\n'
+
+export const sourceOf = (text: string): string | null => {
+  for (const lines of [META_FULL_LINES, META_SHORT_LINES]) {
+    const prefix = `${lines.join('\n')}\n\n`
+    if (!text.startsWith(prefix)) continue
+
+    let rest = text.slice(prefix.length)
+    if (lines === META_FULL_LINES) {
+      if (!rest.startsWith(RULES_OPEN)) continue
+      const end = rest.indexOf(RULES_CLOSE + SOURCE_OPEN)
+      if (end < 0) continue
+      rest = rest.slice(end + RULES_CLOSE.length)
+    }
+    if (!rest.startsWith(SOURCE_OPEN) || !rest.endsWith(SOURCE_CLOSE)) continue
+
+    const body = rest.slice(SOURCE_OPEN.length, rest.length - SOURCE_CLOSE.length)
+
+    return body === '' ? null : body
+  }
+
+  return null
+}
+
 export const withMeta = (draft: string, original: string, types: readonly string[]): string => {
   const { box, wrap } = splitMeta(draft, original, types)
 

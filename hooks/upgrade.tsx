@@ -38,6 +38,7 @@ import {
   withRecommended,
   unwrapDraft,
   isDraftEdit,
+  sourceOf,
   wrapText,
 } from './upgrade-logic'
 import { CALLS, CLASSIFY_SYSTEM, Q_SYSTEM, R_SYSTEM } from './upgrade-prompts'
@@ -472,6 +473,14 @@ export const registerUpgrade = (on: Parameters<Register>[0]): void => {
     await recount($)
 
     return submitted
+  })
+
+  on('ui.render', { component: 'UserMessage' }, async ($, e, next) => {
+    if (e.props.origin.kind !== 'composer') return next(e)
+
+    const source = sourceOf(e.props.text)
+
+    return next(source === null ? e : { ...e, props: { ...e.props, text: source } })
   })
 
   on('ui.render', { component: 'Pane', requestId: PROBE_PANE }, async ($, e) => {

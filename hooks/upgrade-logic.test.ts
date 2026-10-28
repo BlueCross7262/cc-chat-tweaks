@@ -26,6 +26,7 @@ import {
   classifyTail,
   parseTypes,
   rewriteInput,
+  sourceOf,
   stripFence,
   unwrapDraft,
   withDraft,
@@ -361,6 +362,30 @@ test('a Korean draft is wrapped with the instruction, the source and the hard ru
   expect(withMeta('버그를 고친다.', '버그를 고쳐 줘', ['execute'])).toBe(
     wrapped('버그를 고친다.', `${COMMON_TAIL}\n\n${EXECUTE_TAIL}`),
   )
+})
+
+test('sourceOf returns the source of a full wrapper', () => {
+  expect(sourceOf(wrapped('원인을 찾는다.', RESEARCH_RULES))).toBe('원인을 찾는다.')
+  expect(sourceOf(wrapped('줄 하나.\n줄 둘.', RESEARCH_RULES))).toBe('줄 하나.\n줄 둘.')
+})
+
+test('sourceOf returns the source of a short wrapper', () => {
+  expect(sourceOf(withMeta('원인을 찾는다.', '원인을 찾아 줘', []))).toBe('원인을 찾는다.')
+})
+
+test('sourceOf returns the source of every wrapper wrapText builds', () => {
+  for (const types of [[], ['research'], ['discuss'], ['execute'], ['research', 'execute']]) {
+    expect(sourceOf(wrapText('본문 한 줄.\n본문 두 줄.', { types }))).toBe('본문 한 줄.\n본문 두 줄.')
+  }
+})
+
+test('sourceOf returns null for text that is not an intact wrapper', () => {
+  const whole = wrapped('원인을 찾는다.', RESEARCH_RULES)
+  expect(sourceOf('원인을 찾는다.')).toBeNull()
+  expect(sourceOf(whole.replace('너는 프롬프트 엔지니어다.', '너는 개발자다.'))).toBeNull()
+  expect(sourceOf(whole.replace('\n</source>', ''))).toBeNull()
+  expect(sourceOf(wrapped('', RESEARCH_RULES))).toBeNull()
+  expect(sourceOf(`앞 문장.\n${whole}`)).toBeNull()
 })
 
 test('the instruction is the eight lines of the full form and the six lines of the short form', () => {
