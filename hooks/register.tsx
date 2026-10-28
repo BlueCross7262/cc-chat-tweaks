@@ -37,7 +37,7 @@ import {
   viewOf,
   type Header,
 } from './runs'
-import { drawAnswer } from './answer-colors'
+import { drawAnswer, drawDeclined } from './answer-colors'
 import { registerCharCount } from './char-count'
 import { formatReport, versionText, type DoctorInput } from './doctor'
 import { COMMAND as UPGRADE_COMMAND, COMMAND_HELP, KEY_MIN_LEN, registerUpgrade } from './upgrade'
@@ -208,6 +208,12 @@ export const register: Register = on => {
       const { Box } = $.ui.resolve(e)
 
       return <Box key={`streaming-${e.props.tool_use_id}`} />
+    }
+
+    const declined = flags['use-answer-colors'] ? drawDeclined($, e) : null
+
+    if (declined !== null) {
+      return declined
     }
 
     const view = flags['use-tool-fold']

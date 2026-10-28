@@ -119,16 +119,17 @@ An `Edit` or `Write` call that is not folded draws as one line. The diff body is
 
 ### `chat.answer-colors.use`
 
-The row the engine draws after you answer an `AskUserQuestion` dialog is drawn again with one colour for each zone, in the cyan family from dimmest to brightest:
+The row the engine draws after you answer an `AskUserQuestion` dialog is drawn again with one colour for each zone: a cyan title, a light blue question and an amber answer:
 
 ```
 ● User answered Claude's questions:
   ⎿  · <question> → <answer>
 ```
 
-- The title and its `●` are `rgb(95,158,160)`, the question with its `·` and `→` is `rgb(143,188,203)` and the answer is `rgb(184,240,255)`. The `⎿` keeps the theme's dim colour.
+- The title and its `●` are `rgb(95,158,160)`, the question with its `·` and `→` is `rgb(143,188,203)` and the answer is `rgb(255,200,100)`. The `⎿` keeps the theme's dim colour.
 - A free text response is drawn as `· <response>`, the answer in the answer colour. As in the engine row, the question rows are left out when there is a response and no follow-up.
 - The title text follows the engine's: `User asked Claude for more questions` is drawn for a follow-up.
+- A dialog you decline is drawn the same way: the `User declined to answer questions` title in the title colour and one line per question, `· <question> (<option> / <option>)`, in the question colour. The lines come from the call input, since the declined row belongs to the call row and not to its result. An aborted call keeps the engine row.
 - An answer the dialog filled in by itself after an idle time, an errored call and every other tool keep the engine row.
 - The colours are constants in `hooks/answer-view.ts`. They are not settings.
 
@@ -180,8 +181,8 @@ The sources are TypeScript loaded as is, with no build step.
 | `hooks/register.tsx` | The hooks module: the tool-call features and the doctor command. It calls `registerUpgrade(on)` and `registerCharCount(on)`. `$` crosses an import only into a function declaration, so a function that takes `$` from another file is written `function name($) { ... }`, as `recount` in `hooks/char-count.tsx` is. |
 | `hooks/upgrade.tsx` | The prompt upgrade hooks and command. |
 | `hooks/char-count.tsx` | The character count hooks and `recount`, which the prompt upgrade calls after it fills the box and after a prompt is sent. |
-| `hooks/answer-colors.tsx` | `drawAnswer`, which draws the answer row in three colours. `register.tsx` calls it from its `ToolResult` hook. |
-| `hooks/answer-view.ts` | Pure reading of an `AskUserQuestion` result into a title, rows and a response, and the three colours. |
+| `hooks/answer-colors.tsx` | `drawAnswer` and `drawDeclined`, which draw the answer row and the declined row in their colours. `register.tsx` calls them from its `ToolResult` and `ToolUse` hooks. |
+| `hooks/answer-view.ts` | Pure reading of an `AskUserQuestion` result into a title, rows and a response, and of its call input into the declined lines, and the three colours. |
 | `hooks/char-count-logic.ts` | Pure grapheme and code point counting and the label, the count alone. |
 | `hooks/upgrade-logic.ts` | Pure gate, flow and parsing logic for the prompt upgrade. |
 | `hooks/upgrade-prompts.ts` | The Haiku system prompts for the prompt upgrade. |

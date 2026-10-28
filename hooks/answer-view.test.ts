@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { ANSWER_COLORS, answerViewOf } from './answer-view'
+import { ANSWER_COLORS, answerViewOf, declinedViewOf } from './answer-view'
 
 const answered = (extra: Record<string, unknown> = {}) => ({
   questions: [],
@@ -64,10 +64,38 @@ test('an answer that is not text is dropped', () => {
   expect(answerViewOf({ answers: { 'a?': 'x', 'b?': 3, 'c?': null } })?.rows).toEqual([{ question: 'a?', answer: 'x' }])
 })
 
-test('the three zones get three colours of the cyan family, dimmest to brightest', () => {
+test('the title and the question are cyan and the answer is amber', () => {
   expect(ANSWER_COLORS).toEqual({
     title: 'rgb(95,158,160)',
     question: 'rgb(143,188,203)',
-    answer: 'rgb(184,240,255)',
+    answer: 'rgb(255,200,100)',
   })
+})
+
+const asked = (...questions: Record<string, unknown>[]) => ({ questions })
+
+test('a declined dialog gives the title and one line per question with its options', () => {
+  const input = asked(
+    { question: '어떤 기능을 추가할까?', options: [{ label: '리뷰 이력 내보내기' }, { label: '알림 설정 세분화' }] },
+    { question: '범위는?', options: [] },
+  )
+
+  expect(declinedViewOf(input)).toEqual({
+    title: 'User declined to answer questions',
+    lines: ['· 어떤 기능을 추가할까? (리뷰 이력 내보내기 / 알림 설정 세분화)', '· 범위는?'],
+  })
+})
+
+test('a declined question or option of another shape is dropped', () => {
+  const input = asked({ question: 'a?', options: [{ label: 'x' }, { label: 3 }, null] }, { question: 5 }, { options: [] })
+
+  expect(declinedViewOf(input)?.lines).toEqual(['· a? (x)'])
+})
+
+test('a call input that holds no question is left to the engine', () => {
+  expect(declinedViewOf(undefined)).toBeNull()
+  expect(declinedViewOf('text')).toBeNull()
+  expect(declinedViewOf({})).toBeNull()
+  expect(declinedViewOf(asked())).toBeNull()
+  expect(declinedViewOf(asked({ question: 5 }))).toBeNull()
 })

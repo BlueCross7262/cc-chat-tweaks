@@ -20,9 +20,8 @@ const world = (on: On, isOn: boolean): void => {
 
 type Drawn = { texts: string[]; colored: Record<string, string[]> }
 
-const draw = async ($: Engine, output: unknown, tool = 'AskUserQuestion', isErrored = false): Promise<Drawn> => {
-  const props = { tool_use_id: 'q1', tool, output, isErrored, isExpanded: false } as never
-  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'ToolResult', requestId: 'q1', props })
+const drawn = async ($: Engine, component: 'ToolResult' | 'ToolUse', props: Record<string, unknown>): Promise<Drawn> => {
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component, requestId: 'q1', props: props as never })
   const found = await ui.findAll({ type: 'Text' })
   const colored: Record<string, string[]> = {}
 
@@ -36,6 +35,25 @@ const draw = async ($: Engine, output: unknown, tool = 'AskUserQuestion', isErro
 
   return { texts: found.map(item => item.text), colored }
 }
+
+const draw = ($: Engine, output: unknown, tool = 'AskUserQuestion', isErrored = false): Promise<Drawn> =>
+  drawn($, 'ToolResult', { tool_use_id: 'q1', tool, output, isErrored, isExpanded: false })
+
+const INPUT = {
+  questions: [{ question: '어떤 기능을 추가할까?', options: [{ label: '리뷰 이력 내보내기' }, { label: '알림 설정 세분화' }] }],
+}
+
+const drawUse = ($: Engine, extra: Record<string, unknown> = {}): Promise<Drawn> =>
+  drawn($, 'ToolUse', {
+    tool_use_id: 'q1',
+    tool: 'AskUserQuestion',
+    input: INPUT,
+    isRunning: false,
+    isErrored: true,
+    isInterrupted: false,
+    isExpanded: false,
+    ...extra,
+  })
 
 test('with the switch on the title, the questions and the answers get their own colours', async ($, on) => {
   world(on, true)
@@ -66,4 +84,26 @@ test('an idle auto-answer, an error and another tool keep the engine row', async
   expect((await draw($, { ...OUTPUT, afkTimeoutMs: 30000 })).texts).toEqual([ENGINE_ROW])
   expect((await draw($, OUTPUT, 'AskUserQuestion', true)).texts).toEqual([ENGINE_ROW])
   expect((await draw($, OUTPUT, 'Bash')).texts).toEqual([ENGINE_ROW])
+})
+
+test('a declined dialog is drawn with the title and question colours', async ($, on) => {
+  world(on, true)
+  const { colored } = await drawUse($)
+
+  expect(colored[ANSWER_COLORS.title]).toEqual(['● ', 'User declined to answer questions'])
+  expect(colored[ANSWER_COLORS.question]).toEqual(['· 어떤 기능을 추가할까? (리뷰 이력 내보내기 / 알림 설정 세분화)'])
+})
+
+test('a declined dialog keeps the engine row with the switch off', async ($, on) => {
+  world(on, false)
+
+  expect((await drawUse($)).texts).toEqual([ENGINE_ROW])
+})
+
+test('a call without an error, an aborted call, another tool and an input without questions keep the engine row', async ($, on) => {
+  world(on, true)
+  expect((await drawUse($, { isErrored: false })).texts).toEqual([ENGINE_ROW])
+  expect((await drawUse($, { isInterrupted: true })).texts).toEqual([ENGINE_ROW])
+  expect((await drawUse($, { tool: 'Bash' })).texts).toEqual([ENGINE_ROW])
+  expect((await drawUse($, { input: {} })).texts).toEqual([ENGINE_ROW])
 })
