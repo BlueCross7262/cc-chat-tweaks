@@ -34,3 +34,10 @@ test('every example sentence of the rewrite prompt is one sentence and holds no 
     expect(LINKED.test(sentence)).toBe(false)
   }
 })
+
+test('the rewrite prompt asks for a goal line and, for execute only, a completion line, and exempts both from the no-invention rules', () => {
+  for (const prefix of ['"목표: "', '"Goal: "', '"완료 기준: "', '"Done when: "']) expect(R_SYSTEM).toContain(prefix)
+  expect(R_SYSTEM).toContain('<types>에 execute가 있을 때만 쓴다')
+  expect(R_SYSTEM).toContain('research와 discuss에는 완료 기준을 쓰지 않는다')
+  expect(R_SYSTEM.split('아래 목표 문장과 완료 기준 문장은 예외다').length - 1).toBe(2)
+})
