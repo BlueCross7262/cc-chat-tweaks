@@ -117,6 +117,14 @@ Your prompt > Questions > Rewrite > Draft in the prompt box
 - Haiku rewrites the prompt as prose with one sentence on each line.
   - The mod does not break lines itself. The line breaks are what Haiku wrote.
   - Pasted material stays as it is, wrapped in `<input>` tags.
+- Haiku numbers the requests only when the order is fixed and there are two or more requests.
+  - The order is fixed when the prompt type call finds two or more types, or when the prompt has a word of order: "먼저", "그다음", "~한 뒤", "마지막으로", "순서대로" or a numbered list. "그리고" and "~하고" are not words of order.
+  - Without a fixed order, and with one request, there are no numbers.
+  - A number looks like `1) ` with a closing parenthesis and no period, so it does not break the rule of one sentence on each line.
+  - One number stands for one request. The sentences that a request is split into stay under its number, and every sentence after the first is indented by three spaces.
+  - A number has no type tag. The type shows in the verb of the sentence.
+  - The goal line and the completion line have no number.
+  - A draft that is upgraded again loses its old numbers, and the numbers are decided again. Numbers inside `<input>` tags stay.
 - The mod puts the draft in the prompt box. It does not send it.
   - For a Korean prompt the box holds the rewrite alone. The instruction and the fixed lines are not in the box.
   - A dim label such as `[+9 lines added on send]` stands alone on the first line of the box, and the text starts on the second line. The number is the count of lines the mod adds.

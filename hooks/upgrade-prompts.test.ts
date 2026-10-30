@@ -35,6 +35,22 @@ test('every example sentence of the rewrite prompt is one sentence and holds no 
   }
 })
 
+test('the rewrite prompt numbers requests only when the order is fixed, with a closing parenthesis and no type tag', () => {
+  expect(R_SYSTEM).toContain('"1) ", "2) "')
+  expect(R_SYSTEM).toContain('마침표를 쓰지 않는다')
+  expect(R_SYSTEM).toContain('<types>에 타입이 둘 이상이다')
+  expect(R_SYSTEM).toContain('"그리고"와 "~하고"는 선후 표현이 아니다')
+  expect(R_SYSTEM).toContain('순번 하나는 요청 하나다')
+  expect(R_SYSTEM).toContain('목표 문장과 완료 기준 문장에는 순번을 붙이지 않는다')
+  expect(R_SYSTEM).toContain('<input> 태그 안의 번호는 그대로 둔다')
+})
+
+test('the numbered example of the rewrite prompt has no period inside its prefix and keeps one sentence per line', () => {
+  const lines = arrowExamples().filter(sentence => /^\s*\d\) /.test(sentence))
+  expect(lines.length).toBeGreaterThanOrEqual(2)
+  for (const line of lines) expect(line).toMatch(/^\d\) [^.?!]+[.?]$/)
+})
+
 test('the rewrite prompt asks for a goal line and, for execute only, a completion line, and exempts both from the no-invention rules', () => {
   for (const prefix of ['"목표: "', '"Goal: "', '"완료 기준: "', '"Done when: "']) expect(R_SYSTEM).toContain(prefix)
   expect(R_SYSTEM).toContain('<types>에 execute가 있을 때만 쓴다')
