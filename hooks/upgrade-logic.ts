@@ -335,6 +335,7 @@ const QUESTION_TYPES: readonly PromptType[] = ['discuss']
 
 const COMMON_LINES: readonly string[] = [
   '충분히 조사한다.',
+  '설치된 스킬 중 이 요청에 맞는 스킬이 있으면 Skill 도구로 불러서 따른다.',
   '결과나 결론을 첫 줄에 쓴다.',
   '확인한 사실과 추측을 구분해 쓴다.',
   '확인하지 못한 내용은 확인하지 못했다고 쓴다.',
