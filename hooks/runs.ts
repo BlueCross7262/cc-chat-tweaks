@@ -353,19 +353,14 @@ export const namesOf = (calls: readonly Call[], hasTail = false): string => {
     .map(([label]) => label)
     .sort((left, right) => (left < right ? -1 : left > right ? 1 : 0))
 
-  if (hasMoreNames(calls) && hasTail) {
-    return `${shown.join(', ')},`
-  }
+  const names = shown.join(', ').replace(/[,\s]+$/, '')
 
-  const names = hasMoreNames(calls) ? `${shown.join(', ')}, …` : shown.join(', ')
-
-  return names.replace(/[,\s]+$/, '')
+  return hasMoreNames(calls) && !hasTail ? `${names} …` : names
 }
 
 export const hasChanges = (header: Header): boolean => header.added > 0 || header.removed > 0
 
-export const failedSeparator = (header: Header): string =>
-  header.failed > 0 && !headerText(header).endsWith(',') ? ',' : ''
+export const failedSeparator = (header: Header): string => (header.failed > 0 ? ',' : '')
 
 export const headerText = (header: Header): string => {
   const hasTail = header.failed > 0 || hasChanges(header)

@@ -277,7 +277,7 @@ test('keeps the most used tools, cuts the list and sorts the names', () => {
     name,
   }))
 
-  expect(namesOf(calls)).toBe('Bash, Edit, Grep, Read, …')
+  expect(namesOf(calls)).toBe('Bash, Edit, Grep, Read …')
 })
 
 test('the header knows when the name list is already cut, so the changes need no ellipsis of their own', () => {
@@ -319,11 +319,11 @@ const headerOf = (names: string[], over: Partial<Header> = {}): Header => ({
 const MANY = ['Bash', 'Bash', 'Edit', 'Grep', 'Read', 'Glob', 'Write']
 
 test('a cut name list ends with an ellipsis only when nothing follows it', () => {
-  expect(headerText(headerOf(MANY))).toBe('Called 7 times Bash, Edit, Grep, Read, …')
-  expect(headerText(headerOf(MANY, { failed: 2 }))).toBe('Called 7 times Bash, Edit, Grep, Read,')
-  expect(headerText(headerOf(MANY, { added: 13, removed: 5 }))).toBe('Called 7 times Bash, Edit, Grep, Read,')
-  expect(headerText(headerOf(MANY, { failed: 2, added: 13 }))).toBe('Called 7 times Bash, Edit, Grep, Read,')
-  expect(headerText(headerOf(MANY, { removed: 5 }))).toBe('Called 7 times Bash, Edit, Grep, Read,')
+  expect(headerText(headerOf(MANY))).toBe('Called 7 times Bash, Edit, Grep, Read …')
+  expect(headerText(headerOf(MANY, { failed: 2 }))).toBe('Called 7 times Bash, Edit, Grep, Read')
+  expect(headerText(headerOf(MANY, { added: 13, removed: 5 }))).toBe('Called 7 times Bash, Edit, Grep, Read')
+  expect(headerText(headerOf(MANY, { failed: 2, added: 13 }))).toBe('Called 7 times Bash, Edit, Grep, Read')
+  expect(headerText(headerOf(MANY, { removed: 5 }))).toBe('Called 7 times Bash, Edit, Grep, Read')
 })
 
 test('a name list that is not cut never gets a trailing comma', () => {
@@ -334,18 +334,35 @@ test('a name list that is not cut never gets a trailing comma', () => {
   expect(headerText(headerOf(['Bash', 'Edit', 'Grep', 'Read'], { added: 1 }))).toBe('Called 7 times Bash, Edit, Grep, Read')
 })
 
-test('failed is set off from the names by a comma, and a cut list already ends with one', () => {
+test('failed is always set off from the names by a comma', () => {
   const lineOf = (header: Header): string =>
     `${headerText(header)}${failedSeparator(header)}${header.failed > 0 ? ` ${header.failed} failed` : ''}`
 
   expect(failedSeparator(headerOf(['Edit', 'Read']))).toBe('')
   expect(failedSeparator(headerOf(['Edit', 'Read'], { added: 3 }))).toBe('')
+  expect(failedSeparator(headerOf(MANY, { failed: 2 }))).toBe(',')
   expect(lineOf(headerOf(['Edit', 'Read', 'replace_content'], { failed: 2 }))).toBe('Called 7 times Edit, Read, replace_content, 2 failed')
   expect(lineOf(headerOf(['Bash', 'Edit', 'Grep', 'Read'], { failed: 1 }))).toBe('Called 7 times Bash, Edit, Grep, Read, 1 failed')
   expect(lineOf(headerOf(MANY, { failed: 2 }))).toBe('Called 7 times Bash, Edit, Grep, Read, 2 failed')
   expect(lineOf(headerOf(MANY, { failed: 2, added: 13 }))).toBe('Called 7 times Bash, Edit, Grep, Read, 2 failed')
   expect(lineOf(headerOf(['Edit'], { failed: 1, isPending: true }))).toBe('Calling 7 times Edit, 1 failed')
-  expect(lineOf(headerOf(MANY))).toBe('Called 7 times Bash, Edit, Grep, Read, …')
+  expect(lineOf(headerOf(MANY))).toBe('Called 7 times Bash, Edit, Grep, Read …')
+})
+
+test('no comma ever sits in front of the ellipsis', () => {
+  const lineOf = (header: Header): string =>
+    `${headerText(header)}${failedSeparator(header)}${header.failed > 0 ? ` ${header.failed} failed` : ''}${hasChanges(header) ? ' …' : ''}`
+
+  for (const names of [MANY, ['Edit', 'Read']]) {
+    for (const failed of [0, 2]) {
+      for (const added of [0, 13]) {
+        expect(lineOf(headerOf(names, { failed, added }))).not.toMatch(/,\s*…/)
+      }
+    }
+  }
+
+  expect(lineOf(headerOf(MANY, { added: 13 }))).toBe('Called 7 times Bash, Edit, Grep, Read …')
+  expect(lineOf(headerOf(MANY, { failed: 2, added: 13 }))).toBe('Called 7 times Bash, Edit, Grep, Read, 2 failed …')
 })
 
 test('the header has changes when lines were added or removed', () => {
@@ -399,7 +416,7 @@ test('the header shows the call time right after the count and omits it when the
   expect(headerText(headerOf(['Edit'], { count: 2, ms: 0 }))).toBe('Called 2 times in 0ms Edit')
   expect(headerText(headerOf(['Edit'], { count: 3, ms: null }))).toBe('Called 3 times Edit')
   expect(headerText(headerOf(['Edit'], { count: 3, ms: 2000, isPending: true }))).toBe('Calling 3 times in 2.0s Edit')
-  expect(headerText(headerOf(MANY, { ms: 1200, failed: 2 }))).toBe('Called 7 times in 1.2s Bash, Edit, Grep, Read,')
+  expect(headerText(headerOf(MANY, { ms: 1200, failed: 2 }))).toBe('Called 7 times in 1.2s Bash, Edit, Grep, Read')
 })
 
 const closedRun = (...ids: string[]): RunState =>
