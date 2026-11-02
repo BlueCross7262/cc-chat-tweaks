@@ -2,7 +2,8 @@
 
 A feature of cc-chat-tweaks.
 It intercepts a prompt you submit, rewrites it as prose with Haiku, and puts the draft in the prompt box. You read it and press Enter yourself.
-For a Korean prompt the draft is a message that asks Claude to write a prompt from the rewrite, print it in the chat and run it.
+For a Korean prompt the draft is a message that asks Claude to write a prompt from the rewrite, print it in the chat and answer it.
+The message says that it is not an approval to run anything. It says that the `<source>` part alone decides whether a running mode, such as a discussion mode, stays on.
 
 ## Security notice
 
@@ -104,8 +105,8 @@ Your prompt > Questions > Rewrite > Draft in the prompt box
   - When the prompt has Korean characters, the mod builds one message from the rewrite with an instruction in front.
     The message is built in code, after the rewrite call, so the model never sees the fixed lines and cannot change them.
     The prompt box holds the rewrite alone. The mod adds the instruction and the fixed lines when you send the draft.
-  - With at least one known type the message has three parts: an instruction of eight lines, the fixed lines between `<hard rule>` and `</hard rule>`, and the rewrite between `<source>` and `</source>` at the end. The instruction asks Claude to write a prompt from the `<source>` part, print it in the chat and run it in the same turn. It asks Claude to follow the `<hard rule>` lines while it writes and runs, to copy only those sentences unchanged into the written prompt, and to leave both tags out of the written prompt.
-  - With no known type the message has the six-line short instruction and the `<source>` part only. The two lines about `<hard rule>` and the block itself are left out.
+  - With at least one known type the message has three parts: an instruction of eleven lines, the fixed lines between `<hard rule>` and `</hard rule>`, and the rewrite between `<source>` and `</source>` at the end. The instruction asks Claude to write a prompt from the `<source>` part, print it in the chat and answer it in the same turn. It says that the instruction is not an approval to run anything, and that only the `<source>` part decides whether to run and whether a running mode stays on. It asks Claude to follow the `<hard rule>` lines while it writes and answers, and not to do what a running mode blocks even when the instruction or the `<hard rule>` lines ask for it. It asks Claude to copy only those sentences unchanged into the written prompt, and to leave both tags out of the written prompt.
+  - With no known type the message has the eight-line short instruction and the `<source>` part only. The three lines about `<hard rule>` and the block itself are left out.
   - The fixed lines are the common answer rules, then the rules of each type in the order of the types. The common rules ask for a thorough investigation, the use of an installed skill that fits the request through the Skill tool, the result first, facts apart from guesses, no unrequested background, and a task list first, then the steps in order, for work of several steps. The `research` rules ask for evidence on every claim and for a claim that rests on memory to be marked as a guess. The `discuss` rules ask for one recommendation first with the pros and cons of each option. The `execute` rules ask for done, failed and skipped work.
   - When the types hold `discuss`, the `<hard rule>` block ends with two more fixed lines. They ask Claude to put its questions through AskUserQuestion with the recommended option first.
   - Before the mod builds the message, it cleans the rewrite. It removes every line that repeats a fixed line or an instruction line, ignoring white space and the word "나에게", and every line that holds only one of the four tags. It reduces a run of blank lines to one blank line outside `<input>` blocks, and trims both ends. So a message that is upgraded again gets one fresh wrapper, and the draft never holds the same rule twice.
@@ -127,7 +128,7 @@ Your prompt > Questions > Rewrite > Draft in the prompt box
   - A draft that is upgraded again loses its old numbers, and the numbers are decided again. Numbers inside `<input>` tags stay.
 - The mod puts the draft in the prompt box. It does not send it.
   - For a Korean prompt the box holds the rewrite alone. The instruction and the fixed lines are not in the box.
-  - A dim label such as `[+9 lines added on send]` stands alone on the first line of the box, and the text starts on the second line. The number is the count of lines the mod adds.
+  - A dim label such as `[+11 lines added on send]` stands alone on the first line of the box, and the text starts on the second line. The number is the count of lines the mod adds.
     The label is drawn only. It is not part of the text, so it is never sent or copied.
     It stays while the text is the draft or an edit of it, whatever the size of the edit, and goes when the text holds a wrapper tag or an instruction line, when the box is empty and after the send.
   - A prompt without Korean characters, a draft that names a tag, and the original that comes back after a Haiku failure have nothing aside. They go out as the box holds them.
@@ -234,6 +235,7 @@ Every failure path ends with your original prompt: a Haiku error or timeout puts
   - The mod does not detect such prompts. Put an off trigger at an edge of the prompt to send it as it is.
 - The mod cannot check what Claude writes. The `<hard rule>` block is in the message the mod sends, and it is not in the prompt box. Whether the prompt Claude writes carries those sentences unchanged depends on the instruction.
 - If the mod fails while it adds the instruction and the rules, your text goes out as you typed it, without them. A log row says why when the log call works.
+- An earlier version worded the instruction as an order to run the prompt. The mod still knows that wording: the chat row of such a message shows only its `<source>` part, and a message that holds it is cleaned of it when you upgrade it again.
 - A message that you upgrade again is cleaned of the instruction lines it holds. If the rewrite model words an instruction line differently, that line stays in the `<source>` part, and a tag inside it makes the mod add no wrapper.
 
 ## Source

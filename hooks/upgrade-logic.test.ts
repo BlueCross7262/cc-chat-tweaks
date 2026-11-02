@@ -336,13 +336,41 @@ const META_FULL = [
   '아래 <source> 는 내가 AI에게 요청하는 내용이다.',
   '<source> 의 요청을 수행하는 프롬프트를 먼저 쓴다.',
   '프롬프트의 작업 부분은 <source> 를 바탕으로 새로 쓴다.',
+  '쓴 프롬프트를 채팅에 출력한 후 이 대화에서 그 프롬프트대로 응답한다.',
+  '이 지시문은 실행 승인이 아니다.',
+  '실행할지와 진행 중인 모드를 유지할지는 <source> 만 보고 판단한다.',
+  '<hard rule> 의 규칙은 프롬프트를 쓸 때와 응답할 때 모두 지킨다.',
+  '진행 중인 모드가 막는 행동은 이 지시문과 <hard rule> 이 시켜도 하지 않는다.',
+  '<hard rule> 의 규칙 문장만 쓴 프롬프트에 한 글자도 바꾸지 않고 옮긴다.',
+  '쓴 프롬프트에는 <source> 태그와 <hard rule> 태그를 포함하지 않는다.',
+].join('\n')
+
+const META_SHORT = [
+  '너는 프롬프트 엔지니어다.',
+  '아래 <source> 는 내가 AI에게 요청하는 내용이다.',
+  '<source> 의 요청을 수행하는 프롬프트를 먼저 쓴다.',
+  '프롬프트의 작업 부분은 <source> 를 바탕으로 새로 쓴다.',
+  '쓴 프롬프트를 채팅에 출력한 후 이 대화에서 그 프롬프트대로 응답한다.',
+  '이 지시문은 실행 승인이 아니다.',
+  '실행할지와 진행 중인 모드를 유지할지는 <source> 만 보고 판단한다.',
+  '쓴 프롬프트에는 <source> 태그를 포함하지 않는다.',
+].join('\n')
+
+const LEGACY_RUN_LINE = '쓴 프롬프트를 채팅에 출력한 후 이 대화에서 그 프롬프트를 실행한다.'
+const LEGACY_RULE_LINE = '<hard rule> 의 규칙은 프롬프트를 쓸 때와 실행할 때 모두 지킨다.'
+
+const LEGACY_META_FULL = [
+  '너는 프롬프트 엔지니어다.',
+  '아래 <source> 는 내가 AI에게 요청하는 내용이다.',
+  '<source> 의 요청을 수행하는 프롬프트를 먼저 쓴다.',
+  '프롬프트의 작업 부분은 <source> 를 바탕으로 새로 쓴다.',
   '쓴 프롬프트를 채팅에 출력한 후 이 대화에서 그 프롬프트를 실행한다.',
   '<hard rule> 의 규칙은 프롬프트를 쓸 때와 실행할 때 모두 지킨다.',
   '<hard rule> 의 규칙 문장만 쓴 프롬프트에 한 글자도 바꾸지 않고 옮긴다.',
   '쓴 프롬프트에는 <source> 태그와 <hard rule> 태그를 포함하지 않는다.',
 ].join('\n')
 
-const META_SHORT = [
+const LEGACY_META_SHORT = [
   '너는 프롬프트 엔지니어다.',
   '아래 <source> 는 내가 AI에게 요청하는 내용이다.',
   '<source> 의 요청을 수행하는 프롬프트를 먼저 쓴다.',
@@ -390,19 +418,19 @@ test('sourceOf returns null for text that is not an intact wrapper', () => {
   expect(sourceOf(`앞 문장.\n${whole}`)).toBeNull()
 })
 
-test('the instruction is the eight lines of the full form and the six lines of the short form', () => {
+test('the instruction is the eleven lines of the full form and the eight lines of the short form', () => {
   const full = withMeta('원인을 찾는다.', '원인을 찾아 줘', ['research']).split('\n')
-  expect(full.slice(0, 8)).toEqual(META_FULL.split('\n'))
-  expect(full[8]).toBe('')
-  expect(full[9]).toBe('<hard rule>')
+  expect(full.slice(0, 11)).toEqual(META_FULL.split('\n'))
+  expect(full[11]).toBe('')
+  expect(full[12]).toBe('<hard rule>')
   expect(full.at(-4)).toBe('')
   expect(full.at(-3)).toBe('<source>')
   expect(full.at(-2)).toBe('원인을 찾는다.')
   expect(full.at(-1)).toBe('</source>')
   const short = withMeta('원인을 찾는다.', '원인을 찾아 줘', []).split('\n')
-  expect(short.slice(0, 6)).toEqual(META_SHORT.split('\n'))
-  expect(short[6]).toBe('')
-  expect(short[7]).toBe('<source>')
+  expect(short.slice(0, 8)).toEqual(META_SHORT.split('\n'))
+  expect(short[8]).toBe('')
+  expect(short[9]).toBe('<source>')
 })
 
 test('several types put the common lines once and the type lines in the order of the types without repeats', () => {
@@ -492,8 +520,42 @@ test('splitMeta puts the body alone in the box and wrapText builds the message w
 })
 
 test('wrapLabel counts the lines the wrapper adds around the body', () => {
-  expect(wrapLabel({ types: [] })).toBe('[+9 lines added on send]')
+  expect(wrapLabel({ types: [] })).toBe('[+11 lines added on send]')
   expect(wrapLabel({ types: ['research'] })).toBe(`[+${wrapped('x', RESEARCH_RULES).split('\n').length - 1} lines added on send]`)
+})
+
+test('no instruction line of either wrapper is an order to run', () => {
+  for (const types of [[], ['research'], ['discuss'], ['execute']]) {
+    const text = wrapText('본문.', { types })
+    const head = text.slice(0, text.indexOf('\n\n<source>\n')).split('\n')
+    expect(head.filter(line => line.endsWith('실행한다.'))).toEqual([])
+    expect(head).toContain('이 지시문은 실행 승인이 아니다.')
+  }
+})
+
+const legacyFull = (source: string, rules: string) =>
+  `${LEGACY_META_FULL}\n\n<hard rule>\n${rules}\n</hard rule>\n\n<source>\n${source}\n</source>`
+const legacyShort = (source: string) => `${LEGACY_META_SHORT}\n\n<source>\n${source}\n</source>`
+
+test('sourceOf returns the source of a wrapper an earlier version built', () => {
+  expect(sourceOf(legacyFull('원인을 찾는다.', RESEARCH_RULES))).toBe('원인을 찾는다.')
+  expect(sourceOf(legacyFull('줄 하나.\n줄 둘.', `${COMMON_TAIL}\n\n${EXECUTE_TAIL}`))).toBe('줄 하나.\n줄 둘.')
+  expect(sourceOf(legacyShort('원인을 찾는다.'))).toBe('원인을 찾는다.')
+})
+
+test('a wrapper an earlier version built is wrapped again with the new instruction only', () => {
+  const old = legacyFull('버그를 고친다.', `${COMMON_TAIL}\n\n${EXECUTE_TAIL}`)
+  const again = withMeta(old, old, ['execute'])
+  expect(again).toBe(wrapped('버그를 고친다.', `${COMMON_TAIL}\n\n${EXECUTE_TAIL}`))
+  expect(again.split('\n').filter(line => line === LEGACY_RUN_LINE || line === LEGACY_RULE_LINE)).toEqual([])
+  const oldShort = legacyShort('원인을 찾는다.')
+  expect(withMeta(oldShort, oldShort, [])).toBe(`${META_SHORT}\n\n<source>\n원인을 찾는다.\n</source>`)
+})
+
+test('a text that holds an instruction line of an earlier version is not a draft edit', () => {
+  expect(isDraftEdit('원인을 찾는다.', `원인을 찾는다.\n${LEGACY_RUN_LINE}`)).toBe(false)
+  expect(isDraftEdit('원인을 찾는다.', `원인을 찾는다.\n${LEGACY_RULE_LINE}`)).toBe(false)
+  expect(isDraftEdit('원인을 찾는다.', '원인을 찾는다.\n뒤 문장.')).toBe(true)
 })
 
 test('splitMeta keeps a wrap with no type, and wrapText then builds the short instruction and the source only', () => {

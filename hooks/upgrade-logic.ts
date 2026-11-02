@@ -385,17 +385,51 @@ const META_LINES: readonly string[] = [
   '아래 <source> 는 내가 AI에게 요청하는 내용이다.',
   '<source> 의 요청을 수행하는 프롬프트를 먼저 쓴다.',
   '프롬프트의 작업 부분은 <source> 를 바탕으로 새로 쓴다.',
-  '쓴 프롬프트를 채팅에 출력한 후 이 대화에서 그 프롬프트를 실행한다.',
+  '쓴 프롬프트를 채팅에 출력한 후 이 대화에서 그 프롬프트대로 응답한다.',
+  '이 지시문은 실행 승인이 아니다.',
+  '실행할지와 진행 중인 모드를 유지할지는 <source> 만 보고 판단한다.',
 ]
 
-const META_FULL_LINES: readonly string[] = [
-  ...META_LINES,
-  '<hard rule> 의 규칙은 프롬프트를 쓸 때와 실행할 때 모두 지킨다.',
+const RULES_TAIL_LINES: readonly string[] = [
   '<hard rule> 의 규칙 문장만 쓴 프롬프트에 한 글자도 바꾸지 않고 옮긴다.',
   '쓴 프롬프트에는 <source> 태그와 <hard rule> 태그를 포함하지 않는다.',
 ]
 
-const META_SHORT_LINES: readonly string[] = [...META_LINES, '쓴 프롬프트에는 <source> 태그를 포함하지 않는다.']
+const SHORT_TAIL_LINE = '쓴 프롬프트에는 <source> 태그를 포함하지 않는다.'
+
+const META_FULL_LINES: readonly string[] = [
+  ...META_LINES,
+  '<hard rule> 의 규칙은 프롬프트를 쓸 때와 응답할 때 모두 지킨다.',
+  '진행 중인 모드가 막는 행동은 이 지시문과 <hard rule> 이 시켜도 하지 않는다.',
+  ...RULES_TAIL_LINES,
+]
+
+const META_SHORT_LINES: readonly string[] = [...META_LINES, SHORT_TAIL_LINE]
+
+const LEGACY_META_LINES: readonly string[] = [
+  '너는 프롬프트 엔지니어다.',
+  '아래 <source> 는 내가 AI에게 요청하는 내용이다.',
+  '<source> 의 요청을 수행하는 프롬프트를 먼저 쓴다.',
+  '프롬프트의 작업 부분은 <source> 를 바탕으로 새로 쓴다.',
+  '쓴 프롬프트를 채팅에 출력한 후 이 대화에서 그 프롬프트를 실행한다.',
+]
+
+const LEGACY_FULL_LINES: readonly string[] = [
+  ...LEGACY_META_LINES,
+  '<hard rule> 의 규칙은 프롬프트를 쓸 때와 실행할 때 모두 지킨다.',
+  ...RULES_TAIL_LINES,
+]
+
+const LEGACY_SHORT_LINES: readonly string[] = [...LEGACY_META_LINES, SHORT_TAIL_LINE]
+
+const HEADS: readonly { lines: readonly string[]; rules: boolean }[] = [
+  { lines: META_FULL_LINES, rules: true },
+  { lines: META_SHORT_LINES, rules: false },
+  { lines: LEGACY_FULL_LINES, rules: true },
+  { lines: LEGACY_SHORT_LINES, rules: false },
+]
+
+const HEAD_LINES: readonly string[] = HEADS.flatMap(head => head.lines)
 
 const tidyBody = (text: string): string =>
   text
@@ -414,7 +448,7 @@ export const splitMeta = (
   const blocks = typeBlocks(types)
   const hasRules = blocks.length > 0
   const dropped = new Set(
-    [...META_FULL_LINES, ...META_SHORT_LINES, ...(hasRules ? [...COMMON_LINES, ...blocks.flat()] : [])].map(normalizeLine),
+    [...HEAD_LINES, ...(hasRules ? [...COMMON_LINES, ...blocks.flat()] : [])].map(normalizeLine),
   )
   const body = tidyBody(
     draft
@@ -443,12 +477,12 @@ const RULES_OPEN = '<hard rule>\n'
 const RULES_CLOSE = '\n</hard rule>\n\n'
 
 export const sourceOf = (text: string): string | null => {
-  for (const lines of [META_FULL_LINES, META_SHORT_LINES]) {
+  for (const { lines, rules } of HEADS) {
     const prefix = `${lines.join('\n')}\n\n`
     if (!text.startsWith(prefix)) continue
 
     let rest = text.slice(prefix.length)
-    if (lines === META_FULL_LINES) {
+    if (rules) {
       if (!rest.startsWith(RULES_OPEN)) continue
       const end = rest.indexOf(RULES_CLOSE + SOURCE_OPEN)
       if (end < 0) continue
@@ -470,7 +504,7 @@ export const withMeta = (draft: string, original: string, types: readonly string
   return wrap === null ? box : wrapText(box, wrap)
 }
 
-const META_FLAT_LINES: readonly string[] = [...new Set([...META_FULL_LINES, ...META_SHORT_LINES].map(squash))]
+const META_FLAT_LINES: readonly string[] = [...new Set(HEAD_LINES.map(squash))]
 
 const hasMeta = (raw: string): boolean => {
   if (META_TAGS.some(tag => raw.includes(tag))) return true

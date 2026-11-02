@@ -617,8 +617,11 @@ const FLOW_META_FULL = [
   '아래 <source> 는 내가 AI에게 요청하는 내용이다.',
   '<source> 의 요청을 수행하는 프롬프트를 먼저 쓴다.',
   '프롬프트의 작업 부분은 <source> 를 바탕으로 새로 쓴다.',
-  '쓴 프롬프트를 채팅에 출력한 후 이 대화에서 그 프롬프트를 실행한다.',
-  '<hard rule> 의 규칙은 프롬프트를 쓸 때와 실행할 때 모두 지킨다.',
+  '쓴 프롬프트를 채팅에 출력한 후 이 대화에서 그 프롬프트대로 응답한다.',
+  '이 지시문은 실행 승인이 아니다.',
+  '실행할지와 진행 중인 모드를 유지할지는 <source> 만 보고 판단한다.',
+  '<hard rule> 의 규칙은 프롬프트를 쓸 때와 응답할 때 모두 지킨다.',
+  '진행 중인 모드가 막는 행동은 이 지시문과 <hard rule> 이 시켜도 하지 않는다.',
   '<hard rule> 의 규칙 문장만 쓴 프롬프트에 한 글자도 바꾸지 않고 옮긴다.',
   '쓴 프롬프트에는 <source> 태그와 <hard rule> 태그를 포함하지 않는다.',
 ].join('\n')
@@ -628,7 +631,9 @@ const FLOW_META_SHORT = [
   '아래 <source> 는 내가 AI에게 요청하는 내용이다.',
   '<source> 의 요청을 수행하는 프롬프트를 먼저 쓴다.',
   '프롬프트의 작업 부분은 <source> 를 바탕으로 새로 쓴다.',
-  '쓴 프롬프트를 채팅에 출력한 후 이 대화에서 그 프롬프트를 실행한다.',
+  '쓴 프롬프트를 채팅에 출력한 후 이 대화에서 그 프롬프트대로 응답한다.',
+  '이 지시문은 실행 승인이 아니다.',
+  '실행할지와 진행 중인 모드를 유지할지는 <source> 만 보고 판단한다.',
   '쓴 프롬프트에는 <source> 태그를 포함하지 않는다.',
 ].join('\n')
 
@@ -745,7 +750,7 @@ test('a Korean draft in the prompt box raises no toast, because the label says w
   expect(s.toasts).toEqual([])
 })
 
-const SHORT_LABEL = '[+9 lines added on send]\n'
+const SHORT_LABEL = '[+11 lines added on send]\n'
 const labelAt = () => [{ start: 0, end: 0, virtualText: SHORT_LABEL, dimColor: true }]
 type EditResult = { text: string; decorations?: unknown[] }
 const editAt = ($: Engine, text: string, start: number, end: number, inputText: string) =>
