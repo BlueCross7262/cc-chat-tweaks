@@ -140,7 +140,7 @@ A prompt you type at the prompt box and send is held back, upgraded in the backg
 - With `use-questions` `true`, Haiku asks up to three questions with 3 to 5 options each, and the mod answers each one with its recommended option. You are not asked.
 - Haiku rewrites the prompt as prose with one sentence on each line and keeps pasted material as it is, wrapped in `<input>` tags.
 - A Korean prompt is sent as one message: an instruction that asks Claude to write a prompt from the rewrite, print it and answer it, a statement that the instruction is not an approval to run anything, the answer rules for its type between `<hard rule>` tags, and the rewrite between `<source>` tags at the end. The mod builds the message in code, so the rules reach Claude as they are written.
-  - The prompt box holds the rewrite alone. The mod adds the instruction and the rules when you send the draft, and a dim label line such as `[+11 lines added on send]` above the text says so.
+  - The prompt box holds the rewrite alone. The mod adds the instruction and the rules when you send the draft, and a dim label line such as `[+12 lines added on send]` above the text says so.
   - The chat row of the sent message shows the rewrite alone. The instruction and the rules are not drawn, but Claude still gets them.
   - An edited draft gets them too, whatever the size of the edit. A text that already holds a wrapper tag or an instruction line is sent as it is, and a toast says the instruction and rules were not added.
   - Put `---` at an edge of the draft to send the rewrite without them.

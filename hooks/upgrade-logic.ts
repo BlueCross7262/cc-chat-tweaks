@@ -334,12 +334,9 @@ type PromptType = (typeof PROMPT_TYPES)[number]
 const QUESTION_TYPES: readonly PromptType[] = ['discuss']
 
 const COMMON_LINES: readonly string[] = [
-  '충분히 조사한다.',
-  '설치된 스킬 중 이 요청에 맞는 스킬이 있으면 Skill 도구로 불러서 따른다.',
+  '원본 데이터에서 확인이 필요 없을 때까지 충분히 조사한다.',
   '결과나 결론을 첫 줄에 쓴다.',
   '확인한 사실과 추측을 구분해 쓴다.',
-  '확인하지 못한 내용은 확인하지 못했다고 쓴다.',
-  '요청하지 않은 배경 설명을 쓰지 않는다.',
   '이미 있는 할일 목록 중 이번 프롬프트와 관련없는 항목은 삭제한다.',
   '여러 단계의 작업이면 할일 목록을 먼저 생성하고 순서대로 진행한다.',
 ]
@@ -353,12 +350,13 @@ const TYPE_LINES: Readonly<Record<PromptType, readonly string[]>> = {
     '근거끼리 충돌하면 충돌한 사실을 그대로 쓴다.',
   ],
   discuss: [
+    '순서대로 질문하고 질문 전에 쉽게 설명한다.',
     '권장안 하나를 첫 줄에 쓰고 이유를 그 뒤에 쓴다.',
-    '선택지마다 장점과 단점을 한 줄씩 쓴다.',
     '권장안을 고른 기준을 밝힌다.',
   ],
   execute: [
     '완료한 작업, 실패한 작업, 하지 않은 작업을 나눠 쓴다.',
+    '독립 도구로 완료한 작업을 증명한다.',
   ],
 }
 
@@ -383,8 +381,9 @@ const META_TAGS: readonly string[] = ['<source>', '</source>', '<hard rule>', '<
 const META_LINES: readonly string[] = [
   '너는 프롬프트 엔지니어다.',
   '아래 <source> 는 내가 AI에게 요청하는 내용이다.',
-  '<source> 의 요청을 수행하는 프롬프트를 먼저 쓴다.',
-  '프롬프트의 작업 부분은 <source> 를 바탕으로 새로 쓴다.',
+  '<source> 를 이해하고 맥락에 맞게 전문가가 초보자에게 조언하듯 쉽게 프롬프트를 새로 쓴다.',
+  '- 요청, 분석을 먼저 쓰고 목표를 다음에 쓴다.',
+  '- 명사를 동사로 풀어서 쉬운 언어로 쓴다.',
   '쓴 프롬프트를 채팅에 출력한 후 이 대화에서 그 프롬프트대로 응답한다.',
   '이 지시문은 실행 승인이 아니다.',
   '실행할지와 진행 중인 모드를 유지할지는 <source> 만 보고 판단한다.',
@@ -406,27 +405,9 @@ const META_FULL_LINES: readonly string[] = [
 
 const META_SHORT_LINES: readonly string[] = [...META_LINES, SHORT_TAIL_LINE]
 
-const LEGACY_META_LINES: readonly string[] = [
-  '너는 프롬프트 엔지니어다.',
-  '아래 <source> 는 내가 AI에게 요청하는 내용이다.',
-  '<source> 의 요청을 수행하는 프롬프트를 먼저 쓴다.',
-  '프롬프트의 작업 부분은 <source> 를 바탕으로 새로 쓴다.',
-  '쓴 프롬프트를 채팅에 출력한 후 이 대화에서 그 프롬프트를 실행한다.',
-]
-
-const LEGACY_FULL_LINES: readonly string[] = [
-  ...LEGACY_META_LINES,
-  '<hard rule> 의 규칙은 프롬프트를 쓸 때와 실행할 때 모두 지킨다.',
-  ...RULES_TAIL_LINES,
-]
-
-const LEGACY_SHORT_LINES: readonly string[] = [...LEGACY_META_LINES, SHORT_TAIL_LINE]
-
 const HEADS: readonly { lines: readonly string[]; rules: boolean }[] = [
   { lines: META_FULL_LINES, rules: true },
   { lines: META_SHORT_LINES, rules: false },
-  { lines: LEGACY_FULL_LINES, rules: true },
-  { lines: LEGACY_SHORT_LINES, rules: false },
 ]
 
 const HEAD_LINES: readonly string[] = HEADS.flatMap(head => head.lines)
