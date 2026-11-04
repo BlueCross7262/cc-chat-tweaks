@@ -1,8 +1,9 @@
 # Prompt Upgrade (`prompt.prompt-upgrade.use`)
 
 A feature of cc-chat-tweaks.
-It intercepts a prompt you submit, rewrites it as prose with Haiku, and puts the draft in the prompt box. You read it and press Enter yourself.
-For a Korean prompt the draft is a message that asks Claude to write a prompt from the rewrite, print it in the chat and answer it.
+It intercepts a prompt you submit and puts a draft in the prompt box. You read it and press Enter yourself.
+With `use-rewrite` `true` the draft is a rewrite of the prompt as prose. With the default `use-rewrite` `false` the draft is the prompt as you typed it.
+For a Korean prompt the draft is sent as a message that asks Claude to write a prompt from the draft, print it in the chat and answer it.
 The message says that it is not an approval to run anything. It says that the `<source>` part alone decides whether a running mode, such as a discussion mode, stays on.
 
 ## Security notice
@@ -11,6 +12,7 @@ The message says that it is not an approval to run anything. It says that the `<
 - While `use` is `true`, the mod sees every prompt you submit.
 - The prompt upgrade is on by default, so the mod sees your prompts until you set `use` to `false`.
 - Each upgraded prompt costs up to three model calls on your plan or API key: one prompt type call and up to two upgrade calls (the questions and the rewrite). The default model is `haiku` for the prompt type call and `sonnet` for the others.
+- With the default `use-rewrite` `false` there are no upgrade calls. A Korean prompt costs the prompt type call only, and a prompt without Korean characters costs none.
 - The mod sends prompt text to the model only through `$.model.complete`.
 - The mod makes no other network call and does not use `$.http`.
 - The mod stores no prompt text. The probe log keeps lengths and origin only.
@@ -37,7 +39,8 @@ A key that is absent uses its default.
 | Key | Default | Feature |
 |---|---|---|
 | `use` | `true` | Intercept your prompts and upgrade them. |
-| `use-questions` | `false` | Ask Haiku for clarifying questions. The mod answers each question with its recommended option, and you are not asked. When `false`, the mod rewrites the prompt at once. |
+| `use-rewrite` | `false` | Option of `use`. When `true`, the rewrite call writes the draft. When `false`, there is no rewrite call and no questions call. A Korean prompt goes back to the prompt box as you typed it, and the instruction and the fixed lines are added when you send it. A prompt without Korean characters is sent at once, without the trigger. |
+| `use-questions` | `false` | Ask Haiku for clarifying questions. The mod answers each question with its recommended option, and you are not asked. When `false`, the mod rewrites the prompt at once. It has no effect while `use-rewrite` is `false`. |
 | `skip-silent-trigger` | `true` | Option of `use`. When `true`, the trigger check is skipped and every prompt of `min-length` or more is upgraded. When `false`, only a prompt with the trigger is upgraded and any other prompt passes through unchanged. |
 | `silent-triggers` | `["+++"]` | The trigger texts, as an array of strings. Any one of them at the start or the end of a prompt is a trigger. Each entry is 1 to 32 characters after trimming. An entry that is blank or not text is dropped, a repeated entry counts once, and only the first 10 entries are used. An array with no valid entry uses the default. The old key `silent-trigger` is not read. |
 | `silent-off-triggers` | `["---"]` | Option of `use`. The texts that turn the silent upgrade off for one prompt, as an array of strings. Any one of them at the start or the end of a prompt is a trigger. The entry rules are those of `silent-triggers`, except that an empty array `[]` is valid and turns the opt-out off. |
@@ -61,6 +64,7 @@ The key `use-silent-upgrade` is retired. The mod does not read its value, whethe
     "prompt": {
       "prompt-upgrade": {
         "use": true,
+        "use-rewrite": false,
         "use-questions": false,
         "skip-silent-trigger": true,
         "silent-triggers": ["+++"],
@@ -93,9 +97,14 @@ A model the engine refuses makes the call fail, and the flow ends with your orig
 ## Flow
 
 ```
-Your prompt > Questions > Rewrite > Draft in the prompt box
+use-rewrite true:   Your prompt > Questions > Rewrite > Draft in the prompt box
+use-rewrite false:  Your prompt > Prompt type > Your prompt in the prompt box
 ```
 
+- With `use-rewrite` `false`:
+  - A prompt without Korean characters is not dropped. It is sent at once, without the trigger, and no model call is made.
+  - A Korean prompt is dropped, and only the prompt type call runs. Your prompt goes back to the prompt box as the draft, cleaned as below, with the label line.
+  - The draft is sent with the instruction and the fixed lines, as for a rewrite. The rest of this section, except the questions and the rewrite, applies to it too.
 - A prompt typed at the prompt box is dropped and the upgrade starts in the background.
 - Haiku also reads up to the last six messages of the conversation (500 characters each, 3000 in all), so a prompt such as "fix the code above" has something to refer to.
 - At the same time, one prompt type call sorts the prompt into `research`, `discuss` and `execute`, one or more in the order the prompt asks for them.

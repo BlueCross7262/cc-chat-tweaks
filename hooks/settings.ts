@@ -6,6 +6,7 @@ export const FLAG_DEFAULTS = {
   'use-edit-summary': false,
   'use-prompt-upgrade': true,
   'use-questions': false,
+  'use-rewrite': false,
   'skip-silent-trigger': true,
   'use-char-count': false,
   'use-answer-colors': false,
@@ -24,6 +25,7 @@ export const FLAG_PATHS: Record<FlagKey, readonly string[]> = {
   'use-edit-summary': CHAT_PATH,
   'use-prompt-upgrade': PROMPT_UPGRADE_PATH,
   'use-questions': PROMPT_UPGRADE_PATH,
+  'use-rewrite': PROMPT_UPGRADE_PATH,
   'skip-silent-trigger': PROMPT_UPGRADE_PATH,
   'use-char-count': CHAR_COUNT_PATH,
   'use-answer-colors': ANSWER_COLORS_PATH,
@@ -37,7 +39,7 @@ export const GROUP_PATHS: readonly (readonly string[])[] = [CHAT_PATH, TOOL_FOLD
 
 export const pathText = (path: readonly string[]): string => [SETTINGS_NAMESPACE, ...path].join('.')
 
-export const OPTION_KEYS: readonly FlagKey[] = ['use-questions', 'skip-silent-trigger']
+export const OPTION_KEYS: readonly FlagKey[] = ['use-questions', 'use-rewrite', 'skip-silent-trigger']
 
 export const isFeatureKey = (key: FlagKey): boolean => !OPTION_KEYS.includes(key)
 
@@ -369,6 +371,7 @@ export const flagsOf = (sources: readonly unknown[]): Flags => ({
   'use-edit-summary': isFlagOn(sources, 'use-edit-summary'),
   'use-prompt-upgrade': isFlagOn(sources, 'use-prompt-upgrade'),
   'use-questions': isFlagOn(sources, 'use-questions'),
+  'use-rewrite': isFlagOn(sources, 'use-rewrite'),
   'skip-silent-trigger': isFlagOn(sources, 'skip-silent-trigger'),
   'use-char-count': isFlagOn(sources, 'use-char-count'),
   'use-answer-colors': isFlagOn(sources, 'use-answer-colors'),

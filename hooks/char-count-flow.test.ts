@@ -16,7 +16,7 @@ const world = ($: Engine, on: On, options: { isOn?: boolean; isUpgradeOn?: boole
   mock.store(on, {})
   const prompt = {
     'char-count': { use: options.isOn ?? true },
-    'prompt-upgrade': { use: options.isUpgradeOn ?? false, 'use-questions': false, 'skip-silent-trigger': true },
+    'prompt-upgrade': { use: options.isUpgradeOn ?? false, 'use-questions': false, 'use-rewrite': true, 'skip-silent-trigger': true },
   }
   on('settings.read', (_$, e) => ({ value: (e as { source?: string }).source === 'user' ? { ccChatTweaks: { prompt } } : {} }) as never)
   on('session.surfaces', () => ({ value: ['terminal'] }) as never)

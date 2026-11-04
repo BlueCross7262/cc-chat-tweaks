@@ -11,6 +11,7 @@ import {
   FLAG_PATHS,
   flagsOf,
   ignoredKeysOf,
+  isFeatureKey,
   isFlagOn,
   labelOf,
   minLengthOf,
@@ -209,6 +210,7 @@ test('the defaults when no source sets a key', () => {
   expect(isFlagOn([], 'use-edit-summary')).toBe(false)
   expect(isFlagOn([], 'use-prompt-upgrade')).toBe(true)
   expect(isFlagOn([], 'use-questions')).toBe(false)
+  expect(isFlagOn([], 'use-rewrite')).toBe(false)
   expect(isFlagOn([], 'skip-silent-trigger')).toBe(true)
   expect(isFlagOn([], 'use-char-count')).toBe(false)
   expect(isFlagOn([], 'use-answer-colors')).toBe(false)
@@ -218,7 +220,7 @@ test('the defaults when no source sets a key', () => {
 })
 
 test('the prompt upgrade keys live under ccChatTweaks.prompt.prompt-upgrade and are read from nowhere else', () => {
-  for (const key of ['use-prompt-upgrade', 'use-questions', 'skip-silent-trigger'] as const) {
+  for (const key of ['use-prompt-upgrade', 'use-questions', 'use-rewrite', 'skip-silent-trigger'] as const) {
     expect(FLAG_PATHS[key]).toEqual(['prompt', 'prompt-upgrade'])
   }
   expect(FLAG_PATHS['use-tool-fold']).toEqual(['chat', 'tool-fold'])
@@ -236,6 +238,13 @@ test('the prompt upgrade keys live under ccChatTweaks.prompt.prompt-upgrade and 
   expect(modelIn([{ ccChatTweaks: { prompt: { models: { ask: { model: 'opus' } } } } }], 'ask')).toBeUndefined()
   expect(isFlagOn([{ ccChatTweaks: { chat: { 'use-prompt-upgrade': false } } }], 'use-prompt-upgrade')).toBe(true)
   expect(isFlagOn([{ ccChatTweaks: { chat: { 'use-questions': true } } }], 'use-questions')).toBe(false)
+  expect(isFlagOn([up({ 'use-rewrite': true })], 'use-rewrite')).toBe(true)
+  expect(isFlagOn([{ ccChatTweaks: { chat: { 'use-rewrite': true } } }], 'use-rewrite')).toBe(false)
+})
+
+test('use-rewrite is an option of the prompt upgrade, not a feature', () => {
+  expect(isFeatureKey('use-rewrite')).toBe(false)
+  expect(isFeatureKey('use-prompt-upgrade')).toBe(true)
 })
 
 test('tool folding is switched by ccChatTweaks.chat.tool-fold.use and by nothing else', () => {
@@ -308,6 +317,7 @@ test('reads every flag at once', () => {
     'use-edit-summary': true,
     'use-prompt-upgrade': true,
     'use-questions': false,
+    'use-rewrite': false,
     'skip-silent-trigger': true,
     'use-char-count': false,
     'use-answer-colors': false,
@@ -336,6 +346,7 @@ test('adds only the missing switches with their default and keeps everything els
     'use-edit-summary',
     'use-prompt-upgrade',
     'use-questions',
+    'use-rewrite',
     'skip-silent-trigger',
     'use-char-count',
     'use-answer-colors',
@@ -363,6 +374,7 @@ test('adds only the missing switches with their default and keeps everything els
         'prompt-upgrade': {
           use: true,
           'use-questions': false,
+          'use-rewrite': false,
           'skip-silent-trigger': true,
           'min-length': 10,
           'silent-triggers': ['+++'],
@@ -379,8 +391,8 @@ test('adds only the missing switches with their default and keeps everything els
 })
 
 test('builds the whole section for an empty or malformed file', () => {
-  expect(withMissingDefaults({}).added).toHaveLength(17)
-  expect(withMissingDefaults(null).added).toHaveLength(17)
+  expect(withMissingDefaults({}).added).toHaveLength(18)
+  expect(withMissingDefaults(null).added).toHaveLength(18)
   expect(withMissingDefaults({ ccChatTweaks: 'x' }).settings).toEqual({
     ccChatTweaks: {
       chat: {
@@ -392,6 +404,7 @@ test('builds the whole section for an empty or malformed file', () => {
         'prompt-upgrade': {
           use: true,
           'use-questions': false,
+          'use-rewrite': false,
           'skip-silent-trigger': true,
           'min-length': 10,
           'silent-triggers': ['+++'],
@@ -533,6 +546,7 @@ test('reports nothing to add when every switch is present', () => {
         'prompt-upgrade': {
           use: false,
           'use-questions': true,
+          'use-rewrite': false,
           'skip-silent-trigger': true,
           'min-length': 25,
           'silent-triggers': ['##', '>>'],

@@ -324,6 +324,8 @@ export const unwrapDraft = (raw: string): string =>
     .trim()
 
 const HANGUL = /[ㄱ-ㆎ가-힣]/
+
+export const hasHangul = (text: string): boolean => HANGUL.test(text)
 const QUESTION_LINES: readonly string[] = [
   '대화 중에 선택지가 생기면 AskUserQuestion 도구로 나에게 권장안과 함께 질문한다.',
   '권장 보기는 선택지 목록의 맨 앞에 둔다.',

@@ -31,6 +31,7 @@ import {
   squash,
   rewriteInput,
   SKIP_TTL_MS,
+  hasHangul,
   splitMeta,
   toPhase,
   withDraft,
@@ -214,6 +215,21 @@ const startRewrite = async ($: EngineInterface, id: number): Promise<void> => {
   }
 }
 
+const useOriginal = async ($: EngineInterface, id: number): Promise<void> => {
+  try {
+    const loading = await setIf($, id, cur => toPhase(cur, 'rewriteLoading'))
+    if (isStale(loading, id)) return
+    const types = await takeTypes(id, loading.types ?? [])
+    await setIf($, id, cur => {
+      const { box, wrap } = splitMeta(cur.original, cur.original, types)
+
+      return { ...withDraft({ ...cur, types }, box), draftWrap: wrap }
+    })
+  } catch {
+    await toOriginal($, id, FAILED_NOTICE)
+  }
+}
+
 const cancel = async ($: EngineInterface): Promise<void> => {
   const f = await getFlow($)
   await setFlow($, reset)
@@ -281,12 +297,12 @@ const askAndApplyRecommended = async ($: EngineInterface, id: number): Promise<v
   for (const row of answerLogs(next, LOG_ROW_MAX)) writeLog($, row)
 }
 
-const runSilent = async ($: EngineInterface, id: number, typed: string, useQuestions: boolean): Promise<void> => {
+const runSilent = async ($: EngineInterface, id: number, typed: string, useQuestions: boolean, useRewrite: boolean): Promise<void> => {
   try {
     await $.clock.sleep(BOX_SETTLE_MS).catch(() => undefined)
     const baseline = await boxText($)
-    if (useQuestions) await askAndApplyRecommended($, id)
-    await startRewrite($, id)
+    if (useRewrite && useQuestions) await askAndApplyRecommended($, id)
+    await (useRewrite ? startRewrite($, id) : useOriginal($, id))
     const f = await getFlow($)
     if (isStale(f, id) || f.phase !== 'review') return
     if (f.notice !== '') $.ui.toast(f.notice)
@@ -364,6 +380,7 @@ const settingsOf = async ($: EngineInterface) => {
   return {
     isEnabled: flags['use-prompt-upgrade'],
     useQuestions: flags['use-questions'],
+    useRewrite: flags['use-rewrite'],
     skipTrigger: flags['skip-silent-trigger'],
     minLen: minLengthOf(sources) ?? parseMinLen(await $.store.get(KEY_MIN_LEN)),
     silentTriggers: flags['use-prompt-upgrade'] ? (silentTriggersOf(sources) ?? DEFAULT_SILENT_TRIGGERS) : [],
@@ -403,7 +420,7 @@ const wrapSubmitted = (e: PromptSubmitInput, reason: string, filled: string, wra
 }
 
 const interceptOrPass = async ($: EngineInterface, e: PromptSubmitInput) => {
-  const { isEnabled, useQuestions, skipTrigger, minLen, silentTriggers, offTriggers } = await settingsOf($)
+  const { isEnabled, useQuestions, useRewrite, skipTrigger, minLen, silentTriggers, offTriggers } = await settingsOf($)
   const flow = await getFlow($)
   const gate = decideGate({
     text: e.text,
@@ -417,7 +434,7 @@ const interceptOrPass = async ($: EngineInterface, e: PromptSubmitInput) => {
     now: await $.clock.now(),
     flow,
   })
-  if (gate.intercept && 'off' in gate) {
+  if (gate.intercept && ('off' in gate || (!useRewrite && !hasHangul(gate.text)))) {
     await setFlow($, f => ({ ...f, wrap: null })).catch(() => undefined)
 
     return { rewrite: gate.text }
@@ -426,7 +443,7 @@ const interceptOrPass = async ($: EngineInterface, e: PromptSubmitInput) => {
     const context = await readContext($)
     const started = await setFlow($, f => begin(f, gate.text, context))
     startClassify($, started)
-    runSilent($, started.runId, e.text, useQuestions).catch(() => undefined)
+    runSilent($, started.runId, e.text, useQuestions, useRewrite).catch(() => undefined)
 
     // UNVERIFIED: what a dropped prompt leaves in the prompt box and the input history
     return { drop: DROP_REASON }

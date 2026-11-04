@@ -20,8 +20,9 @@ Tool folding, the Edit/Write summary, the answer colours and the character count
 | `chat.tool-fold` | `unfolded-tools` | `["AskUserQuestion", "Skill", "Agent"]` | Option of `use`. The tools that are never folded. Each keeps its own row and ends the run before it. |
 | `chat` | `use-edit-summary` | `false` | Draw `Edit` and `Write` calls as one summary line. |
 | `chat.answer-colors` | `use` | `false` | Draw the row that holds your answers to Claude's questions in three colours: title, question and answer. |
-| `prompt.prompt-upgrade` | `use` | `true` | Rewrite your prompt and put the draft in the prompt box, without sending it. |
-| `prompt.prompt-upgrade` | `use-questions` | `false` | Option of `use`. When `true`, Haiku writes clarifying questions first and the recommended answers are applied. When `false`, the prompt is rewritten without questions. |
+| `prompt.prompt-upgrade` | `use` | `true` | Upgrade your prompt and put the draft in the prompt box, without sending it. |
+| `prompt.prompt-upgrade` | `use-rewrite` | `false` | Option of `use`. When `true`, a model rewrites the prompt and the rewrite is the draft. When `false`, there is no rewrite call: the draft is your prompt as you typed it, and a prompt without Korean characters is sent at once. The instruction and the rules of a Korean prompt are added either way. |
+| `prompt.prompt-upgrade` | `use-questions` | `false` | Option of `use`. When `true` and `use-rewrite` is `true`, Haiku writes clarifying questions first and the recommended answers are applied. When `false`, the prompt is rewritten without questions. With `use-rewrite` `false` there is no questions call. |
 | `prompt.prompt-upgrade` | `skip-silent-trigger` | `true` | Option of `use`. When `true`, the trigger check is skipped and every prompt of `min-length` or more is upgraded. When `false`, only a prompt with the trigger is upgraded. |
 | `prompt.prompt-upgrade` | `silent-triggers` | `["+++"]` | The trigger texts for the silent upgrade, as an array of strings. |
 | `prompt.prompt-upgrade` | `silent-off-triggers` | `["---"]` | The texts that turn the silent upgrade off for one prompt, as an array of strings. The prompt is sent as it is, without the text. `[]` turns this off. |
@@ -47,6 +48,7 @@ Tool folding, the Edit/Write summary, the answer colours and the character count
     "prompt": {
       "prompt-upgrade": {
         "use": true,
+        "use-rewrite": false,
         "use-questions": false
       },
       "char-count": {
@@ -137,6 +139,10 @@ The row the engine draws after you answer an `AskUserQuestion` dialog is drawn a
 
 A prompt you type at the prompt box and send is held back, upgraded in the background and put back in the prompt box as a draft. You read it and press Enter yourself. With the default `skip-silent-trigger` every prompt of `min-length` or more is upgraded. With `false` only a prompt that starts or ends with the trigger `+++` is. A prompt that starts or ends with `---` is sent as it is.
 
+- `use-rewrite` is `false` by default. Then no rewrite call and no questions call is made.
+  - A Korean prompt goes back to the prompt box as you typed it, after the prompt type call. When you send it, the mod adds the instruction and the rules as for a rewrite, with your prompt between `<source>` tags.
+  - A prompt without Korean characters is sent at once, as you typed it and without the trigger. No model call is made.
+- With `use-rewrite` `true` the prompt is rewritten as below.
 - With `use-questions` `true`, Haiku asks up to three questions with 3 to 5 options each, and the mod answers each one with its recommended option. You are not asked.
 - Haiku rewrites the prompt as prose with one sentence on each line and keeps pasted material as it is, wrapped in `<input>` tags.
 - A Korean prompt is sent as one message: an instruction that asks Claude to write a prompt from the rewrite, print it and answer it, a statement that the instruction is not an approval to run anything, the answer rules for its type between `<hard rule>` tags, and the rewrite between `<source>` tags at the end. The mod builds the message in code, so the rules reach Claude as they are written.
