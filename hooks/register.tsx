@@ -41,7 +41,7 @@ import { drawAnswer, drawDeclined } from './answer-colors'
 import { registerCharCount } from './char-count'
 import { formatReport, versionText, type DoctorInput } from './doctor'
 import { COMMAND as UPGRADE_COMMAND, COMMAND_HELP, KEY_MIN_LEN, registerUpgrade } from './upgrade'
-import { EMPTY_FLOW, MIN_LEN, parseMinLen } from './upgrade-logic'
+import { MIN_LEN, parseMinLen } from './upgrade-logic'
 import {
   DEFAULT_UNFOLDED_TOOLS,
   describeExtras,
@@ -65,7 +65,6 @@ const BLINK_MS = 600
 const expandedAtom = atom({ plugin: 'cc-chat-tweaks', key: 'expanded' } as const, [])
 const runsAtom = atom({ plugin: 'cc-chat-tweaks', key: 'runs' } as const, EMPTY_RUN_STATE)
 const blinkAtom = atom({ plugin: 'cc-chat-tweaks', key: 'blink' } as const, true)
-const flowAtom = atom({ plugin: 'cc-chat-tweaks', key: 'flow' } as const, EMPTY_FLOW)
 
 type ToolUseInput = RenderInputOf<'ToolUse', RenderSurface>
 
@@ -303,7 +302,6 @@ const collectDoctorInput = async ($: EngineInterface): Promise<DoctorInput> => {
   const state = normalizeState(await read($, runsAtom))
   const surface = await $.session.surface().then(String, () => 'unknown')
   const version = await $.session.version().then(versionText, () => 'unknown')
-  const flow = await read($, flowAtom)
   const stored = parseMinLen(await $.store.get(KEY_MIN_LEN))
   const minLen = minLengthOf(named.map(([, settings]) => settings)) ?? stored
   const extras = describeExtras(named).map(report =>
@@ -325,7 +323,7 @@ const collectDoctorInput = async ($: EngineInterface): Promise<DoctorInput> => {
       done: state.done.length,
       untimed: untimedOf(state),
     },
-    upgrade: { phase: flow.phase, minLen },
+    upgrade: { minLen },
     env: { surface, version },
   }
 }

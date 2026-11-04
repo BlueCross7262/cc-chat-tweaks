@@ -8,30 +8,10 @@ export type Timing = { id: string; start: number; end: number }
 
 export type RunState = { runs: Run[]; failed: string[]; done: string[]; changes: Change[]; times: Timing[] }
 
-export type Phase = 'idle' | 'askLoading' | 'questions' | 'rewriteLoading' | 'review'
-
-export type Question = { q: string; options: string[]; recommended?: number }
-
 export type Wrap = { types: string[] }
-
-export type Flow = {
-  phase: Phase
-  original: string
-  questions: Question[]
-  answers: Record<string, string>
-  draft: string
-  skipUntil: number
-  filled: string
-  runId: number
-  notice: string
-  context: string
-  types: string[]
-  wrap?: Wrap | null
-  draftWrap?: Wrap | null
-}
 
 declare module 'claude-code' {
   interface PluginState {
-    'cc-chat-tweaks': { expanded: string[]; runs: RunState; blink: boolean; flow: Flow; charCount: number }
+    'cc-chat-tweaks': { expanded: string[]; runs: RunState; blink: boolean; charCount: number }
   }
 }

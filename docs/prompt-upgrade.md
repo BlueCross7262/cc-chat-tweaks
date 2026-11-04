@@ -1,19 +1,17 @@
 # Prompt Upgrade (`prompt.prompt-upgrade.use`)
 
 A feature of cc-chat-tweaks.
-It intercepts a prompt you submit.
-With `use-rewrite` `true` it rewrites the prompt as prose and puts the draft in the prompt box. You read it and press Enter yourself.
-With the default `use-rewrite` `false` it sends the prompt at once, as you typed it.
-For a Korean prompt the text is sent as a message that asks Claude to write a prompt from the draft, print it in the chat and answer it.
+It intercepts a prompt you submit and sends it at once.
+For a Korean prompt the text is sent as a message that asks Claude to write a prompt from your text, print it in the chat and answer it.
 The message says that it is not an approval to run anything. It says that the `<source>` part alone decides whether a running mode, such as a discussion mode, stays on.
+A prompt without Korean characters is sent as you typed it, without the trigger.
 
 ## Security notice
 
 - A mod runs with your user permissions and has no sandbox.
 - While `use` is `true`, the mod sees every prompt you submit.
 - The prompt upgrade is on by default, so the mod sees your prompts until you set `use` to `false`.
-- Each upgraded prompt costs up to three model calls on your plan or API key: one prompt type call and up to two upgrade calls (the questions and the rewrite). The default model is `haiku` for the prompt type call and `sonnet` for the others.
-- With the default `use-rewrite` `false` there are no upgrade calls. A Korean prompt costs the prompt type call only, and a prompt without Korean characters costs none.
+- Each Korean prompt that is upgraded costs one prompt type call on your plan or API key. The default model is `haiku`. A prompt without Korean characters costs none.
 - The mod sends prompt text to the model only through `$.model.complete`.
 - The mod makes no other network call and does not use `$.http`.
 - The mod stores no prompt text. The probe log keeps lengths and origin only.
@@ -39,25 +37,18 @@ A key that is absent uses its default.
 
 | Key | Default | Feature |
 |---|---|---|
-| `use` | `true` | Intercept your prompts and upgrade them. |
-| `use-rewrite` | `false` | Option of `use`. When `true`, the rewrite call writes the draft. When `false`, there is no rewrite call and no questions call. Every prompt is sent at once, without the trigger. A Korean prompt waits for the prompt type call, up to 5 seconds, and gets the instruction and the fixed lines. |
-| `use-questions` | `false` | Ask Haiku for clarifying questions. The mod answers each question with its recommended option, and you are not asked. When `false`, the mod rewrites the prompt at once. It has no effect while `use-rewrite` is `false`. |
+| `use` | `true` | Intercept your prompts and send a Korean prompt with the instruction and the fixed lines. |
 | `skip-silent-trigger` | `true` | Option of `use`. When `true`, the trigger check is skipped and every prompt of `min-length` or more is upgraded. When `false`, only a prompt with the trigger is upgraded and any other prompt passes through unchanged. |
 | `silent-triggers` | `["+++"]` | The trigger texts, as an array of strings. Any one of them at the start or the end of a prompt is a trigger. Each entry is 1 to 32 characters after trimming. An entry that is blank or not text is dropped, a repeated entry counts once, and only the first 10 entries are used. An array with no valid entry uses the default. The old key `silent-trigger` is not read. |
-| `silent-off-triggers` | `["---"]` | Option of `use`. The texts that turn the silent upgrade off for one prompt, as an array of strings. Any one of them at the start or the end of a prompt is a trigger. The entry rules are those of `silent-triggers`, except that an empty array `[]` is valid and turns the opt-out off. |
+| `silent-off-triggers` | `["---"]` | Option of `use`. The texts that turn the upgrade off for one prompt, as an array of strings. Any one of them at the start or the end of a prompt is a trigger. The entry rules are those of `silent-triggers`, except that an empty array `[]` is valid and turns the opt-out off. |
 | `min-length` | `10` | Shortest prompt that is intercepted, in characters. A character is a grapheme, as in the character count label, and white space at both ends is left out. A whole number from 1 to 10000. It beats the value set by `/prompt-upgrade threshold`. |
-| `models.<call>.model` | `sonnet`, and `haiku` for `classify` | The model of one call. `<call>` is `ask` (the questions), `rewrite` or `classify` (the prompt type). An alias or a full model id, 1 to 100 characters after trimming. A blank or non-text value, or a `models` entry that is not an object, uses the default. |
-| `models.<call>.effort` | `low` | The effort of the same call: `low`, `medium`, `high`, `xhigh` or `max`. Any other value uses the default. |
+| `models.classify.model` | `haiku` | The model of the prompt type call. An alias or a full model id, 1 to 100 characters after trimming. A blank or non-text value, or a `models` entry that is not an object, uses the default. |
+| `models.classify.effort` | `low` | The effort of the prompt type call: `low`, `medium`, `high`, `xhigh` or `max`. Any other value uses the default. |
 
-Each call reads only its own entry. The first source that holds a valid value wins.
-The old keys `model`, `effort`, `type-model` and `type-effort` are not read. `/tweaks-doctor` shows a warning for each one it finds, with the key to use instead (`type-model` and `type-effort` map to `models.classify`, the others to `models.ask` and `models.rewrite`).
+The first source that holds a valid model or effort wins.
+The old keys `type-model` and `type-effort` are not read. `/tweaks-doctor` shows a warning for each one it finds, with the key to use instead (`models.classify.model` or `models.classify.effort`).
 
-The key `use-silent-upgrade` is retired. The mod does not read its value, whether it is `true` or `false`, and `/tweaks-doctor` shows a warning for it that names `skip-silent-trigger`. `/tweaks-doctor` leaves the key where it is, so remove it by hand. The prompt upgrade behaves as it did with `true`, and `skip-silent-trigger` decides which prompts are upgraded. For a user who had `false`, this changes four things:
-
-- There is no pane. The draft goes to the prompt box and nothing is sent until you press Enter.
-- `+++` at an edge of a prompt is now removed and starts the upgrade, and `---` at an edge sends the prompt as it is.
-- The upgrade no longer checks the surface, so a surface without a terminal gets it too.
-- With `use-questions` `true` the recommended answers are applied. You can no longer answer a question yourself.
+The keys `use-rewrite`, `use-questions`, `use-silent-upgrade`, `model`, `effort`, `models.ask` and `models.rewrite` are removed. The mod does not read them, `/tweaks-doctor` does not warn about them and does not remove them, so remove them by hand.
 
 ```json
 {
@@ -65,15 +56,11 @@ The key `use-silent-upgrade` is retired. The mod does not read its value, whethe
     "prompt": {
       "prompt-upgrade": {
         "use": true,
-        "use-rewrite": false,
-        "use-questions": false,
         "skip-silent-trigger": true,
         "silent-triggers": ["+++"],
         "silent-off-triggers": ["---"],
         "min-length": 40,
         "models": {
-          "ask": { "model": "sonnet", "effort": "low" },
-          "rewrite": { "model": "sonnet", "effort": "low" },
           "classify": { "model": "haiku", "effort": "low" }
         }
       }
@@ -84,138 +71,75 @@ The key `use-silent-upgrade` is retired. The mod does not read its value, whethe
 
 Settings changes apply to the next prompt you submit.
 
-A model the engine refuses makes the call fail, and the flow ends with your original prompt as for any Haiku failure. The usage log line shows the model and effort the call used. `/prompt-upgrade status` shows them too. Whether the engine accepts a given model id depends on its allowlist and provider, and the mod does not check it.
+A model the engine refuses makes the call fail, and the prompt goes out with the short instruction, as for any failed prompt type call. The usage log line shows the model and effort the call used. `/prompt-upgrade status` shows them too. Whether the engine accepts a given model id depends on its allowlist and provider, and the mod does not check it.
 
 ## Commands
 
 | Command | Effect |
 |---|---|
-| `/prompt-upgrade status` | Shows each switch with its value and source, the model and effort of each of the three calls (`ask`, `rewrite` and `classify`), the threshold and the current phase. |
+| `/prompt-upgrade status` | Shows each switch with its value and source, the model and effort of the prompt type call, and the threshold. |
 | `/prompt-upgrade threshold <n>` | Sets the shortest prompt that is intercepted, in characters. The default is 10. The value lives in `$.store`. A `min-length` in settings beats it, and the reply says so. |
-| `/prompt-upgrade reset` | Drops the running upgrade and puts the original prompt back in the prompt box. |
 | `/prompt-upgrade probe on \| off \| show \| clear` | Records a PoC sample per submit. See `prompt-upgrade-poc-results.md`. |
 
 ## Flow
 
 ```
-use-rewrite true:   Your prompt > Questions > Rewrite > Draft in the prompt box
-use-rewrite false:  Your prompt > Prompt type > Sent with the instruction and the fixed lines
+Your prompt > Prompt type > Sent with the instruction and the fixed lines
 ```
 
-- With `use-rewrite` `false` no prompt is dropped and nothing goes to the prompt box.
-  - A prompt without Korean characters is sent at once, without the trigger, and no model call is made.
-  - A Korean prompt waits in the submit for the prompt type call, up to 5 seconds. It is then sent at once with the instruction and the fixed lines, and with your prompt, cleaned as below, between `<source>` tags.
-  - There is no draft to read or edit before the send. The chat row shows only the `<source>` part, as for a rewrite.
-- A prompt typed at the prompt box is dropped and the upgrade starts in the background.
-- Haiku also reads up to the last six messages of the conversation (500 characters each, 3000 in all), so a prompt such as "fix the code above" has something to refer to.
-- At the same time, one prompt type call sorts the prompt into `research`, `discuss` and `execute`, one or more in the order the prompt asks for them.
-  - It runs on every upgrade, with or without `use-questions`, and with the questions call when there is one.
-  - The rewrite waits for it. The rewrite uses the types only to order the sentences and to choose how each request is phrased. It adds no request that is not in your prompt.
-  - If the call fails or finds no known type, the rewrite goes on without types.
-  - When the prompt has Korean characters, the mod builds one message from the rewrite with an instruction in front.
-    The message is built in code, after the rewrite call, so the model never sees the fixed lines and cannot change them.
-    The prompt box holds the rewrite alone. The mod adds the instruction and the fixed lines when you send the draft.
-  - With at least one known type the message has three parts: an instruction of twelve lines, the fixed lines between `<hard rule>` and `</hard rule>`, and the rewrite between `<source>` and `</source>` at the end. The instruction asks Claude to write a new prompt from the `<source>` part in easy words, as an expert advises a beginner, in the order request, background, analysis, goal, task order, constraints, output format and completion criteria, with no part that is not in the `<source>` part, and with nouns turned into verbs. It asks Claude to print the prompt in the chat and answer it in the same turn. It says that the instruction is not an approval to run anything, and that only the `<source>` part decides whether to run and whether a running mode stays on. It asks Claude to follow the `<hard rule>` lines while it writes and answers, and not to do what a running mode blocks even when the instruction or the `<hard rule>` lines ask for it. It asks Claude to copy only those sentences unchanged into the written prompt, and to leave both tags out of the written prompt.
-  - With no known type the message has the nine-line short instruction and the `<source>` part only. The three lines about `<hard rule>` and the block itself are left out.
-  - The fixed lines are the common answer rules, then the rules of each type in the order of the types. The common rules ask for an investigation of the source data until nothing is left to check, the result first, facts apart from guesses, and a task list first, then the steps in order, for work of several steps. The `research` rules ask for evidence on every claim and for a claim that rests on memory to be marked as a guess. The `discuss` rules ask for the questions in order with an easy explanation before each, and for one recommendation first with the reason and the criteria for it. The `execute` rules ask for done, failed and skipped work, and for proof of the done work with an independent tool.
+- No prompt is dropped and nothing goes to the prompt box. The prompt you typed is sent in the same submit.
+- A prompt without Korean characters is sent at once, without the trigger, and no model call is made.
+- A Korean prompt waits in the submit for the prompt type call, up to 5 seconds. It is then sent with the instruction and the fixed lines, and with your prompt, cleaned as below, between `<source>` tags.
+- The prompt type call reads up to the last six messages of the conversation (500 characters each, 3000 in all), so a prompt such as "fix the code above" can be sorted.
+- The call sorts the prompt into `research`, `discuss` and `execute`, one or more in the order the prompt asks for them. If the call fails or finds no known type, the message has the short instruction.
+- With at least one known type the message has three parts: an instruction of twelve lines, the fixed lines between `<hard rule>` and `</hard rule>`, and your prompt between `<source>` and `</source>` at the end.
+  - The instruction asks Claude to write a new prompt from the `<source>` part in easy words, as an expert advises a beginner, in the order request, background, analysis, goal, task order, constraints, output format and completion criteria, with no part that is not in the `<source>` part, and with nouns turned into verbs.
+  - It asks Claude to print the prompt in the chat and answer it in the same turn.
+  - It says that the instruction is not an approval to run anything, and that only the `<source>` part decides whether to run and whether a running mode stays on.
+  - It asks Claude to follow the `<hard rule>` lines while it writes and answers, and not to do what a running mode blocks even when the instruction or the `<hard rule>` lines ask for it.
+  - It asks Claude to copy only those sentences unchanged into the written prompt, and to leave both tags out of the written prompt.
+- With no known type the message has the nine-line short instruction and the `<source>` part only. The three lines about `<hard rule>` and the block itself are left out.
+- The fixed lines are the common answer rules, then the rules of each type in the order of the types.
+  - The common rules ask for an investigation of the source data until nothing is left to check, the result first, facts apart from guesses, and a task list first, then the steps in order, for work of several steps.
+  - The `research` rules ask for evidence on every claim and for a claim that rests on memory to be marked as a guess.
+  - The `discuss` rules ask for the questions in order with an easy explanation before each, and for one recommendation first with the reason and the criteria for it.
+  - The `execute` rules ask for done, failed and skipped work, and for proof of the done work with an independent tool.
   - When the types hold `discuss`, the `<hard rule>` block ends with two more fixed lines. They ask Claude to put its questions through AskUserQuestion with the recommended option first.
-  - Before the mod builds the message, it cleans the rewrite. It removes every line that repeats a fixed line or an instruction line, ignoring white space and the word "나에게", and every line that holds only one of the four tags. It reduces a run of blank lines to one blank line outside `<input>` blocks, and trims both ends. So a message that is upgraded again gets one fresh wrapper, and the draft never holds the same rule twice.
-  - If a tag still stands inside a line of the draft, for example when the prompt talks about the tags, the mod adds no wrapper. The draft then ends with the fixed lines once, as a plain rewrite.
-  - A prompt that has no Korean characters gets the rewrite alone, with no instruction and no fixed lines.
-- With `use-questions` `true`, Haiku asks up to three questions with 3 to 5 options each.
-  - The mod answers each question with its recommended option. A question with no recommended option stays unanswered.
-  - You are not asked.
-- Haiku rewrites the prompt as prose with one sentence on each line.
-  - The mod does not break lines itself. The line breaks are what Haiku wrote.
-  - Pasted material stays as it is, wrapped in `<input>` tags.
-- Haiku numbers the requests only when the order is fixed and there are two or more requests.
-  - The order is fixed when the prompt type call finds two or more types, or when the prompt has a word of order: "먼저", "그다음", "~한 뒤", "마지막으로", "순서대로" or a numbered list. "그리고" and "~하고" are not words of order.
-  - Without a fixed order, and with one request, there are no numbers.
-  - A number looks like `1) ` with a closing parenthesis and no period, so it does not break the rule of one sentence on each line.
-  - One number stands for one request. The sentences that a request is split into stay under its number, and every sentence after the first is indented by three spaces.
-  - A number has no type tag. The type shows in the verb of the sentence.
-  - The goal line and the completion line have no number.
-  - A draft that is upgraded again loses its old numbers, and the numbers are decided again. Numbers inside `<input>` tags stay.
-- The mod puts the draft in the prompt box. It does not send it.
-  - For a Korean prompt the box holds the rewrite alone. The instruction and the fixed lines are not in the box.
-  - A dim label such as `[+12 lines added on send]` stands alone on the first line of the box, and the text starts on the second line. The number is the count of lines the mod adds.
-    The label is drawn only. It is not part of the text, so it is never sent or copied.
-    It stays while the text is the draft or an edit of it, whatever the size of the edit, and goes when the text holds a wrapper tag or an instruction line, when the box is empty and after the send.
-  - A prompt without Korean characters, a draft that names a tag, and the original that comes back after a Haiku failure have nothing aside. They go out as the box holds them.
-  - The prompt row in the chat shows only the part between `<source>` and `</source>`. The instruction and the `<hard rule>` block are not drawn, in the ctrl+o view too.
-    This changes the drawing only. The message the model gets still holds the instruction and the fixed lines.
-    A row is cut only when its text is a wrapper that the mod built and the person sent from the prompt box. Any other row is drawn as it is.
+- Before the mod builds the message, it cleans your prompt. It removes every line that repeats a fixed line or an instruction line, ignoring white space and the word "나에게", and every line that holds only one of the four tags. It reduces a run of blank lines to one blank line outside `<input>` blocks, and trims both ends. So a message that is sent again gets one fresh wrapper.
+- If a tag still stands inside a line, for example when the prompt talks about the tags, the mod adds no wrapper. The prompt then ends with the fixed lines once.
+- The prompt row in the chat shows only the part between `<source>` and `</source>`. The instruction and the `<hard rule>` block are not drawn, in the ctrl+o view too.
+  This changes the drawing only. The message the model gets still holds the instruction and the fixed lines.
+  A row is cut only when its text is a wrapper that the mod built and the person sent from the prompt box. Any other row is drawn as it is.
 
-## Silent upgrade
-
-The upgrade has no pane. It runs in the background after the mod takes the prompt.
+## Triggers
 
 The trigger (`+++` by default) at the start or the end of a prompt is what starts the upgrade, unless `skip-silent-trigger` is `true`.
 
-- A prompt with the trigger is upgraded.
-- While `skip-silent-trigger` is `false`, a prompt without the trigger passes through unchanged and nothing is upgraded.
+- A prompt with the trigger is upgraded, and the trigger is removed. Repeated triggers at an edge go too. A trigger in the middle stays.
+- While `skip-silent-trigger` is `false`, a prompt without the trigger passes through unchanged.
 - A prompt with the trigger skips the `min-length` check.
 - While `skip-silent-trigger` is `true`, the trigger check is skipped. Every prompt of `min-length` or more is upgraded, whether it has the trigger or not. A prompt with the trigger still has the trigger removed and still skips the `min-length` check.
-- An off trigger (`---` by default) at the start or the end of a prompt turns the silent upgrade off for that prompt only. Nothing is upgraded and no model call is made.
+- An off trigger (`---` by default) at the start or the end of a prompt turns the upgrade off for that prompt only. No model call is made.
   - The off trigger is removed and the rest is sent as it is. Repeated triggers at an edge go too.
   - It works with `skip-silent-trigger` `true` too, which is its main use.
-  - It skips the `min-length` check and beats an open manual-edit pass.
+  - It skips the `min-length` check.
   - If the prompt has both an off trigger and a trigger, the off trigger wins and both are removed.
-  - On a draft that has an instruction and rules aside, the off trigger sends the draft without them.
-    This is the way to send the rewrite alone. The instruction and the rules are dropped for that send.
-  - An off trigger on its own and a prompt that starts with `/` or `!` (after the triggers) pass through with the text in them. So does a prompt with an attachment.
-  - The prompt enters as the prompt you typed, with the trigger removed. The mod does not drop it and does not submit it a second time.
-
-- The trigger is removed. Repeated triggers at an edge go too. A trigger in the middle stays.
-- With `use-questions` `true`, Haiku first writes the questions, and the mod answers each one with its recommended option. A question with no recommended option stays unanswered. Nothing is shown and you are not asked. This costs one more Haiku call.
-- With `use-questions` `false`, there is no question call.
-- Haiku then rewrites the prompt once with those answers, and the mod puts the result in the prompt box. It does not send it.
-- If the questions call fails, the rewrite goes on without answers.
-- You read the draft in the prompt box, edit it if you want, and press Enter yourself.
-- The mod remembers the characters of the draft it put in the prompt box, with every space, tab and line break dropped.
-- A prompt that holds the same characters passes through, however its spaces and line breaks differ, and however long you waited. So the draft goes out without a second upgrade, and the pass is spent.
-- A draft that has an instruction and rules aside goes out with them.
-  - The mod builds the whole message when the draft is sent. The model receives the same message as before.
-  - The conversation shows the whole message, not only what the prompt box held.
-- A prompt that holds other characters is an edited draft or a new prompt. Within 5 minutes it passes through once. After 5 minutes it is upgraded.
-- An edited draft gets the instruction and the rules, whatever the size of the edit.
-  - Text added, deleted or replaced anywhere keeps them. So does a whole line deleted, and so does a text that is another prompt.
-  - A text that already holds a `<source>` or `<hard rule>` tag, or an instruction line, is sent as it is, and a toast says the instruction and the rules were not added. So pasting the whole message again never adds them twice.
-  - A prompt that is not from your own Enter at the prompt box, a slash or shell command, and a prompt with an attachment are sent as they are, with no toast.
-- A prompt with the trigger is upgraded again instead, and the pass stays open.
-- Only the white space is ignored. A changed letter, digit or punctuation mark counts as an edit.
-- If Haiku fails, the prompt box gets the prompt as you wrote it, without the trigger, and a toast says so.
-- The mod reads the prompt box 0.3 s after it took the prompt, and keeps that text as the baseline. It is whatever the engine left there, such as a paste placeholder.
-- If the box holds other text than the baseline when the draft is ready, you typed something meanwhile. The mod leaves the box alone and puts the draft on your clipboard. A toast says so.
-- If something unexpected fails after the prompt was taken, the text without the trigger is put back in the prompt box.
-- A prompt you send while the silent upgrade is still running passes through as it is, trigger included.
-- The `min-length` check does not apply to a prompt with the trigger.
-- A trigger on its own, a prompt with an attachment, and a prompt that starts with `/` or `!` (after the trigger) pass through with the trigger text in them.
-- A prompt you type after a silent draft passes through once when it holds the same characters as the draft, or within 5 minutes when it holds other characters. A prompt with the trigger is not passed this way. It is upgraded again.
-- Not verified: what the prompt box and the up-arrow history hold after the mod takes the prompt.
-  - A prompt with an off trigger enters as the prompt you typed, so the history is expected to hold it. Check it in a real session.
-  - A prompt that the mod drops for an upgrade may leave nothing in the history.
+- A trigger or an off trigger on its own, a prompt with an attachment, and a prompt that starts with `/` or `!` (after the triggers) pass through with the trigger text in them.
+- The prompt enters as the prompt you typed, with the trigger removed. The mod does not drop it and does not submit it a second time.
 
 ## Usage log
 
-Each model call writes one dim row to the transcript with `$.ui.log`. The row is not sent to the model, so it never enters the context.
+The prompt type call writes one dim row to the transcript with `$.ui.log`. The row is not sent to the model, so it never enters the context.
 
 ```
 cc-chat-tweaks: Prompt classify: haiku low · 0.6s · research, execute
-cc-chat-tweaks: Prompt rewrite: sonnet low · 1.9s · fix the login bug
 ```
 
 - The engine puts the plugin name `cc-chat-tweaks: ` in front of every row. The mod does not write it, and `$.ui.log` takes only the text and the sink, so the mod cannot remove it.
-- The row holds a call prefix, the model alias and effort, the time, and the prompt you typed without the trigger, each part set off by ` · `.
-- The prefix names the call: `Prompt ask:` for the questions call, and `Prompt rewrite:` for the rewrite call.
-- A run with questions applies the recommended answers on its own and writes one `Prompt answer:` row for each answer it applies. A row holds the question and its answer, as `question → answer`. A question with no recommended answer writes no row, and a run with no applied answer writes none.
-- The prompt type call writes its own row. It holds `Prompt classify:`, the model alias and effort, the time, and the types it found, each part set off by ` · `. It ends with `none` when the call found no known type and with `failed` when the call failed. It does not hold the prompt.
-- One log call is one row. A line break inside the text of a call is not drawn as a break, and shows as a garbled character. So the mod turns every run of spaces and line breaks in the prompt into one space, and never puts a line break in a log.
+- The row holds `Prompt classify:`, the model alias and effort, the time, and the types it found, each part set off by ` · `. It ends with `none` when the call found no known type and with `failed` when the call failed. It does not hold the prompt.
+- One log call is one row, and the mod never puts a line break in a log.
 - The whole row is cut at 2000 characters with `...`.
-- The empty line the engine draws between rows is the engine's own spacing. The mod writes no empty row.
 - The row shows no token count and no cost.
-- A failed call writes its row too. A row with no prompt text ends after the time.
-- A run with questions makes two upgrade calls, so it writes a `Prompt ask:` row and a `Prompt rewrite:` row with the same prompt and different times. Every run also writes one `Prompt classify:` row. It can come before or after the questions row.
 
 ## What is not intercepted
 
@@ -225,36 +149,28 @@ cc-chat-tweaks: Prompt rewrite: sonnet low · 1.9s · fix the login bug
 - It carries an image or another attachment.
 - It starts with `/`.
 - It starts with `!`, which makes it a shell command.
-- It holds an `@file` or `@agent` mention: an `@` at the start or after a white space, then path characters. The draft is plain text, so the upgraded prompt would lose the file. An address such as `a@b.com` is not a mention. A trigger or an off trigger does not change this, and the trigger text stays in the prompt.
+- It holds an `@file` or `@agent` mention: an `@` at the start or after a white space, then path characters. An address such as `a@b.com` is not a mention. A trigger or an off trigger does not change this, and the trigger text stays in the prompt.
 - It is only pasted material. The mod removes every `<pasted_content ...>...</pasted_content>` block and counts what is left. If that is shorter than the threshold, the prompt passes. A prompt with a trigger skips this check, like the other length check.
 - It is shorter than the threshold.
-- A flow is already running.
 
-Every failure path ends with your original prompt: a Haiku error or timeout puts the original in the prompt box and a toast says so, and an error in the mod passes the prompt on.
+An error in the mod passes the prompt on as you typed it, and a log row says why when the log call works.
 
 ## Limits
 
-- The draft is put in the prompt box as plain text.
-  - Attachments and `@file` mentions of the original are not carried over.
-  - Prompts with attachments or mentions are not intercepted for this reason.
 - The chat row hides the instruction and the fixed lines only when the sent text starts with the instruction exactly and ends with the closed `<source>` part.
   - A row whose instruction line was edited by hand, and a row of a message stored before the mod set an origin, show the whole text.
   - Nothing in the chat shows the fixed lines for a row that is cut, so ctrl+o does not show what the model got either.
-- Haiku sees only a short slice of the conversation (see Flow).
-  - A prompt that refers to something older than that cannot be improved.
-  - The mod does not detect such prompts. Put an off trigger at an edge of the prompt to send it as it is.
-- The mod cannot check what Claude writes. The `<hard rule>` block is in the message the mod sends, and it is not in the prompt box. Whether the prompt Claude writes carries those sentences unchanged depends on the instruction.
-- If the mod fails while it adds the instruction and the rules, your text goes out as you typed it, without them. A log row says why when the log call works.
-- The mod knows only the wording of the current instruction. A message that an earlier version sent shows its whole text in the chat row, and its instruction lines stay in the `<source>` part when you upgrade it again.
-- A message that you upgrade again is cleaned of the instruction lines it holds. If the rewrite model words an instruction line differently, that line stays in the `<source>` part, and a tag inside it makes the mod add no wrapper.
+- The prompt type call sees only a short slice of the conversation (see Flow).
+- The mod cannot check what Claude writes. Whether the prompt Claude writes carries the `<hard rule>` sentences unchanged depends on the instruction.
+- The mod knows only the wording of the current instruction. A message that an earlier version sent shows its whole text in the chat row, and its old instruction lines stay in the `<source>` part when you send it again.
+- A Korean prompt waits up to 5 seconds for the prompt type call before it is sent.
 
 ## Source
 
 | File | Role |
 |---|---|
 | `hooks/upgrade.tsx` | The feature's hooks and `/prompt-upgrade` command. `register.tsx` calls `registerUpgrade(on)`. |
-| `hooks/upgrade-logic.ts` | Pure gate, flow and parsing logic. |
-| `hooks/upgrade-prompts.ts` | The Haiku system prompts and call limits. |
+| `hooks/upgrade-logic.ts` | Pure gate, wrapper and parsing logic. |
+| `hooks/upgrade-prompts.ts` | The prompt type system prompt and call limits. |
 
 `session.start` has one hook for the whole module, so `register.tsx` registers the `/prompt-upgrade` command there.
-A flow left open by a reload is reset at the first prompt after the reload, and a toast carries the full text of the earlier prompt.

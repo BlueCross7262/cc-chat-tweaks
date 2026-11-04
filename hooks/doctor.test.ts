@@ -10,8 +10,8 @@ const input = (patch: Partial<DoctorInput> = {}): DoctorInput => ({
   extras: [
     { key: 'min-length', value: 10, from: 'default' },
     { key: 'silent-triggers', value: ['+++'], from: 'default' },
-    { key: 'models.ask.model', value: 'haiku', from: 'default' },
-    { key: 'models.ask.effort', value: 'low', from: 'user' },
+    { key: 'models.classify.model', value: 'haiku', from: 'default' },
+    { key: 'models.classify.effort', value: 'low', from: 'user' },
     { key: 'unfolded-tools', value: ['AskUserQuestion', 'Skill', 'Agent'], from: 'default' },
   ],
   ignored: [],
@@ -31,7 +31,7 @@ const input = (patch: Partial<DoctorInput> = {}): DoctorInput => ({
       ],
     },
   },
-  upgrade: { phase: 'idle', minLen: 10 },
+  upgrade: { minLen: 10 },
   env: { surface: 'terminal', version: '2.1.0' },
   ...patch,
 })
@@ -49,22 +49,23 @@ test('prints the value keys with their value and source under the switches', () 
   expect(text).toMatch(/prompt\.prompt-upgrade\.min-length\s+10\s+\(default\)/)
   expect(text).toMatch(/chat\.tool-fold\.unfolded-tools\s+\["AskUserQuestion","Skill","Agent"\]\s+\(default\)/)
   expect(text).toMatch(/silent-triggers\s+\["\+\+\+"\]\s+\(default\)/)
-  expect(text).toMatch(/prompt\.prompt-upgrade\.models\.ask\.model\s+"haiku"\s+\(default\)/)
-  expect(text).toMatch(/prompt\.prompt-upgrade\.models\.ask\.effort\s+"low"\s+\(user\)/)
+  expect(text).toMatch(/prompt\.prompt-upgrade\.models\.classify\.model\s+"haiku"\s+\(default\)/)
+  expect(text).toMatch(/prompt\.prompt-upgrade\.models\.classify\.effort\s+"low"\s+\(user\)/)
   expect(text.indexOf('use-edit-summary')).toBeLessThan(text.indexOf('min-length'))
 })
 
-test('prints the prompt upgrade phase and threshold', () => {
-  const text = formatReport(input({ upgrade: { phase: 'review', minLen: 25 } }))
+test('prints the prompt upgrade threshold and no phase', () => {
+  const text = formatReport(input({ upgrade: { minLen: 25 } }))
 
-  expect(text).toContain('phase: review, threshold: 25 characters')
+  expect(text).toContain('  threshold: 25 characters')
+  expect(text).not.toContain('phase')
 })
 
-test('the questions option alone does not count as a feature being on', () => {
+test('the skip-silent-trigger option alone does not count as a feature being on', () => {
   const onlyOption = input({
     flags: [
       { key: 'use-tool-fold', value: false, from: 'default' },
-      { key: 'use-questions', value: true, from: 'default' },
+      { key: 'skip-silent-trigger', value: true, from: 'default' },
     ],
   })
 
@@ -119,12 +120,10 @@ test('reports no problem when everything is in place', () => {
   expect(checksOf(input())).toEqual(['[ok] No problem found.'])
 })
 
-test('warns once for each old model key found, naming where it was found and the key to use instead', () => {
+test('warns once for each old classify key found, naming where it was found and the key to use instead', () => {
   const checks = checksOf(
     input({
       ignored: [
-        { key: 'model', from: 'user' },
-        { key: 'effort', from: 'local' },
         { key: 'type-model', from: 'user' },
         { key: 'type-effort', from: 'project' },
       ],
@@ -132,26 +131,8 @@ test('warns once for each old model key found, naming where it was found and the
   )
 
   expect(checks).toEqual([
-    '[warn] prompt.prompt-upgrade.model in user is ignored. Use prompt.prompt-upgrade.models.<ask|rewrite>.model.',
-    '[warn] prompt.prompt-upgrade.effort in local is ignored. Use prompt.prompt-upgrade.models.<ask|rewrite>.effort.',
     '[warn] prompt.prompt-upgrade.type-model in user is ignored. Use prompt.prompt-upgrade.models.classify.model.',
     '[warn] prompt.prompt-upgrade.type-effort in project is ignored. Use prompt.prompt-upgrade.models.classify.effort.',
-  ])
-})
-
-test('warns for the retired use-silent-upgrade key whatever its value and names skip-silent-trigger instead', () => {
-  const checks = checksOf(
-    input({
-      ignored: [
-        { key: 'use-silent-upgrade', from: 'user' },
-        { key: 'use-silent-upgrade', from: 'local' },
-      ],
-    }),
-  )
-
-  expect(checks).toEqual([
-    '[warn] prompt.prompt-upgrade.use-silent-upgrade in user is ignored. Use prompt.prompt-upgrade.skip-silent-trigger.',
-    '[warn] prompt.prompt-upgrade.use-silent-upgrade in local is ignored. Use prompt.prompt-upgrade.skip-silent-trigger.',
   ])
 })
 

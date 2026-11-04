@@ -5,8 +5,6 @@ export const FLAG_DEFAULTS = {
   'use-tool-fold': false,
   'use-edit-summary': false,
   'use-prompt-upgrade': true,
-  'use-questions': false,
-  'use-rewrite': false,
   'skip-silent-trigger': true,
   'use-char-count': false,
   'use-answer-colors': false,
@@ -24,8 +22,6 @@ export const FLAG_PATHS: Record<FlagKey, readonly string[]> = {
   'use-tool-fold': TOOL_FOLD_PATH,
   'use-edit-summary': CHAT_PATH,
   'use-prompt-upgrade': PROMPT_UPGRADE_PATH,
-  'use-questions': PROMPT_UPGRADE_PATH,
-  'use-rewrite': PROMPT_UPGRADE_PATH,
   'skip-silent-trigger': PROMPT_UPGRADE_PATH,
   'use-char-count': CHAR_COUNT_PATH,
   'use-answer-colors': ANSWER_COLORS_PATH,
@@ -39,7 +35,7 @@ export const GROUP_PATHS: readonly (readonly string[])[] = [CHAT_PATH, TOOL_FOLD
 
 export const pathText = (path: readonly string[]): string => [SETTINGS_NAMESPACE, ...path].join('.')
 
-export const OPTION_KEYS: readonly FlagKey[] = ['use-questions', 'use-rewrite', 'skip-silent-trigger']
+export const OPTION_KEYS: readonly FlagKey[] = ['skip-silent-trigger']
 
 export const isFeatureKey = (key: FlagKey): boolean => !OPTION_KEYS.includes(key)
 
@@ -94,15 +90,13 @@ export const describeFlags = (
 export const DEFAULT_MIN_LENGTH = 10
 export const DEFAULT_SILENT_TRIGGERS: readonly string[] = ['+++']
 export const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const
-export const CALL_NAMES = ['ask', 'rewrite', 'classify'] as const
+export const CALL_NAMES = ['classify'] as const
 export type CallName = (typeof CALL_NAMES)[number]
 export const MODELS_KEY = 'models'
 export const DEFAULT_MODELS: Record<CallName, { model: string; effort: Effort }> = {
-  ask: { model: 'sonnet', effort: 'low' },
-  rewrite: { model: 'sonnet', effort: 'low' },
   classify: { model: 'haiku', effort: 'low' },
 }
-export const IGNORED_KEYS = ['model', 'effort', 'type-model', 'type-effort', 'use-silent-upgrade'] as const
+export const IGNORED_KEYS = ['type-model', 'type-effort'] as const
 export const MIN_LENGTH_KEY = 'min-length'
 export const SILENT_TRIGGERS_KEY = 'silent-triggers'
 export const MAX_SILENT_TRIGGERS = 10
@@ -116,10 +110,6 @@ const EXTRA_DEFAULTS = {
   [MIN_LENGTH_KEY]: DEFAULT_MIN_LENGTH,
   [SILENT_TRIGGERS_KEY]: DEFAULT_SILENT_TRIGGERS,
   [SILENT_OFF_TRIGGERS_KEY]: DEFAULT_SILENT_OFF_TRIGGERS,
-  'models.ask.model': DEFAULT_MODELS.ask.model,
-  'models.ask.effort': DEFAULT_MODELS.ask.effort,
-  'models.rewrite.model': DEFAULT_MODELS.rewrite.model,
-  'models.rewrite.effort': DEFAULT_MODELS.rewrite.effort,
   'models.classify.model': DEFAULT_MODELS.classify.model,
   'models.classify.effort': DEFAULT_MODELS.classify.effort,
   [UNFOLDED_TOOLS_KEY]: DEFAULT_UNFOLDED_TOOLS,
@@ -129,10 +119,6 @@ const EXTRA_PATHS: Record<keyof typeof EXTRA_DEFAULTS, readonly string[]> = {
   [MIN_LENGTH_KEY]: PROMPT_UPGRADE_PATH,
   [SILENT_TRIGGERS_KEY]: PROMPT_UPGRADE_PATH,
   [SILENT_OFF_TRIGGERS_KEY]: PROMPT_UPGRADE_PATH,
-  'models.ask.model': PROMPT_UPGRADE_PATH,
-  'models.ask.effort': PROMPT_UPGRADE_PATH,
-  'models.rewrite.model': PROMPT_UPGRADE_PATH,
-  'models.rewrite.effort': PROMPT_UPGRADE_PATH,
   'models.classify.model': PROMPT_UPGRADE_PATH,
   'models.classify.effort': PROMPT_UPGRADE_PATH,
   [UNFOLDED_TOOLS_KEY]: TOOL_FOLD_PATH,
@@ -330,14 +316,6 @@ const extraReader = (key: ExtraKey): ExtraReader => {
       return silentTriggersOf
     case SILENT_OFF_TRIGGERS_KEY:
       return silentOffTriggersOf
-    case 'models.ask.model':
-      return sources => modelIn(sources, 'ask')
-    case 'models.ask.effort':
-      return sources => effortIn(sources, 'ask')
-    case 'models.rewrite.model':
-      return sources => modelIn(sources, 'rewrite')
-    case 'models.rewrite.effort':
-      return sources => effortIn(sources, 'rewrite')
     case 'models.classify.model':
       return sources => modelIn(sources, 'classify')
     case 'models.classify.effort':
@@ -370,8 +348,6 @@ export const flagsOf = (sources: readonly unknown[]): Flags => ({
   'use-tool-fold': isFlagOn(sources, 'use-tool-fold'),
   'use-edit-summary': isFlagOn(sources, 'use-edit-summary'),
   'use-prompt-upgrade': isFlagOn(sources, 'use-prompt-upgrade'),
-  'use-questions': isFlagOn(sources, 'use-questions'),
-  'use-rewrite': isFlagOn(sources, 'use-rewrite'),
   'skip-silent-trigger': isFlagOn(sources, 'skip-silent-trigger'),
   'use-char-count': isFlagOn(sources, 'use-char-count'),
   'use-answer-colors': isFlagOn(sources, 'use-answer-colors'),

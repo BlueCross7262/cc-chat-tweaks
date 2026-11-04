@@ -20,16 +20,12 @@ Tool folding, the Edit/Write summary, the answer colours and the character count
 | `chat.tool-fold` | `unfolded-tools` | `["AskUserQuestion", "Skill", "Agent"]` | Option of `use`. The tools that are never folded. Each keeps its own row and ends the run before it. |
 | `chat` | `use-edit-summary` | `false` | Draw `Edit` and `Write` calls as one summary line. |
 | `chat.answer-colors` | `use` | `false` | Draw the row that holds your answers to Claude's questions in three colours: title, question and answer. |
-| `prompt.prompt-upgrade` | `use` | `true` | Upgrade your prompt and put the draft in the prompt box, without sending it. |
-| `prompt.prompt-upgrade` | `use-rewrite` | `false` | Option of `use`. When `true`, a model rewrites the prompt and the rewrite is the draft. When `false`, there is no rewrite call and the prompt is sent at once, as you typed it. The instruction and the rules of a Korean prompt are added either way. |
-| `prompt.prompt-upgrade` | `use-questions` | `false` | Option of `use`. When `true` and `use-rewrite` is `true`, Haiku writes clarifying questions first and the recommended answers are applied. When `false`, the prompt is rewritten without questions. With `use-rewrite` `false` there is no questions call. |
+| `prompt.prompt-upgrade` | `use` | `true` | Send a Korean prompt with an instruction and answer rules added. A prompt without Korean characters is sent as you typed it. |
 | `prompt.prompt-upgrade` | `skip-silent-trigger` | `true` | Option of `use`. When `true`, the trigger check is skipped and every prompt of `min-length` or more is upgraded. When `false`, only a prompt with the trigger is upgraded. |
 | `prompt.prompt-upgrade` | `silent-triggers` | `["+++"]` | The trigger texts for the silent upgrade, as an array of strings. |
 | `prompt.prompt-upgrade` | `silent-off-triggers` | `["---"]` | The texts that turn the silent upgrade off for one prompt, as an array of strings. The prompt is sent as it is, without the text. `[]` turns this off. |
 | `prompt.prompt-upgrade` | `min-length` | `10` | Shortest prompt that is upgraded, in characters. A character is a grapheme, the unit the character count label uses, and white space at both ends is left out. |
-| `prompt.prompt-upgrade` | `models.ask.model`, `models.ask.effort` | `sonnet`, `low` | The model and effort of the questions call. The model is an alias or a full model id. The effort is `low`, `medium`, `high`, `xhigh` or `max`. |
-| `prompt.prompt-upgrade` | `models.rewrite.model`, `models.rewrite.effort` | `sonnet`, `low` | The model and effort of the rewrite call. |
-| `prompt.prompt-upgrade` | `models.classify.model`, `models.classify.effort` | `haiku`, `low` | The model and effort of the prompt type call. |
+| `prompt.prompt-upgrade` | `models.classify.model`, `models.classify.effort` | `haiku`, `low` | The model and effort of the prompt type call. The model is an alias or a full model id. The effort is `low`, `medium`, `high`, `xhigh` or `max`. |
 | `prompt.char-count` | `use` | `false` | Show the number of characters in the prompt box at the right end of the line under it. |
 
 ```json
@@ -47,9 +43,7 @@ Tool folding, the Edit/Write summary, the answer colours and the character count
     },
     "prompt": {
       "prompt-upgrade": {
-        "use": true,
-        "use-rewrite": false,
-        "use-questions": false
+        "use": true
       },
       "char-count": {
         "use": true
@@ -61,7 +55,7 @@ Tool folding, the Edit/Write summary, the answer colours and the character count
 
 The tool folding keys are read only from `ccChatTweaks.chat.tool-fold`. The old `ccChatTweaks.chat.use-tool-fold` and `ccChatTweaks.chat.unfolded-tools` have no effect.
 
-The prompt upgrade keys are read only from `ccChatTweaks.prompt.prompt-upgrade`. Keys left in `ccChatTweaks.prompt` or `ccChatTweaks.chat` by an earlier version have no effect, and neither do the old `use-prompt-upgrade` key (now `use`) and the old `silent-trigger` key. The key `use-silent-upgrade` is retired: its value is not read, and the prompt upgrade behaves as it did with `true`. Use `skip-silent-trigger` to choose between upgrading every long prompt and upgrading only a prompt with the trigger.
+The prompt upgrade keys are read only from `ccChatTweaks.prompt.prompt-upgrade`. Keys left in `ccChatTweaks.prompt` or `ccChatTweaks.chat` by an earlier version have no effect, and neither do the old `use-prompt-upgrade` key (now `use`) and the old `silent-trigger` key. The removed keys `use-rewrite`, `use-questions`, `use-silent-upgrade`, `model`, `effort`, `models.ask` and `models.rewrite` are not read either, and doctor does not warn about them, so remove them by hand.
 
 `/tweaks-doctor` writes the new groups with defaults and leaves the old keys where they are, so move your values by hand. If you had `use-tool-fold` set to `true`, folding is off until you set `chat.tool-fold.use`.
 
@@ -73,7 +67,7 @@ The prompt upgrade keys are read only from `ccChatTweaks.prompt.prompt-upgrade`.
 
 First it writes every key your user `settings.json` lacks, switches and value keys alike, with its default, so you can see and flip them. It never changes a value that is already there. It leaves a file that is not plain JSON alone and says so.
 
-Then it prints each switch and each value key (`unfolded-tools`, `min-length`, `silent-triggers`, `silent-off-triggers` and the six `models.<call>.model` and `models.<call>.effort` keys) by its path under `ccChatTweaks`, such as `chat.tool-fold.use`, with its value and the source it came from, the fold counters, the prompt upgrade phase and threshold, the environment and a list of checks. The checks include one warning for each old key `model`, `effort`, `type-model`, `type-effort` or `use-silent-upgrade` found in your settings, because the mod no longer reads them.
+Then it prints each switch and each value key (`unfolded-tools`, `min-length`, `silent-triggers`, `silent-off-triggers`, `models.classify.model` and `models.classify.effort`) by its path under `ccChatTweaks`, such as `chat.tool-fold.use`, with its value and the source it came from, the fold counters, the prompt upgrade threshold, the environment and a list of checks. The checks include one warning for each old key `type-model` or `type-effort` found in your settings, because the mod no longer reads them.
 
 ## Features
 
@@ -137,22 +131,14 @@ The row the engine draws after you answer an `AskUserQuestion` dialog is drawn a
 
 ### `prompt.prompt-upgrade.use`
 
-A prompt you type at the prompt box and send is held back, upgraded in the background and put back in the prompt box as a draft. You read it and press Enter yourself. With the default `skip-silent-trigger` every prompt of `min-length` or more is upgraded. With `false` only a prompt that starts or ends with the trigger `+++` is. A prompt that starts or ends with `---` is sent as it is.
+A prompt you type at the prompt box and send is sent at once. With the default `skip-silent-trigger` every prompt of `min-length` or more is upgraded. With `false` only a prompt that starts or ends with the trigger `+++` is. A prompt that starts or ends with `---` is sent as it is.
 
-- `use-rewrite` is `false` by default. Then no rewrite call and no questions call is made.
-  - A Korean prompt is sent at once, without the trigger. The mod waits for the prompt type call, up to 5 seconds, and adds the instruction and the rules as for a rewrite, with your prompt between `<source>` tags. Nothing goes back to the prompt box.
-  - A prompt without Korean characters is sent at once, as you typed it and without the trigger. No model call is made.
-- With `use-rewrite` `true` the prompt is rewritten as below.
-- With `use-questions` `true`, Haiku asks up to three questions with 3 to 5 options each, and the mod answers each one with its recommended option. You are not asked.
-- Haiku rewrites the prompt as prose with one sentence on each line and keeps pasted material as it is, wrapped in `<input>` tags.
-- A Korean prompt is sent as one message: an instruction that asks Claude to write a prompt from the rewrite, print it and answer it, a statement that the instruction is not an approval to run anything, the answer rules for its type between `<hard rule>` tags, and the rewrite between `<source>` tags at the end. The mod builds the message in code, so the rules reach Claude as they are written.
-  - The prompt box holds the rewrite alone. The mod adds the instruction and the rules when you send the draft, and a dim label line such as `[+12 lines added on send]` above the text says so.
-  - The chat row of the sent message shows the rewrite alone. The instruction and the rules are not drawn, but Claude still gets them.
-  - An edited draft gets them too, whatever the size of the edit. A text that already holds a wrapper tag or an instruction line is sent as it is, and a toast says the instruction and rules were not added.
-  - Put `---` at an edge of the draft to send the rewrite without them.
-- Each upgraded prompt costs up to three model calls on your plan or API key. The default model is `sonnet`.
-- A prompt you type while a turn runs is upgraded like any other. The draft lands in the prompt box and the turn keeps running. Press Enter on the draft to send it. Prompts with attachments, slash commands, shell commands that start with `!`, prompts with an `@file` or `@agent` mention, prompts that are only pasted material and short prompts pass through unchanged. When Haiku does not answer, the prompt box gets your original prompt back and a toast says so.
-- `/prompt-upgrade status | threshold <n> | reset | probe on|off|show|clear` shows and tunes the feature.
+- A Korean prompt waits for the prompt type call, up to 5 seconds. It is then sent as one message: an instruction that asks Claude to write a prompt from your text, print it and answer it, a statement that the instruction is not an approval to run anything, the answer rules for its type between `<hard rule>` tags, and your prompt between `<source>` tags at the end. The mod builds the message in code, so the rules reach Claude as they are written.
+  - The chat row of the sent message shows your prompt alone. The instruction and the rules are not drawn, but Claude still gets them.
+- A prompt without Korean characters is sent as you typed it, without the trigger. No model call is made.
+- Each Korean prompt costs one prompt type call on your plan or API key. The default model is `haiku`.
+- Prompts with attachments, slash commands, shell commands that start with `!`, prompts with an `@file` or `@agent` mention, prompts that are only pasted material and short prompts pass through unchanged.
+- `/prompt-upgrade status | threshold <n> | probe on|off|show|clear` shows and tunes the feature.
 
 Details and limits: [docs/prompt-upgrade.md](docs/prompt-upgrade.md). Proof-of-concept results: [docs/prompt-upgrade-poc-results.md](docs/prompt-upgrade-poc-results.md).
 

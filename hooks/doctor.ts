@@ -21,7 +21,6 @@ export type DoctorInput = {
     untimed: Untimed
   }
   upgrade: {
-    phase: string
     minLen: number
   }
   env: {
@@ -67,12 +66,7 @@ export const checksOf = (input: DoctorInput): string[] => {
   }
 
   for (const { key, from } of input.ignored) {
-    const target =
-      key === 'use-silent-upgrade'
-        ? 'skip-silent-trigger'
-        : key.startsWith('type-')
-          ? `models.classify.${key.slice('type-'.length)}`
-          : `models.<ask|rewrite>.${key}`
+    const target = `models.classify.${key.slice('type-'.length)}`
 
     checks.push(`[warn] prompt.prompt-upgrade.${key} in ${from} is ignored. Use prompt.prompt-upgrade.${target}.`)
   }
@@ -112,7 +106,7 @@ export const formatReport = (input: DoctorInput): string => {
     `  per tool (untimed/total): ${tallyOf(runs.untimed.perTool)}`,
     '',
     'prompt upgrade',
-    `  phase: ${upgrade.phase}, threshold: ${upgrade.minLen} characters`,
+    `  threshold: ${upgrade.minLen} characters`,
     '',
     'environment',
     `  surface: ${env.surface}`,

@@ -1,22 +1,17 @@
 import type { On } from 'claude-code'
 import { expect, mock, test, type Engine } from 'claude-code/testing'
 
-import { CLASSIFY_SYSTEM } from './upgrade-prompts'
-
 const PLUGIN = 'cc-chat-tweaks'
-const LONG = 'please summarise the attached design document for me'
-const DRAFT = '설계 문서를 요약해 줘.'
-const USAGE = { input_tokens: 1, output_tokens: 1 }
 const composer = { kind: 'composer' } as const
 
 type Box = { text: string; clock: ReturnType<typeof mock.clock> }
 
-const world = ($: Engine, on: On, options: { isOn?: boolean; isUpgradeOn?: boolean } = {}): Box => {
+const world = ($: Engine, on: On, options: { isOn?: boolean } = {}): Box => {
   const box: Box = { text: '', clock: mock.clock(on, { now: 1000 }) }
   mock.store(on, {})
   const prompt = {
     'char-count': { use: options.isOn ?? true },
-    'prompt-upgrade': { use: options.isUpgradeOn ?? false, 'use-questions': false, 'use-rewrite': true, 'skip-silent-trigger': true },
+    'prompt-upgrade': { use: false },
   }
   on('settings.read', (_$, e) => ({ value: (e as { source?: string }).source === 'user' ? { ccChatTweaks: { prompt } } : {} }) as never)
   on('session.surfaces', () => ({ value: ['terminal'] }) as never)
@@ -33,11 +28,6 @@ const world = ($: Engine, on: On, options: { isOn?: boolean; isUpgradeOn?: boole
   on('prompt.submit', (_$, e) => {
     box.text = ''
     return { text: (e as { text: string }).text } as never
-  })
-  on('model.complete', (_$, e) => {
-    const call = e as { system?: string }
-    const text = call.system === CLASSIFY_SYSTEM ? JSON.stringify({ types: [] }) : DRAFT
-    return { value: { isAnswered: true, text, usage: USAGE } } as never
   })
   on('ui.log', () => ({ value: undefined }) as never)
   on('ui.toast', () => ({ value: undefined }) as never)
@@ -99,14 +89,4 @@ test('sending the prompt clears the count', async ($, on) => {
   await type($, '', 'hi')
   await $.prompt.submit({ text: 'hi', wait: false, origin: composer })
   expect(await modesLine($)).toBe('focus')
-})
-
-test('the draft the prompt upgrade puts in the box is counted', async ($, on) => {
-  const box = world($, on, { isUpgradeOn: true })
-  await type($, '', LONG)
-  await $.prompt.submit({ text: LONG, wait: false, origin: composer })
-  await box.clock.advance(0)
-  await box.clock.advance(300)
-  expect(box.text).toBe(DRAFT)
-  expect(await modesLine($)).toBe(`focus & ${[...new Intl.Segmenter().segment(DRAFT)].length}`)
 })

@@ -1,27 +1,7 @@
-import type { Flow, Phase, Question, Wrap } from '../types'
+import type { Wrap } from '../types'
 import { countChars } from './char-count-logic'
 
 export const MIN_LEN = 10
-export const SKIP_TTL_MS = 5 * 60 * 1000
-export const MAX_QUESTIONS = 3
-export const MAX_OPTIONS = 5
-
-export const EMPTY_FLOW: Flow = {
-  phase: 'idle',
-  original: '',
-  questions: [],
-  answers: {},
-  draft: '',
-  skipUntil: 0,
-  filled: '',
-  runId: 0,
-  notice: '',
-  context: '',
-  types: [],
-  wrap: null,
-  draftWrap: null,
-}
-
 export const PROMPT_TYPES = ['research', 'discuss', 'execute'] as const
 
 const CONTEXT_TURNS = 6
@@ -48,10 +28,7 @@ export const buildContext = (turns: readonly { role: string; text: string }[]): 
 export const formatMs = (ms: number): string =>
   ms < 1000 ? `${Math.round(ms)}ms` : `${(ms / 1000).toFixed(1)}s`
 
-export const ASK_LOG_PREFIX = 'Prompt ask:'
-export const REWRITE_LOG_PREFIX = 'Prompt rewrite:'
 export const CLASSIFY_LOG_PREFIX = 'Prompt classify:'
-export const ANSWER_LOG_PREFIX = 'Prompt answer:'
 
 export const classifyTail = (types: readonly string[] | null): string => {
   if (types === null) return 'failed'
@@ -77,19 +54,6 @@ export const callLog = (
   return `${head} · ${shown}`
 }
 
-export const answerLogs = (flow: Flow, max: number): string[] => {
-  const oneLine = (text: string): string => text.replace(/\s+/g, ' ').trim()
-
-  return flow.questions.flatMap((q, i) => {
-    const picked = flow.answers[String(i)]
-    if (picked === undefined) return []
-
-    const row = `${ANSWER_LOG_PREFIX} ${oneLine(q.q)} → ${oneLine(picked)}`
-
-    return [row.length <= max ? row : `${row.slice(0, Math.max(0, max - 3))}...`]
-  })
-}
-
 export type GateInput = {
   text: string
   originKind: string | undefined
@@ -99,14 +63,12 @@ export type GateInput = {
   silentTriggers: readonly string[]
   offTriggers: readonly string[]
   skipTrigger: boolean
-  now: number
-  flow: Flow
 }
 
 export type Gate =
   | { intercept: true; text: string }
   | { intercept: true; off: true; text: string }
-  | { intercept: false; reason: string; clearSkip?: true }
+  | { intercept: false; reason: string }
 
 export const parseTrigger = (text: string, triggers: readonly string[]): string | null => {
   const list = triggers.filter(trigger => trigger !== '').sort((a, b) => b.length - a.length)
@@ -131,8 +93,6 @@ export const parseTrigger = (text: string, triggers: readonly string[]): string 
   return isFound ? rest.trim() : null
 }
 
-export const squash = (text: string): string => text.replace(/\s+/g, '')
-
 const MENTION = /(^|\s)@[\w./\\-]+/
 
 const PASTED = /<pasted_content\b[^>]*>[\s\S]*?<\/pasted_content\b[^>]*>/g
@@ -141,25 +101,8 @@ export const withoutPasted = (text: string): string => text.replace(PASTED, ' ')
 
 export const decideGate = (g: GateInput): Gate => {
   const text = g.text.trim()
-  const hasTrigger = parseTrigger(text, [...g.silentTriggers, ...g.offTriggers]) !== null
-  const filled = g.flow.filled ?? ''
-  if (!hasTrigger && filled !== '' && squash(text) === filled) {
-    return { intercept: false, reason: 'unchanged-draft', clearSkip: true }
-  }
-  if (g.flow.skipUntil > 0) {
-    if (g.now < g.flow.skipUntil && !hasTrigger) {
-      return { intercept: false, reason: 'manual-edit', clearSkip: true }
-    }
-    return decideRest(g, text, true)
-  }
-  return decideRest(g, text, false)
-}
-
-const decideRest = (g: GateInput, text: string, clearSkip: boolean): Gate => {
-  const pass = (reason: string): Gate =>
-    clearSkip ? { intercept: false, reason, clearSkip: true } : { intercept: false, reason }
+  const pass = (reason: string): Gate => ({ intercept: false, reason })
   if (!g.isEnabled) return pass('disabled')
-  if (g.flow.phase !== 'idle') return pass('busy')
   // UNVERIFIED: only the user's own Enter (origin kind composer) is intercepted; every other origin passes
   if (g.originKind !== 'composer') return pass('origin')
   if (g.hasAttachments) return pass('attachments')
@@ -189,43 +132,6 @@ export const stripFence = (raw: string): string => {
   return (m?.[1] ?? s).trim()
 }
 
-const asQuestion = (x: unknown): Question | null => {
-  if (typeof x !== 'object' || x === null) return null
-  const o = x as { q?: unknown; options?: unknown; recommended?: unknown }
-  if (typeof o.q !== 'string' || o.q.trim() === '') return null
-  if (!Array.isArray(o.options)) return null
-  const wanted = typeof o.recommended === 'number' && Number.isInteger(o.recommended) ? o.recommended : -1
-  const options: string[] = []
-  let recommended: number | undefined
-  o.options.forEach((v: unknown, i: number) => {
-    if (typeof v !== 'string' || v.trim() === '' || options.length >= MAX_OPTIONS) return
-    if (i === wanted) recommended = options.length
-    options.push(v.trim())
-  })
-  if (options.length < 2) return null
-  if (recommended === undefined) return { q: o.q.trim(), options }
-  const [first] = options.splice(recommended, 1)
-  options.unshift(first as string)
-  return { q: o.q.trim(), options, recommended: 0 }
-}
-
-export const parseQuestions = (raw: string | null): Question[] => {
-  if (raw === null) return []
-  try {
-    const data = JSON.parse(stripFence(raw)) as { questions?: unknown }
-    if (!Array.isArray(data.questions)) return []
-    const out: Question[] = []
-    for (const item of data.questions) {
-      const q = asQuestion(item)
-      if (q) out.push(q)
-      if (out.length === MAX_QUESTIONS) break
-    }
-    return out
-  } catch {
-    return []
-  }
-}
-
 export const parseTypes = (raw: string | null): string[] => {
   if (raw === null) return []
   try {
@@ -248,50 +154,9 @@ export const normalizeCompletion = (r: unknown): string | null => {
   return o.text
 }
 
-export const isStale = (flow: Flow, id: number): boolean => flow.runId !== id
-
-export const begin = (flow: Flow, original: string, context = ''): Flow => ({
-  ...EMPTY_FLOW,
-  skipUntil: flow.skipUntil,
-  filled: flow.filled ?? '',
-  wrap: flow.wrap ?? null,
-  runId: flow.runId + 1,
-  phase: 'askLoading',
-  original,
-  context,
-})
-
-export const askInput = (flow: Flow): string => {
-  const context = !flow.context ? '' : `<context>${flow.context}</context>`
-  return `${context}<prompt>${flow.original}</prompt>`
-}
-
-export const reset = (flow: Flow): Flow => ({
-  ...EMPTY_FLOW,
-  skipUntil: flow.skipUntil,
-  filled: flow.filled ?? '',
-  wrap: flow.wrap ?? null,
-  runId: flow.runId + 1,
-})
-
-export const toPhase = (flow: Flow, phase: Phase): Flow => ({ ...flow, phase })
-
-export const withQuestions = (flow: Flow, questions: Question[]): Flow => ({
-  ...flow,
-  questions,
-  answers: {},
-  phase: questions.length > 0 ? 'questions' : 'rewriteLoading',
-})
-
-export const withRecommended = (flow: Flow): Flow => {
-  const answers = { ...flow.answers }
-  flow.questions.forEach((q, i) => {
-    const key = String(i)
-    const pick = q.recommended === undefined ? undefined : q.options[q.recommended]
-    if (answers[key] === undefined && pick !== undefined) answers[key] = pick
-  })
-
-  return { ...flow, answers }
+export const askInput = (original: string, context = ''): string => {
+  const wrapped = context === '' ? '' : `<context>${context}</context>`
+  return `${wrapped}<prompt>${original}</prompt>`
 }
 
 export const parseMinLen = (value: unknown): number =>
@@ -299,29 +164,6 @@ export const parseMinLen = (value: unknown): number =>
 
 export const clip = (text: string, max: number): string =>
   text.length <= max ? text : `${text.slice(0, max)}...`
-
-export const rewriteInput = (flow: Flow): string => {
-  const lines = flow.questions
-    .map((q, i) => {
-      const a = flow.answers[String(i)]
-      return a === undefined ? null : `Q: ${q.q}\nA: ${a}`
-    })
-    .filter((l): l is string => l !== null)
-  const context = !flow.context ? '' : `<context>${flow.context}</context>`
-  const types = flow.types ?? []
-  const typed = types.length === 0 ? '' : `<types>${types.join(',')}</types>`
-  return `${context}${typed}<prompt>${flow.original}</prompt><answers>${lines.join('\n\n')}</answers>`
-}
-
-const WRAPPER_TAG = /<\/?(?:prompt|draft|answers|request|context|types)>/g
-
-export const unwrapDraft = (raw: string): string =>
-  raw
-    .trim()
-    .split(/(<input>[\s\S]*?<\/input>)/)
-    .map((part, i) => (i % 2 === 1 ? part : part.replace(WRAPPER_TAG, '')))
-    .join('')
-    .trim()
 
 const HANGUL = /[ㄱ-ㆎ가-힣]/
 
@@ -486,24 +328,3 @@ export const withMeta = (draft: string, original: string, types: readonly string
 
   return wrap === null ? box : wrapText(box, wrap)
 }
-
-const META_FLAT_LINES: readonly string[] = [...new Set(HEAD_LINES.map(squash))]
-
-const hasMeta = (raw: string): boolean => {
-  if (META_TAGS.some(tag => raw.includes(tag))) return true
-  const flat = squash(raw)
-
-  return META_FLAT_LINES.some(line => flat.includes(line))
-}
-
-export const wrapLabel = (wrap: Wrap): string => `[+${wrapText('x', wrap).split('\n').length - 1} lines added on send]`
-
-export const isDraftEdit = (base: string, raw: string): boolean => base !== '' && squash(raw) !== '' && !hasMeta(raw)
-
-export const withDraft = (flow: Flow, draft: string, notice = ''): Flow => ({
-  ...flow,
-  draft,
-  phase: 'review',
-  notice,
-})
-
