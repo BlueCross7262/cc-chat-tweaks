@@ -1,9 +1,10 @@
 # Prompt Upgrade (`prompt.prompt-upgrade.use`)
 
 A feature of cc-chat-tweaks.
-It intercepts a prompt you submit and puts a draft in the prompt box. You read it and press Enter yourself.
-With `use-rewrite` `true` the draft is a rewrite of the prompt as prose. With the default `use-rewrite` `false` the draft is the prompt as you typed it.
-For a Korean prompt the draft is sent as a message that asks Claude to write a prompt from the draft, print it in the chat and answer it.
+It intercepts a prompt you submit.
+With `use-rewrite` `true` it rewrites the prompt as prose and puts the draft in the prompt box. You read it and press Enter yourself.
+With the default `use-rewrite` `false` it sends the prompt at once, as you typed it.
+For a Korean prompt the text is sent as a message that asks Claude to write a prompt from the draft, print it in the chat and answer it.
 The message says that it is not an approval to run anything. It says that the `<source>` part alone decides whether a running mode, such as a discussion mode, stays on.
 
 ## Security notice
@@ -39,7 +40,7 @@ A key that is absent uses its default.
 | Key | Default | Feature |
 |---|---|---|
 | `use` | `true` | Intercept your prompts and upgrade them. |
-| `use-rewrite` | `false` | Option of `use`. When `true`, the rewrite call writes the draft. When `false`, there is no rewrite call and no questions call. A Korean prompt goes back to the prompt box as you typed it, and the instruction and the fixed lines are added when you send it. A prompt without Korean characters is sent at once, without the trigger. |
+| `use-rewrite` | `false` | Option of `use`. When `true`, the rewrite call writes the draft. When `false`, there is no rewrite call and no questions call. Every prompt is sent at once, without the trigger. A Korean prompt waits for the prompt type call, up to 5 seconds, and gets the instruction and the fixed lines. |
 | `use-questions` | `false` | Ask Haiku for clarifying questions. The mod answers each question with its recommended option, and you are not asked. When `false`, the mod rewrites the prompt at once. It has no effect while `use-rewrite` is `false`. |
 | `skip-silent-trigger` | `true` | Option of `use`. When `true`, the trigger check is skipped and every prompt of `min-length` or more is upgraded. When `false`, only a prompt with the trigger is upgraded and any other prompt passes through unchanged. |
 | `silent-triggers` | `["+++"]` | The trigger texts, as an array of strings. Any one of them at the start or the end of a prompt is a trigger. Each entry is 1 to 32 characters after trimming. An entry that is blank or not text is dropped, a repeated entry counts once, and only the first 10 entries are used. An array with no valid entry uses the default. The old key `silent-trigger` is not read. |
@@ -98,13 +99,13 @@ A model the engine refuses makes the call fail, and the flow ends with your orig
 
 ```
 use-rewrite true:   Your prompt > Questions > Rewrite > Draft in the prompt box
-use-rewrite false:  Your prompt > Prompt type > Your prompt in the prompt box
+use-rewrite false:  Your prompt > Prompt type > Sent with the instruction and the fixed lines
 ```
 
-- With `use-rewrite` `false`:
-  - A prompt without Korean characters is not dropped. It is sent at once, without the trigger, and no model call is made.
-  - A Korean prompt is dropped, and only the prompt type call runs. Your prompt goes back to the prompt box as the draft, cleaned as below, with the label line.
-  - The draft is sent with the instruction and the fixed lines, as for a rewrite. The rest of this section, except the questions and the rewrite, applies to it too.
+- With `use-rewrite` `false` no prompt is dropped and nothing goes to the prompt box.
+  - A prompt without Korean characters is sent at once, without the trigger, and no model call is made.
+  - A Korean prompt waits in the submit for the prompt type call, up to 5 seconds. It is then sent at once with the instruction and the fixed lines, and with your prompt, cleaned as below, between `<source>` tags.
+  - There is no draft to read or edit before the send. The chat row shows only the `<source>` part, as for a rewrite.
 - A prompt typed at the prompt box is dropped and the upgrade starts in the background.
 - Haiku also reads up to the last six messages of the conversation (500 characters each, 3000 in all), so a prompt such as "fix the code above" has something to refer to.
 - At the same time, one prompt type call sorts the prompt into `research`, `discuss` and `execute`, one or more in the order the prompt asks for them.

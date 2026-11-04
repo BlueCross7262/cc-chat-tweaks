@@ -215,21 +215,6 @@ const startRewrite = async ($: EngineInterface, id: number): Promise<void> => {
   }
 }
 
-const useOriginal = async ($: EngineInterface, id: number): Promise<void> => {
-  try {
-    const loading = await setIf($, id, cur => toPhase(cur, 'rewriteLoading'))
-    if (isStale(loading, id)) return
-    const types = await takeTypes(id, loading.types ?? [])
-    await setIf($, id, cur => {
-      const { box, wrap } = splitMeta(cur.original, cur.original, types)
-
-      return { ...withDraft({ ...cur, types }, box), draftWrap: wrap }
-    })
-  } catch {
-    await toOriginal($, id, FAILED_NOTICE)
-  }
-}
-
 const cancel = async ($: EngineInterface): Promise<void> => {
   const f = await getFlow($)
   await setFlow($, reset)
@@ -297,12 +282,12 @@ const askAndApplyRecommended = async ($: EngineInterface, id: number): Promise<v
   for (const row of answerLogs(next, LOG_ROW_MAX)) writeLog($, row)
 }
 
-const runSilent = async ($: EngineInterface, id: number, typed: string, useQuestions: boolean, useRewrite: boolean): Promise<void> => {
+const runSilent = async ($: EngineInterface, id: number, typed: string, useQuestions: boolean): Promise<void> => {
   try {
     await $.clock.sleep(BOX_SETTLE_MS).catch(() => undefined)
     const baseline = await boxText($)
-    if (useRewrite && useQuestions) await askAndApplyRecommended($, id)
-    await (useRewrite ? startRewrite($, id) : useOriginal($, id))
+    if (useQuestions) await askAndApplyRecommended($, id)
+    await startRewrite($, id)
     const f = await getFlow($)
     if (isStale(f, id) || f.phase !== 'review') return
     if (f.notice !== '') $.ui.toast(f.notice)
@@ -439,11 +424,18 @@ const interceptOrPass = async ($: EngineInterface, e: PromptSubmitInput) => {
 
     return { rewrite: gate.text }
   }
+  if (gate.intercept && !useRewrite) {
+    const types = await classify($, begin(flow, gate.text, await readContext($)))
+    const { box, wrap } = splitMeta(gate.text, gate.text, types)
+    await setFlow($, f => ({ ...f, wrap: null })).catch(() => undefined)
+
+    return { rewrite: wrap === null ? box : wrapText(box, wrap) }
+  }
   if (gate.intercept) {
     const context = await readContext($)
     const started = await setFlow($, f => begin(f, gate.text, context))
     startClassify($, started)
-    runSilent($, started.runId, e.text, useQuestions, useRewrite).catch(() => undefined)
+    runSilent($, started.runId, e.text, useQuestions).catch(() => undefined)
 
     // UNVERIFIED: what a dropped prompt leaves in the prompt box and the input history
     return { drop: DROP_REASON }

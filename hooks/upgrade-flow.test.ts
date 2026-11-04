@@ -899,17 +899,19 @@ test('the original a failed Haiku call leaves in the box is sent with no wrapper
 
 const NO_REWRITE = { 'use-rewrite': false }
 
-test('with use-rewrite false a Korean prompt makes no upgrade call, fills the original and sends it with the instruction and the rules', async ($, on) => {
+test('with use-rewrite false a Korean prompt is sent at once with the instruction and the rules, after the prompt type call only', async ($, on) => {
   const typed = `${KOREAN} +++`
   const s = world($, on, { useQuestions: false, extra: NO_REWRITE, types: JSON.stringify({ types: ['research'] }), answers: ['Never used.'], box: typed })
-  await submit($, typed)
-  await settle(s)
+  const result = await submit($, typed)
+  const sent = `${FLOW_META_FULL}\n\n<hard rule>\n${FLOW_RESEARCH_RULES}\n</hard rule>\n\n<source>\n${KOREAN}\n</source>`
+  expect(result).toMatchObject({ text: sent })
+  expect(result).not.toHaveProperty('drop')
   expect(s.models).toHaveLength(0)
   expect(s.classified).toHaveLength(1)
-  expect(s.filled).toEqual([KOREAN])
-  expect(s.entered).toEqual([])
-  await submit($, KOREAN)
-  expect(s.entered).toEqual([`${FLOW_META_FULL}\n\n<hard rule>\n${FLOW_RESEARCH_RULES}\n</hard rule>\n\n<source>\n${KOREAN}\n</source>`])
+  expect(s.entered).toEqual([sent])
+  await settle(s)
+  expect(s.filled).toEqual([])
+  expect(s.copied).toEqual([])
 })
 
 test('with use-rewrite false the questions call is skipped even when use-questions is true', async ($, on) => {
@@ -918,27 +920,26 @@ test('with use-rewrite false the questions call is skipped even when use-questio
   await submit($, typed)
   await settle(s)
   expect(s.models).toHaveLength(0)
-  expect(s.filled).toEqual([KOREAN])
-  await submit($, KOREAN)
+  expect(s.filled).toEqual([])
+  expect(s.entered).toHaveLength(1)
   expect(s.entered[0]).toContain(QUESTION_LINE_ONE)
+  expect(s.entered[0]).toContain(`<source>\n${KOREAN}\n</source>`)
 })
 
-test('with use-rewrite false and a failed classify call the original is sent with the short instruction and the source only', async ($, on) => {
+test('with use-rewrite false and a failed classify call the Korean prompt is sent at once with the short instruction and the source only', async ($, on) => {
   const typed = `${KOREAN} +++`
   const s = world($, on, { useQuestions: false, extra: NO_REWRITE, types: null, box: typed })
   await submit($, typed)
-  await settle(s)
-  expect(s.filled).toEqual([KOREAN])
-  await submit($, KOREAN)
   expect(s.entered).toEqual([`${FLOW_META_SHORT}\n\n<source>\n${KOREAN}\n</source>`])
+  expect(s.classifyLogs).toEqual(['Prompt classify: haiku low · 0ms · failed'])
 })
 
-test('with use-rewrite false a Korean original parked on the clipboard is the whole assembled message', async ($, on) => {
-  const s = world($, on, { useQuestions: false, extra: NO_REWRITE, box: ['', 'something typed later'] })
-  await submit($, `${KOREAN} +++`)
-  await settle(s)
-  expect(s.filled).toEqual([])
-  expect(s.copied).toEqual([shortWrapped(KOREAN)])
+test('with use-rewrite false a Korean prompt typed after an earlier draft keeps no wrapper for the next submit', async ($, on) => {
+  const typed = `${KOREAN} +++`
+  const s = world($, on, { useQuestions: false, extra: NO_REWRITE, box: typed })
+  await submit($, typed)
+  await submit($, '짧은 다음 질문 하나만 더 +++')
+  expect(s.entered).toEqual([shortWrapped(KOREAN), shortWrapped('짧은 다음 질문 하나만 더')])
 })
 
 test('with use-rewrite false a prompt without Korean is sent at once without the trigger and with no model call', async ($, on) => {
@@ -957,7 +958,6 @@ test('the prompt upgrade rewrites nothing when use-rewrite is absent from the se
   const typed = `${KOREAN} +++`
   const s = world($, on, { useQuestions: false, extra: { 'use-rewrite': undefined }, answers: ['Never used.'], box: typed })
   await submit($, typed)
-  await settle(s)
   expect(s.models).toHaveLength(0)
-  expect(s.filled).toEqual([KOREAN])
+  expect(s.entered).toEqual([shortWrapped(KOREAN)])
 })
