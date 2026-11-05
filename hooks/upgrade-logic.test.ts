@@ -541,6 +541,14 @@ test('a prompt that is only pasted material is intercepted like any other prompt
   expect(gate({ ...off, minLen: 1000, text: PASTE })).toMatchObject({ intercept: false, reason: 'short' })
 })
 
+test('an @ inside pasted material is not a mention, and an @ outside it is', () => {
+  const code = '<pasted_content id="7"> /** @param name the name */ see @src/app.ts </pasted_content id="7">'
+  expect(gate({ text: code })).toEqual({ intercept: true, text: code })
+  expect(gate({ ...off, text: `+++ ${code}` })).toEqual({ intercept: true, text: code })
+  expect(gate({ text: `look at @src/app.ts\n${code}` })).toMatchObject({ intercept: false, reason: 'mention' })
+  expect(gate({ text: `${code}\nlook at @src/app.ts` })).toMatchObject({ intercept: false, reason: 'mention' })
+})
+
 test('with no off trigger the text is ordinary', () => {
   expect(gate({ ...off, offTriggers: [], skipTrigger: false, text: `${base.text} ---` })).toMatchObject({ intercept: false, reason: 'no-trigger' })
 })

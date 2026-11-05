@@ -149,7 +149,7 @@ cc-chat-tweaks: Prompt classify: haiku low · 0.6s · research, execute
   - Notifications, peer messages, scheduled prompts, SDK and `-p` turns pass through.
 - It starts with `/`.
 - It starts with `!`, which makes it a shell command.
-- It holds an `@file` or `@agent` mention: an `@` at the start or after a white space, then path characters. An address such as `a@b.com` is not a mention. A trigger or an off trigger does not change this, and the trigger text stays in the prompt. An `@` inside pasted material counts as well.
+- It holds an `@file` or `@agent` mention: an `@` at the start or after a white space, then path characters. An address such as `a@b.com` is not a mention. A trigger or an off trigger does not change this, and the trigger text stays in the prompt. An `@` inside a `<pasted_content ...>...</pasted_content>` block is left out of this check.
 - It is shorter than the threshold. The pasted material counts toward the length, so a prompt that is only a paste is upgraded like any other.
 
 An error in the mod passes the prompt on as you typed it, and a log row says why when the log call works.

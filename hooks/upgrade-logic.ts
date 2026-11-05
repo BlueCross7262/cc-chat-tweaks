@@ -94,6 +94,10 @@ export const parseTrigger = (text: string, triggers: readonly string[]): string 
 
 const MENTION = /(^|\s)@[\w./\\-]+/
 
+const PASTED = /<pasted_content\b[^>]*>[\s\S]*?<\/pasted_content\b[^>]*>/g
+
+const withoutPasted = (text: string): string => text.replace(PASTED, ' ')
+
 export const decideGate = (g: GateInput): Gate => {
   const text = g.text.trim()
   const pass = (reason: string): Gate => ({ intercept: false, reason })
@@ -105,7 +109,7 @@ export const decideGate = (g: GateInput): Gate => {
   const cleaned = isOff ? parseTrigger(text, [...g.offTriggers, ...g.silentTriggers]) : stripped
   if ((cleaned ?? text).startsWith('/')) return pass('slash')
   if ((cleaned ?? text).startsWith('!')) return pass('shell')
-  if (MENTION.test(cleaned ?? text)) return pass('mention')
+  if (MENTION.test(withoutPasted(cleaned ?? text))) return pass('mention')
   if (isOff) {
     if (cleaned === null || cleaned === '') return pass('trigger-only')
     return { intercept: true, off: true, text: cleaned }
