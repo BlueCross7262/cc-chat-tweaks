@@ -531,12 +531,14 @@ test('a prompt with an @file or @agent mention passes, because the resubmit does
 
 const PASTE = '<pasted_content id="1926"> PS Z:\\Work> powershell -File run.ps1 FAIL: cannot verify master key </pasted_content id="1926">'
 
-test('a prompt that is only pasted material passes, and one with enough text of its own does not', () => {
-  expect(gate({ text: PASTE })).toMatchObject({ intercept: false, reason: 'pasted-only' })
-  expect(gate({ text: `why?\n${PASTE}` })).toMatchObject({ intercept: false, reason: 'pasted-only' })
-  expect(gate({ ...off, text: PASTE })).toMatchObject({ intercept: false, reason: 'pasted-only' })
+test('a prompt that is only pasted material is intercepted like any other prompt of enough length', () => {
+  expect(gate({ text: PASTE })).toEqual({ intercept: true, text: PASTE })
+  expect(gate({ text: `why?\n${PASTE}` })).toEqual({ intercept: true, text: `why?\n${PASTE}` })
+  expect(gate({ ...off, text: PASTE })).toEqual({ intercept: true, text: PASTE })
   expect(gate({ text: `please find the cause of this failure\n${PASTE}` })).toMatchObject({ intercept: true })
-  expect(gate({ ...off, text: `+++ ${PASTE}` })).toMatchObject({ intercept: true })
+  expect(gate({ ...off, text: `+++ ${PASTE}` })).toEqual({ intercept: true, text: PASTE })
+  expect(gate({ ...off, text: `${PASTE} ---` })).toEqual({ intercept: true, off: true, text: PASTE })
+  expect(gate({ ...off, minLen: 1000, text: PASTE })).toMatchObject({ intercept: false, reason: 'short' })
 })
 
 test('with no off trigger the text is ordinary', () => {

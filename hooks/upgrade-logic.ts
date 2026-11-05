@@ -94,10 +94,6 @@ export const parseTrigger = (text: string, triggers: readonly string[]): string 
 
 const MENTION = /(^|\s)@[\w./\\-]+/
 
-const PASTED = /<pasted_content\b[^>]*>[\s\S]*?<\/pasted_content\b[^>]*>/g
-
-export const withoutPasted = (text: string): string => text.replace(PASTED, ' ').trim()
-
 export const decideGate = (g: GateInput): Gate => {
   const text = g.text.trim()
   const pass = (reason: string): Gate => ({ intercept: false, reason })
@@ -120,7 +116,6 @@ export const decideGate = (g: GateInput): Gate => {
   }
   if (!g.skipTrigger) return pass('no-trigger')
   if (countChars(text) < g.minLen) return pass('short')
-  if (countChars(withoutPasted(text)) < g.minLen) return pass('pasted-only')
   return { intercept: true, text }
 }
 

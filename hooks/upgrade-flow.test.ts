@@ -145,6 +145,15 @@ test('a Korean prompt with attachments is upgraded and the attachments reach the
   expect(s.classified).toHaveLength(2)
 })
 
+test('a Korean prompt that is only pasted material is upgraded and the paste stays in the source', async ($, on) => {
+  const s = world($, on, { types: JSON.stringify({ types: ['research'] }), extra: { 'skip-silent-trigger': true } })
+  const pasted = `<pasted_content id="1">\n${KOREAN}\n</pasted_content id="1">`
+  const sent = fullWrapped(FLOW_RESEARCH_RULES, pasted)
+  expect(await submit($, `\n\n${pasted}\n`)).toMatchObject({ text: sent })
+  expect(s.entered).toEqual([sent])
+  expect(s.classified).toHaveLength(1)
+})
+
 test('a prompt with attachments and the off trigger is sent as it is with the attachments', async ($, on) => {
   const s = world($, on, { extra: { 'skip-silent-trigger': true } })
   const attachments = [{ type: 'image', id: 'img-1' }]

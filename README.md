@@ -138,7 +138,7 @@ A prompt you type at the prompt box and send is sent at once. With the default `
 - A prompt without Korean characters is sent as you typed it, without the trigger. No model call is made.
 - Each Korean prompt costs one prompt type call on your plan or API key. The default model is `haiku`.
 - A prompt with an image or another attachment is upgraded like any other. Only its text changes, and the attachments go on with it.
-- Slash commands, shell commands that start with `!`, prompts with an `@file` or `@agent` mention, prompts that are only pasted material and short prompts pass through unchanged.
+- Slash commands, shell commands that start with `!`, prompts with an `@file` or `@agent` mention and short prompts pass through unchanged. Pasted material counts toward the length, so a prompt that is only a paste is upgraded like any other.
 - `/prompt-upgrade status | threshold <n> | probe on|off|show|clear` shows and tunes the feature.
 
 Details and limits: [docs/prompt-upgrade.md](docs/prompt-upgrade.md). Proof-of-concept results: [docs/prompt-upgrade-poc-results.md](docs/prompt-upgrade-poc-results.md).
