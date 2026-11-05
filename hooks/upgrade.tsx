@@ -175,7 +175,6 @@ const interceptOrPass = async ($: EngineInterface, e: PromptSubmitInput): Promis
   const gate = decideGate({
     text: e.text,
     originKind: e.origin?.kind,
-    hasAttachments: (e.attachments?.length ?? 0) > 0,
     isEnabled,
     minLen,
     silentTriggers,

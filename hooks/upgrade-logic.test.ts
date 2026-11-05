@@ -25,7 +25,6 @@ import {
 const base: GateInput = {
   text: 'please summarise the attached design document for me',
   originKind: 'composer',
-  hasAttachments: false,
   isEnabled: true,
   minLen: MIN_LEN,
   silentTriggers: [],
@@ -49,8 +48,7 @@ test('passes every origin except the person at the composer', () => {
   }
 })
 
-test('passes a prompt with attachments, a slash command or short text', () => {
-  expect(gate({ hasAttachments: true })).toMatchObject({ reason: 'attachments' })
+test('passes a slash command or short text', () => {
   expect(gate({ text: '/compact now please' })).toMatchObject({ reason: 'slash' })
   expect(gate({ text: 'short' })).toMatchObject({ reason: 'short' })
 })
@@ -408,7 +406,6 @@ test('a trigger intercepts with the stripped text and skips the short check', ()
   expect(gate({ ...silent, text: 'summarise it +++' })).toEqual({ intercept: true, text: 'summarise it' })
   expect(gate({ ...silent, text: '+++' })).toMatchObject({ intercept: false, reason: 'trigger-only' })
   expect(gate({ ...silent, text: '+++ /compact now' })).toMatchObject({ intercept: false, reason: 'slash' })
-  expect(gate({ ...silent, text: '+++ hi', hasAttachments: true })).toMatchObject({ intercept: false, reason: 'attachments' })
   expect(gate({ ...silent, text: '+++ hi', isEnabled: false })).toMatchObject({ intercept: false, reason: 'disabled' })
 })
 
@@ -507,10 +504,9 @@ test('the off trigger applies to a short prompt', () => {
   expect(gate({ ...off, minLen: 1000, text: `${base.text} ---` })).toMatchObject({ off: true })
 })
 
-test('the off trigger on its own, with a slash command or with an attachment passes', () => {
+test('the off trigger on its own or with a slash command passes', () => {
   expect(gate({ ...off, text: '---' })).toMatchObject({ intercept: false, reason: 'trigger-only' })
   expect(gate({ ...off, text: '--- /clear' })).toMatchObject({ intercept: false, reason: 'slash' })
-  expect(gate({ ...off, hasAttachments: true, text: `${base.text} ---` })).toMatchObject({ intercept: false, reason: 'attachments' })
 })
 
 test('a shell command that starts with ! passes on every path, with or without a trigger', () => {

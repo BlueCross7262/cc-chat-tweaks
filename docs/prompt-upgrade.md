@@ -124,8 +124,9 @@ The trigger (`+++` by default) at the start or the end of a prompt is what start
   - It works with `skip-silent-trigger` `true` too, which is its main use.
   - It skips the `min-length` check.
   - If the prompt has both an off trigger and a trigger, the off trigger wins and both are removed.
-- A trigger or an off trigger on its own, a prompt with an attachment, and a prompt that starts with `/` or `!` (after the triggers) pass through with the trigger text in them.
+- A trigger or an off trigger on its own, and a prompt that starts with `/` or `!` (after the triggers) pass through with the trigger text in them.
 - The prompt enters as the prompt you typed, with the trigger removed. The mod does not drop it and does not submit it a second time.
+- A prompt with an image or another attachment is upgraded like any other. The mod changes only the text and passes the rest of the submission on, so the attachments go on with it.
 
 ## Usage log
 
@@ -146,7 +147,6 @@ cc-chat-tweaks: Prompt classify: haiku low · 0.6s · research, execute
 - `use` is not `true`.
 - The prompt does not come from your own Enter at the prompt box.
   - Notifications, peer messages, scheduled prompts, SDK and `-p` turns pass through.
-- It carries an image or another attachment.
 - It starts with `/`.
 - It starts with `!`, which makes it a shell command.
 - It holds an `@file` or `@agent` mention: an `@` at the start or after a white space, then path characters. An address such as `a@b.com` is not a mention. A trigger or an off trigger does not change this, and the trigger text stays in the prompt.

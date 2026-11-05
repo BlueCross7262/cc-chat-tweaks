@@ -57,7 +57,6 @@ export const callLog = (
 export type GateInput = {
   text: string
   originKind: string | undefined
-  hasAttachments: boolean
   isEnabled: boolean
   minLen: number
   silentTriggers: readonly string[]
@@ -105,7 +104,6 @@ export const decideGate = (g: GateInput): Gate => {
   if (!g.isEnabled) return pass('disabled')
   // UNVERIFIED: only the user's own Enter (origin kind composer) is intercepted; every other origin passes
   if (g.originKind !== 'composer') return pass('origin')
-  if (g.hasAttachments) return pass('attachments')
   const stripped = parseTrigger(text, g.silentTriggers)
   const isOff = parseTrigger(text, g.offTriggers) !== null
   const cleaned = isOff ? parseTrigger(text, [...g.offTriggers, ...g.silentTriggers]) : stripped

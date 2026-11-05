@@ -18,6 +18,7 @@ type Setup = {
   logs: string[]
   classified: { model: string; effort: string; prompt: string }[]
   classifyLogs: string[]
+  attachments: unknown[]
 }
 
 const world = (
@@ -25,7 +26,7 @@ const world = (
   on: On,
   options: { enabled?: boolean; extra?: Record<string, unknown>; types?: string | null } = {},
 ): Setup => {
-  const s: Setup = { entered: [], filled: [], copied: [], others: [], logs: [], classified: [], classifyLogs: [] }
+  const s: Setup = { entered: [], filled: [], copied: [], others: [], logs: [], classified: [], classifyLogs: [], attachments: [] }
   mock.clock(on, { now: 1000 })
   const group = { use: options.enabled ?? true, 'skip-silent-trigger': false, ...options.extra }
   mock.store(on, {})
@@ -61,6 +62,7 @@ const world = (
   })
   on('prompt.submit', (_$, e) => {
     s.entered.push((e as { text: string }).text)
+    s.attachments.push((e as { attachments?: unknown }).attachments)
     return { text: (e as { text: string }).text } as never
   })
 
@@ -124,12 +126,30 @@ test('nothing is intercepted while disabled', async ($, on) => {
   expect(s.classified).toEqual([])
 })
 
-test('a prompt with an attachment, a slash command, a shell command and a peer message pass through', async ($, on) => {
+test('a slash command, a shell command and a peer message pass through', async ($, on) => {
   const s = world($, on, { extra: { 'skip-silent-trigger': true } })
-  expect(await submit($, KOREAN, { attachments: [{ type: 'image' }] })).toMatchObject({ text: KOREAN })
   expect(await submit($, '/compact the conversation please')).toMatchObject({ text: '/compact the conversation please' })
   expect(await submit($, '!ls -la the current folder now')).toMatchObject({ text: '!ls -la the current folder now' })
   expect(await submit($, KOREAN, { origin: { kind: 'peer' } })).toMatchObject({ text: KOREAN })
+  expect(s.classified).toEqual([])
+})
+
+test('a Korean prompt with attachments is upgraded and the attachments reach the prompt as they came', async ($, on) => {
+  const s = world($, on, { types: JSON.stringify({ types: ['research'] }), extra: { 'skip-silent-trigger': true } })
+  const attachments = [{ type: 'image', mediaType: 'image/png', id: 'img-1' }, { type: 'document', id: 'doc-1' }]
+  const sent = fullWrapped(FLOW_RESEARCH_RULES, KOREAN)
+  expect(await submit($, KOREAN, { attachments })).toMatchObject({ text: sent })
+  expect(await submit($, `${KOREAN} +++`, { attachments })).toMatchObject({ text: sent })
+  expect(s.entered).toEqual([sent, sent])
+  expect(s.attachments).toEqual([attachments, attachments])
+  expect(s.classified).toHaveLength(2)
+})
+
+test('a prompt with attachments and the off trigger is sent as it is with the attachments', async ($, on) => {
+  const s = world($, on, { extra: { 'skip-silent-trigger': true } })
+  const attachments = [{ type: 'image', id: 'img-1' }]
+  expect(await submit($, `${KOREAN} ---`, { attachments })).toMatchObject({ text: KOREAN })
+  expect(s.attachments).toEqual([attachments])
   expect(s.classified).toEqual([])
 })
 
