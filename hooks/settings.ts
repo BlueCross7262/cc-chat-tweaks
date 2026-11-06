@@ -202,6 +202,18 @@ export const withMissingDefaults = (
 
 const hasFlag = (source: unknown, key: FlagKey): boolean => typeof groupOf(source, key)?.[propOf(key)] === 'boolean'
 
+export const TODO_TOOLS_ENV = 'CLAUDE_CODE_ENABLE_TODO_TOOLS'
+
+export const todoToolsOf = (sources: readonly unknown[]): boolean => {
+  for (const source of sources) {
+    const value = isRecord(source) && isRecord(source.env) ? source.env[TODO_TOOLS_ENV] : undefined
+
+    if (typeof value === 'string') return value === '1'
+  }
+
+  return false
+}
+
 export const minLengthOf = (sources: readonly unknown[]): number | undefined => {
   for (const source of sources) {
     const value = upgradeValueOf(source, MIN_LENGTH_KEY)

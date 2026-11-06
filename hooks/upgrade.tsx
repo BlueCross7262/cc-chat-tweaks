@@ -34,6 +34,7 @@ import {
   SETTINGS_SOURCES,
   silentOffTriggersOf,
   silentTriggersOf,
+  todoToolsOf,
   CALL_NAMES,
   type CallName,
 } from './settings'
@@ -154,6 +155,7 @@ const settingsOf = async ($: EngineInterface) => {
     minLen: minLengthOf(sources) ?? parseMinLen(await $.store.get(KEY_MIN_LEN)),
     silentTriggers: flags['use-prompt-upgrade'] ? (silentTriggersOf(sources) ?? DEFAULT_SILENT_TRIGGERS) : [],
     offTriggers: flags['use-prompt-upgrade'] ? (silentOffTriggersOf(sources) ?? DEFAULT_SILENT_OFF_TRIGGERS) : [],
+    todo: todoToolsOf(sources),
   }
 }
 
@@ -171,7 +173,7 @@ const readContext = async ($: EngineInterface): Promise<string> => {
 }
 
 const interceptOrPass = async ($: EngineInterface, e: PromptSubmitInput): Promise<string | null> => {
-  const { isEnabled, skipTrigger, minLen, silentTriggers, offTriggers } = await settingsOf($)
+  const { isEnabled, skipTrigger, minLen, silentTriggers, offTriggers, todo } = await settingsOf($)
   const gate = decideGate({
     text: e.text,
     originKind: e.origin?.kind,
@@ -184,7 +186,9 @@ const interceptOrPass = async ($: EngineInterface, e: PromptSubmitInput): Promis
   if (!gate.intercept) return null
   if ('off' in gate || !hasHangul(gate.text)) return gate.text
 
-  return withMeta(gate.text, gate.text, await classify($, gate.text, await readContext($)))
+  const types = 'short' in gate ? [] : await classify($, gate.text, await readContext($))
+
+  return withMeta(gate.text, gate.text, types, todo)
 }
 
 export const registerUpgrade = (on: Parameters<Register>[0]): void => {

@@ -30,8 +30,8 @@ const rowText = async ($: Engine, text: string, origin: object): Promise<string>
 
 test('a prompt row the person sent shows only the source of the wrapper', async ($, on) => {
   world(on)
-  expect(await rowText($, wrapText(SOURCE, { types: ['execute'] }), composer)).toBe(SOURCE)
-  expect(await rowText($, wrapText(SOURCE, { types: [] }), composer)).toBe(SOURCE)
+  expect(await rowText($, wrapText(SOURCE, { types: ['execute'], todo: false }), composer)).toBe(SOURCE)
+  expect(await rowText($, wrapText(SOURCE, { types: [], todo: false }), composer)).toBe(SOURCE)
 })
 
 test('a row that holds no wrapper is drawn as it is', async ($, on) => {
@@ -41,6 +41,6 @@ test('a row that holds no wrapper is drawn as it is', async ($, on) => {
 
 test('a row from another sender keeps its wrapper', async ($, on) => {
   world(on)
-  const text = wrapText(SOURCE, { types: ['execute'] })
+  const text = wrapText(SOURCE, { types: ['execute'], todo: false })
   expect(await rowText($, text, other)).toBe(text)
 })

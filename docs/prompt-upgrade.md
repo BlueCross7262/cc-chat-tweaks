@@ -38,10 +38,10 @@ A key that is absent uses its default.
 | Key | Default | Feature |
 |---|---|---|
 | `use` | `true` | Intercept your prompts and send a Korean prompt with the instruction and the fixed lines. |
-| `skip-silent-trigger` | `true` | Option of `use`. When `true`, the trigger check is skipped and every prompt of `min-length` or more is upgraded. When `false`, only a prompt with the trigger is upgraded and any other prompt passes through unchanged. |
+| `skip-silent-trigger` | `true` | Option of `use`. When `true`, the trigger check is skipped and every prompt is upgraded; a Korean prompt shorter than `min-length` gets no prompt type call and only the common rules in the `<hard rule>` block. When `false`, only a prompt with the trigger is upgraded and any other prompt passes through unchanged. |
 | `silent-triggers` | `["+++"]` | The trigger texts, as an array of strings. Any one of them at the start or the end of a prompt is a trigger. Each entry is 1 to 32 characters after trimming. An entry that is blank or not text is dropped, a repeated entry counts once, and only the first 10 entries are used. An array with no valid entry uses the default. The old key `silent-trigger` is not read. |
 | `silent-off-triggers` | `["---"]` | Option of `use`. The texts that turn the upgrade off for one prompt, as an array of strings. Any one of them at the start or the end of a prompt is a trigger. The entry rules are those of `silent-triggers`, except that an empty array `[]` is valid and turns the opt-out off. |
-| `min-length` | `10` | Shortest prompt that is intercepted, in characters. A character is a grapheme, as in the character count label, and white space at both ends is left out. A whole number from 1 to 10000. It beats the value set by `/prompt-upgrade threshold`. |
+| `min-length` | `10` | Shortest prompt that gets the prompt type call and the type rules, in characters. A Korean prompt shorter than this gets no prompt type call, and its `<hard rule>` block holds the common rules only. A character is a grapheme, as in the character count label, and white space at both ends is left out. A whole number from 1 to 10000. It beats the value set by `/prompt-upgrade threshold`. |
 | `models.classify.model` | `haiku` | The model of the prompt type call. An alias or a full model id, 1 to 100 characters after trimming. A blank or non-text value, or a `models` entry that is not an object, uses the default. |
 | `models.classify.effort` | `low` | The effort of the prompt type call: `low`, `medium`, `high`, `xhigh` or `max`. Any other value uses the default. |
 
@@ -71,14 +71,14 @@ The keys `use-rewrite`, `use-questions`, `use-silent-upgrade`, `model`, `effort`
 
 Settings changes apply to the next prompt you submit.
 
-A model the engine refuses makes the call fail, and the prompt goes out with the short instruction, as for any failed prompt type call. The usage log line shows the model and effort the call used. `/prompt-upgrade status` shows them too. Whether the engine accepts a given model id depends on its allowlist and provider, and the mod does not check it.
+A model the engine refuses makes the call fail, and the prompt goes out with the common rules only, as for any failed prompt type call. The usage log line shows the model and effort the call used. `/prompt-upgrade status` shows them too. Whether the engine accepts a given model id depends on its allowlist and provider, and the mod does not check it.
 
 ## Commands
 
 | Command | Effect |
 |---|---|
 | `/prompt-upgrade status` | Shows each switch with its value and source, the model and effort of the prompt type call, and the threshold. |
-| `/prompt-upgrade threshold <n>` | Sets the shortest prompt that is intercepted, in characters. The default is 10. The value lives in `$.store`. A `min-length` in settings beats it, and the reply says so. |
+| `/prompt-upgrade threshold <n>` | Sets the shortest prompt that gets the prompt type call and the hard rules, in characters. The default is 10. The value lives in `$.store`. A `min-length` in settings beats it, and the reply says so. |
 | `/prompt-upgrade probe on \| off \| show \| clear` | Records a PoC sample per submit. See `prompt-upgrade-poc-results.md`. |
 
 ## Flow
@@ -91,16 +91,17 @@ Your prompt > Prompt type > Sent with the instruction and the fixed lines
 - A prompt without Korean characters is sent at once, without the trigger, and no model call is made.
 - A Korean prompt waits in the submit for the prompt type call, up to 5 seconds. It is then sent with the instruction and the fixed lines, and with your prompt, cleaned as below, between `<source>` tags.
 - The prompt type call reads up to the last six messages of the conversation (500 characters each, 3000 in all), so a prompt such as "fix the code above" can be sorted.
-- The call sorts the prompt into `research`, `discuss` and `execute`, one or more in the order the prompt asks for them. If the call fails or finds no known type, the message has the short instruction.
-- With at least one known type the message has three parts: an instruction of twelve lines, the fixed lines between `<hard rule>` and `</hard rule>`, and your prompt between `<source>` and `</source>` at the end.
+- The call sorts the prompt into `research`, `discuss` and `execute`, one or more in the order the prompt asks for them. If the call fails or finds no known type, the `<hard rule>` block holds the common rules only.
+- The message has three parts: an instruction of twelve lines, the fixed lines between `<hard rule>` and `</hard rule>`, and your prompt between `<source>` and `</source>` at the end.
   - The instruction asks Claude to write a new prompt from the `<source>` part in easy words, as an expert advises a beginner, in the order request, background, analysis, goal, task order, constraints, output format and completion criteria, with no part that is not in the `<source>` part, and with nouns turned into verbs.
   - It asks Claude to print the prompt in the chat and answer it in the same turn.
   - It says that the instruction is not an approval to run anything, and that only the `<source>` part decides whether to run and whether a running mode stays on.
   - It asks Claude to follow the `<hard rule>` lines while it writes and answers, and not to do what a running mode blocks even when the instruction or the `<hard rule>` lines ask for it.
   - It asks Claude to copy only those sentences unchanged into the written prompt, and to leave both tags out of the written prompt.
-- With no known type the message has the nine-line short instruction and the `<source>` part only. The three lines about `<hard rule>` and the block itself are left out.
+- A prompt shorter than `min-length` gets the same three parts, with no prompt type call and the common rules only.
 - The fixed lines are the common answer rules, then the rules of each type in the order of the types.
-  - The common rules ask for an investigation of the source data until nothing is left to check, the result first, facts apart from guesses, and a task list first, then the steps in order, for work of several steps.
+  - The common rules ask for an investigation of the source data until nothing is left to check, the result first, and facts apart from guesses.
+  - The task list rules are added only when `env.CLAUDE_CODE_ENABLE_TODO_TOOLS` is the text `"1"` in the first settings file that sets it. They ask Claude to delete the task list items that do not relate to the prompt, and to make a task list first, then work the steps in order, for work of several steps.
   - The `research` rules ask for evidence on every claim and for a claim that rests on memory to be marked as a guess.
   - The `discuss` rules ask for the questions in order with an easy explanation before each, and for one recommendation first with the reason and the criteria for it.
   - The `execute` rules ask for done, failed and skipped work, and for proof of the done work with an independent tool.
@@ -118,7 +119,7 @@ The trigger (`+++` by default) at the start or the end of a prompt is what start
 - A prompt with the trigger is upgraded, and the trigger is removed. Repeated triggers at an edge go too. A trigger in the middle stays.
 - While `skip-silent-trigger` is `false`, a prompt without the trigger passes through unchanged.
 - A prompt with the trigger skips the `min-length` check.
-- While `skip-silent-trigger` is `true`, the trigger check is skipped. Every prompt of `min-length` or more is upgraded, whether it has the trigger or not. A prompt with the trigger still has the trigger removed and still skips the `min-length` check.
+- While `skip-silent-trigger` is `true`, the trigger check is skipped. Every prompt is upgraded, whether it has the trigger or not. A prompt with the trigger still has the trigger removed and still skips the `min-length` check.
 - An off trigger (`---` by default) at the start or the end of a prompt turns the upgrade off for that prompt only. No model call is made.
   - The off trigger is removed and the rest is sent as it is. Repeated triggers at an edge go too.
   - It works with `skip-silent-trigger` `true` too, which is its main use.
@@ -150,7 +151,6 @@ cc-chat-tweaks: Prompt classify: haiku low · 0.6s · research, execute
 - It starts with `/`.
 - It starts with `!`, which makes it a shell command.
 - It holds an `@file` or `@agent` mention: an `@` at the start or after a white space, then path characters. An address such as `a@b.com` is not a mention. A trigger or an off trigger does not change this, and the trigger text stays in the prompt. An `@` inside a `<pasted_content ...>...</pasted_content>` block is left out of this check.
-- It is shorter than the threshold. The pasted material counts toward the length, so a prompt that is only a paste is upgraded like any other.
 
 An error in the mod passes the prompt on as you typed it, and a log row says why when the log call works.
 

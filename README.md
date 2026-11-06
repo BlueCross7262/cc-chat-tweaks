@@ -21,10 +21,10 @@ Tool folding, the Edit/Write summary, the answer colours and the character count
 | `chat` | `use-edit-summary` | `false` | Draw `Edit` and `Write` calls as one summary line. |
 | `chat.answer-colors` | `use` | `false` | Draw the row that holds your answers to Claude's questions in three colours: title, question and answer. |
 | `prompt.prompt-upgrade` | `use` | `true` | Send a Korean prompt with an instruction and answer rules added. A prompt without Korean characters is sent as you typed it. |
-| `prompt.prompt-upgrade` | `skip-silent-trigger` | `true` | Option of `use`. When `true`, the trigger check is skipped and every prompt of `min-length` or more is upgraded. When `false`, only a prompt with the trigger is upgraded. |
+| `prompt.prompt-upgrade` | `skip-silent-trigger` | `true` | Option of `use`. When `true`, the trigger check is skipped and every prompt is upgraded; a Korean prompt shorter than `min-length` gets no prompt type call and only the common rules in the `<hard rule>` block. When `false`, only a prompt with the trigger is upgraded. |
 | `prompt.prompt-upgrade` | `silent-triggers` | `["+++"]` | The trigger texts for the silent upgrade, as an array of strings. |
 | `prompt.prompt-upgrade` | `silent-off-triggers` | `["---"]` | The texts that turn the silent upgrade off for one prompt, as an array of strings. The prompt is sent as it is, without the text. `[]` turns this off. |
-| `prompt.prompt-upgrade` | `min-length` | `10` | Shortest prompt that is upgraded, in characters. A character is a grapheme, the unit the character count label uses, and white space at both ends is left out. |
+| `prompt.prompt-upgrade` | `min-length` | `10` | Shortest prompt that gets the prompt type call and the type rules, in characters. A shorter Korean prompt gets the common rules only. A character is a grapheme, the unit the character count label uses, and white space at both ends is left out. |
 | `prompt.prompt-upgrade` | `models.classify.model`, `models.classify.effort` | `haiku`, `low` | The model and effort of the prompt type call. The model is an alias or a full model id. The effort is `low`, `medium`, `high`, `xhigh` or `max`. |
 | `prompt.char-count` | `use` | `false` | Show the number of characters in the prompt box at the right end of the line under it. |
 
@@ -131,14 +131,14 @@ The row the engine draws after you answer an `AskUserQuestion` dialog is drawn a
 
 ### `prompt.prompt-upgrade.use`
 
-A prompt you type at the prompt box and send is sent at once. With the default `skip-silent-trigger` every prompt of `min-length` or more is upgraded. With `false` only a prompt that starts or ends with the trigger `+++` is. A prompt that starts or ends with `---` is sent as it is.
+A prompt you type at the prompt box and send is sent at once. With the default `skip-silent-trigger` every prompt is upgraded, and one shorter than `min-length` gets the common rules only. With `false` only a prompt that starts or ends with the trigger `+++` is. A prompt that starts or ends with `---` is sent as it is.
 
-- A Korean prompt waits for the prompt type call, up to 5 seconds. It is then sent as one message: an instruction that asks Claude to write a prompt from your text, print it and answer it, a statement that the instruction is not an approval to run anything, the answer rules for its type between `<hard rule>` tags, and your prompt between `<source>` tags at the end. The mod builds the message in code, so the rules reach Claude as they are written.
+- A Korean prompt waits for the prompt type call, up to 5 seconds. It is then sent as one message: an instruction that asks Claude to write a prompt from your text, print it and answer it, a statement that the instruction is not an approval to run anything, the common answer rules and the rules for its type between `<hard rule>` tags (the task list rules join them when `env.CLAUDE_CODE_ENABLE_TODO_TOOLS` is `"1"` in settings), and your prompt between `<source>` tags at the end. The mod builds the message in code, so the rules reach Claude as they are written.
   - The chat row of the sent message shows your prompt alone. The instruction and the rules are not drawn, but Claude still gets them.
 - A prompt without Korean characters is sent as you typed it, without the trigger. No model call is made.
 - Each Korean prompt costs one prompt type call on your plan or API key. The default model is `haiku`.
 - A prompt with an image or another attachment is upgraded like any other. Only its text changes, and the attachments go on with it.
-- Slash commands, shell commands that start with `!`, prompts with an `@file` or `@agent` mention and short prompts pass through unchanged. Pasted material counts toward the length, so a prompt that is only a paste is upgraded like any other.
+- Slash commands, shell commands that start with `!`, and prompts with an `@file` or `@agent` mention pass through unchanged. Pasted material counts toward the length, so a prompt that is only a paste is upgraded like any other.
 - `/prompt-upgrade status | threshold <n> | probe on|off|show|clear` shows and tunes the feature.
 
 Details and limits: [docs/prompt-upgrade.md](docs/prompt-upgrade.md). Proof-of-concept results: [docs/prompt-upgrade-poc-results.md](docs/prompt-upgrade-poc-results.md).

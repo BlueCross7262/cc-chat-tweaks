@@ -67,6 +67,7 @@ export type GateInput = {
 export type Gate =
   | { intercept: true; text: string }
   | { intercept: true; off: true; text: string }
+  | { intercept: true; short: true; text: string }
   | { intercept: false; reason: string }
 
 export const parseTrigger = (text: string, triggers: readonly string[]): string | null => {
@@ -119,7 +120,7 @@ export const decideGate = (g: GateInput): Gate => {
     return { intercept: true, text: stripped }
   }
   if (!g.skipTrigger) return pass('no-trigger')
-  if (countChars(text) < g.minLen) return pass('short')
+  if (countChars(text) < g.minLen) return { intercept: true, short: true, text }
   return { intercept: true, text }
 }
 
@@ -178,6 +179,9 @@ const COMMON_LINES: readonly string[] = [
   '원본 데이터에서 확인이 필요 없을 때까지 충분히 조사한다.',
   '결과나 결론을 첫 줄에 쓴다.',
   '확인한 사실과 추측을 구분해 쓴다.',
+]
+
+const TODO_LINES: readonly string[] = [
   '이미 있는 할일 목록 중 이번 프롬프트와 관련없는 항목은 삭제한다.',
   '여러 단계의 작업이면 할일 목록을 먼저 생성하고 순서대로 진행한다.',
 ]
@@ -208,12 +212,8 @@ const typeBlocks = (types: readonly string[]): readonly (readonly string[])[] =>
     QUESTION_TYPES.includes(type) ? [...TYPE_LINES[type], ...QUESTION_LINES] : TYPE_LINES[type],
   )
 
-const typeTail = (types: readonly string[]): string => {
-  const blocks = typeBlocks(types)
-  if (blocks.length === 0) return ''
-
-  return [COMMON_LINES, ...blocks].map(lines => lines.join('\n')).join('\n\n')
-}
+const ruleTail = (types: readonly string[], todo: boolean): string =>
+  [todo ? [...COMMON_LINES, ...TODO_LINES] : COMMON_LINES, ...typeBlocks(types)].map(lines => lines.join('\n')).join('\n\n')
 
 const normalizeLine = (line: string): string => line.replace(/\s+/g, '').replace('나에게', '')
 
@@ -264,13 +264,12 @@ export const splitMeta = (
   draft: string,
   original: string,
   types: readonly string[],
+  todo = false,
 ): { box: string; wrap: Wrap | null } => {
   if (!HANGUL.test(original)) return { box: draft, wrap: null }
 
-  const blocks = typeBlocks(types)
-  const hasRules = blocks.length > 0
   const dropped = new Set(
-    [...HEAD_LINES, ...(hasRules ? [...COMMON_LINES, ...blocks.flat()] : [])].map(normalizeLine),
+    [...HEAD_LINES, ...COMMON_LINES, ...(todo ? TODO_LINES : []), ...typeBlocks(types).flat()].map(normalizeLine),
   )
   const body = tidyBody(
     draft
@@ -279,18 +278,13 @@ export const splitMeta = (
       .filter(line => !META_TAGS.includes(line.trim()))
       .join('\n'),
   )
-  if (META_TAGS.some(tag => body.includes(tag))) return { box: hasRules ? `${body}\n\n${typeTail(types)}` : body, wrap: null }
+  if (META_TAGS.some(tag => body.includes(tag))) return { box: `${body}\n\n${ruleTail(types, todo)}`, wrap: null }
 
-  return { box: body, wrap: { types: [...new Set(types.filter(isPromptType))] } }
+  return { box: body, wrap: { types: [...new Set(types.filter(isPromptType))], todo } }
 }
 
-export const wrapText = (body: string, wrap: Wrap): string => {
-  const hasRules = typeBlocks(wrap.types).length > 0
-  const head = (hasRules ? META_FULL_LINES : META_SHORT_LINES).join('\n')
-  const source = `<source>\n${body}\n</source>`
-
-  return hasRules ? `${head}\n\n<hard rule>\n${typeTail(wrap.types)}\n</hard rule>\n\n${source}` : `${head}\n\n${source}`
-}
+export const wrapText = (body: string, wrap: Wrap): string =>
+  `${META_FULL_LINES.join('\n')}\n\n<hard rule>\n${ruleTail(wrap.types, wrap.todo)}\n</hard rule>\n\n<source>\n${body}\n</source>`
 
 
 const SOURCE_OPEN = '<source>\n'
@@ -320,8 +314,8 @@ export const sourceOf = (text: string): string | null => {
   return null
 }
 
-export const withMeta = (draft: string, original: string, types: readonly string[]): string => {
-  const { box, wrap } = splitMeta(draft, original, types)
+export const withMeta = (draft: string, original: string, types: readonly string[], todo = false): string => {
+  const { box, wrap } = splitMeta(draft, original, types, todo)
 
   return wrap === null ? box : wrapText(box, wrap)
 }

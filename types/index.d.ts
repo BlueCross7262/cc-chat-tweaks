@@ -8,7 +8,7 @@ export type Timing = { id: string; start: number; end: number }
 
 export type RunState = { runs: Run[]; failed: string[]; done: string[]; changes: Change[]; times: Timing[] }
 
-export type Wrap = { types: string[] }
+export type Wrap = { types: string[]; todo: boolean }
 
 declare module 'claude-code' {
   interface PluginState {

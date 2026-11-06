@@ -24,13 +24,14 @@ type Setup = {
 const world = (
   $: Engine,
   on: On,
-  options: { enabled?: boolean; extra?: Record<string, unknown>; types?: string | null } = {},
+  options: { enabled?: boolean; extra?: Record<string, unknown>; types?: string | null; env?: Record<string, string> } = {},
 ): Setup => {
   const s: Setup = { entered: [], filled: [], copied: [], others: [], logs: [], classified: [], classifyLogs: [], attachments: [] }
   mock.clock(on, { now: 1000 })
   const group = { use: options.enabled ?? true, 'skip-silent-trigger': false, ...options.extra }
   mock.store(on, {})
-  on('settings.read', (_$, e) => ({ value: (e as { source?: string }).source === 'user' ? { ccChatTweaks: { prompt: { 'prompt-upgrade': group } } } : {} }) as never)
+  const user = { ccChatTweaks: { prompt: { 'prompt-upgrade': group } }, ...(options.env === undefined ? {} : { env: options.env }) }
+  on('settings.read', (_$, e) => ({ value: (e as { source?: string }).source === 'user' ? user : {} }) as never)
   on('session.surfaces', () => ({ value: ['terminal'] }) as never)
   on('prompt.fill', (_$, e) => {
     s.filled.push((e as { text: string }).text)
@@ -89,24 +90,19 @@ const FLOW_META_FULL = [
   '쓴 프롬프트에는 <source> 태그와 <hard rule> 태그를 포함하지 않는다.',
 ].join('\n')
 
-const FLOW_META_SHORT = [
-  '너는 프롬프트 엔지니어다.',
-  '아래 <source> 는 내가 AI에게 요청하는 내용이다.',
-  '<source> 를 이해하고 맥락에 맞게 전문가가 초보자에게 조언하듯 쉽게 프롬프트를 새로 쓴다.',
-  '- 요청, 배경, 분석, 목표, 작업 순서, 제약, 출력 형식, 완료 기준 순서로 쓰고 <source> 에 없는 항목은 쓰지 않는다.',
-  '- 명사를 동사로 풀어서 쉬운 언어로 쓴다.',
-  '쓴 프롬프트를 채팅에 출력한 후 이 대화에서 그 프롬프트대로 응답한다.',
-  '이 지시문은 실행 승인이 아니다.',
-  '실행할지와 진행 중인 모드를 유지할지는 <source> 만 보고 판단한다.',
-  '쓴 프롬프트에는 <source> 태그를 포함하지 않는다.',
-].join('\n')
-
-const FLOW_RESEARCH_RULES = [
+const FLOW_COMMON_RULES = [
   '원본 데이터에서 확인이 필요 없을 때까지 충분히 조사한다.',
   '결과나 결론을 첫 줄에 쓴다.',
   '확인한 사실과 추측을 구분해 쓴다.',
+].join('\n')
+
+const FLOW_TODO_RULES = [
   '이미 있는 할일 목록 중 이번 프롬프트와 관련없는 항목은 삭제한다.',
   '여러 단계의 작업이면 할일 목록을 먼저 생성하고 순서대로 진행한다.',
+].join('\n')
+
+const FLOW_RESEARCH_RULES = [
+  FLOW_COMMON_RULES,
   '',
   '모든 주장에 근거를 붙인다.',
   '근거는 파일 경로와 줄 번호, 실행 결과, 문서 출처 중 하나로 쓴다.',
@@ -117,7 +113,7 @@ const FLOW_RESEARCH_RULES = [
 
 const fullWrapped = (rules: string, body: string): string =>
   `${FLOW_META_FULL}\n\n<hard rule>\n${rules}\n</hard rule>\n\n<source>\n${body}\n</source>`
-const shortWrapped = (body: string): string => `${FLOW_META_SHORT}\n\n<source>\n${body}\n</source>`
+const commonWrapped = (body: string): string => fullWrapped(FLOW_COMMON_RULES, body)
 
 test('nothing is intercepted while disabled', async ($, on) => {
   const s = world($, on, { enabled: false, extra: { 'skip-silent-trigger': true } })
@@ -192,17 +188,17 @@ test('a Korean prompt with an execute type gets the execute lines and no questio
   expect(s.entered[0]).not.toContain(QUESTION_LINE_ONE)
 })
 
-test('a failed classify call sends the Korean prompt with the short instruction and the source only', async ($, on) => {
+test('a failed classify call sends the Korean prompt with the common rules only', async ($, on) => {
   const s = world($, on, { types: null })
   await submit($, `${KOREAN} +++`)
-  expect(s.entered).toEqual([shortWrapped(KOREAN)])
+  expect(s.entered).toEqual([commonWrapped(KOREAN)])
   expect(s.classifyLogs).toEqual(['Prompt classify: haiku low · 0ms · failed'])
 })
 
-test('a classify call with no known type logs none and sends the short instruction', async ($, on) => {
+test('a classify call with no known type logs none and sends the common rules only', async ($, on) => {
   const s = world($, on, { types: JSON.stringify({ types: ['plan'] }) })
   await submit($, `${KOREAN} +++`)
-  expect(s.entered).toEqual([shortWrapped(KOREAN)])
+  expect(s.entered).toEqual([commonWrapped(KOREAN)])
   expect(s.classifyLogs).toEqual(['Prompt classify: haiku low · 0ms · none'])
 })
 
@@ -217,7 +213,7 @@ test('each Korean prompt gets its own wrapper and nothing is kept for the next s
   const s = world($, on)
   await submit($, `${KOREAN} +++`)
   await submit($, '짧은 다음 질문 하나만 더 +++')
-  expect(s.entered).toEqual([shortWrapped(KOREAN), shortWrapped('짧은 다음 질문 하나만 더')])
+  expect(s.entered).toEqual([commonWrapped(KOREAN), commonWrapped('짧은 다음 질문 하나만 더')])
 })
 
 test('a prompt without Korean is sent at once without the trigger and with no model call', async ($, on) => {
@@ -243,11 +239,27 @@ test('without skip-silent-trigger a prompt without the trigger passes through un
   expect(s.classified).toEqual([])
 })
 
-test('skip-silent-trigger wraps a Korean prompt without the trigger and still passes a short one', async ($, on) => {
+test('skip-silent-trigger wraps a Korean prompt without the trigger and wraps a short one with the common rules and no classify call', async ($, on) => {
   const s = world($, on, { extra: { 'skip-silent-trigger': true } })
   await submit($, KOREAN)
-  expect(await submit($, '짧은 말')).toMatchObject({ text: '짧은 말' })
-  expect(s.entered).toEqual([shortWrapped(KOREAN), '짧은 말'])
+  expect(s.classified).toHaveLength(1)
+  await submit($, '짧은 말')
+  expect(s.entered).toEqual([commonWrapped(KOREAN), commonWrapped('짧은 말')])
+  expect(s.classified).toHaveLength(1)
+})
+
+test('env.CLAUDE_CODE_ENABLE_TODO_TOOLS set to 1 adds the todo lines to the hard rule, for a long and a short prompt', async ($, on) => {
+  const s = world($, on, { extra: { 'skip-silent-trigger': true }, env: { CLAUDE_CODE_ENABLE_TODO_TOOLS: '1' } })
+  await submit($, KOREAN)
+  await submit($, '짧은 말')
+  const rules = `${FLOW_COMMON_RULES}\n${FLOW_TODO_RULES}`
+  expect(s.entered).toEqual([fullWrapped(rules, KOREAN), fullWrapped(rules, '짧은 말')])
+})
+
+test('env.CLAUDE_CODE_ENABLE_TODO_TOOLS with any other value adds no todo line', async ($, on) => {
+  const s = world($, on, { extra: { 'skip-silent-trigger': true }, env: { CLAUDE_CODE_ENABLE_TODO_TOOLS: '0' } })
+  await submit($, KOREAN)
+  expect(s.entered).toEqual([commonWrapped(KOREAN)])
 })
 
 test('models.classify from the settings reaches the classify call and its log row', async ($, on) => {
@@ -268,7 +280,7 @@ test('the removed keys in the settings change nothing', async ($, on) => {
   }
   const s = world($, on, { extra: removed })
   const result = await submit($, `${KOREAN} +++`)
-  expect(result).toMatchObject({ text: shortWrapped(KOREAN) })
+  expect(result).toMatchObject({ text: commonWrapped(KOREAN) })
   expect(s.others).toEqual([])
   expect(s.classified.map(c => `${c.model} ${c.effort}`)).toEqual(['haiku low'])
   expect(s.filled).toEqual([])

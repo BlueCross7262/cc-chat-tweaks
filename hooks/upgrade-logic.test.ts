@@ -48,22 +48,22 @@ test('passes every origin except the person at the composer', () => {
   }
 })
 
-test('passes a slash command or short text', () => {
+test('passes a slash command and marks short text for the short head', () => {
   expect(gate({ text: '/compact now please' })).toMatchObject({ reason: 'slash' })
-  expect(gate({ text: 'short' })).toMatchObject({ reason: 'short' })
+  expect(gate({ text: 'short' })).toEqual({ intercept: true, short: true, text: 'short' })
 })
 
 test('the threshold comes from the setting', () => {
-  expect(gate({ minLen: 100 })).toMatchObject({ intercept: false, reason: 'short' })
+  expect(gate({ minLen: 100 })).toMatchObject({ intercept: true, short: true })
   expect(gate({ minLen: 5, text: 'sixchr' })).toEqual({ intercept: true, text: 'sixchr' })
 })
 
 test('the length check counts graphemes, as the character count label does, after trimming the ends', () => {
-  expect(gate({ minLen: 3, text: '😀😀' })).toMatchObject({ intercept: false, reason: 'short' })
-  expect(gate({ minLen: 2, text: '👨‍👩‍👧' })).toMatchObject({ intercept: false, reason: 'short' })
-  expect(gate({ minLen: 2, text: 'e\u0301' })).toMatchObject({ intercept: false, reason: 'short' })
+  expect(gate({ minLen: 3, text: '😀😀' })).toMatchObject({ intercept: true, short: true })
+  expect(gate({ minLen: 2, text: '👨‍👩‍👧' })).toMatchObject({ intercept: true, short: true })
+  expect(gate({ minLen: 2, text: 'e\u0301' })).toMatchObject({ intercept: true, short: true })
   expect(gate({ minLen: 3, text: '😀 😀' })).toEqual({ intercept: true, text: '😀 😀' })
-  expect(gate({ minLen: 5, text: '  안녕 하  ' })).toMatchObject({ intercept: false, reason: 'short' })
+  expect(gate({ minLen: 5, text: '  안녕 하  ' })).toMatchObject({ intercept: true, short: true })
   expect(gate({ minLen: 4, text: '  안녕 하  ' })).toEqual({ intercept: true, text: '안녕 하' })
   expect(parseMinLen(undefined)).toBe(MIN_LEN)
   expect(parseMinLen(0)).toBe(MIN_LEN)
@@ -116,6 +116,9 @@ const COMMON_TAIL = [
   '원본 데이터에서 확인이 필요 없을 때까지 충분히 조사한다.',
   '결과나 결론을 첫 줄에 쓴다.',
   '확인한 사실과 추측을 구분해 쓴다.',
+].join('\n')
+
+const TODO_TAIL = [
   '이미 있는 할일 목록 중 이번 프롬프트와 관련없는 항목은 삭제한다.',
   '여러 단계의 작업이면 할일 목록을 먼저 생성하고 순서대로 진행한다.',
 ].join('\n')
@@ -186,13 +189,13 @@ test('sourceOf returns the source of a full wrapper', () => {
   expect(sourceOf(wrapped('줄 하나.\n줄 둘.', RESEARCH_RULES))).toBe('줄 하나.\n줄 둘.')
 })
 
-test('sourceOf returns the source of a short wrapper', () => {
-  expect(sourceOf(withMeta('원인을 찾는다.', '원인을 찾아 줘', []))).toBe('원인을 찾는다.')
+test('sourceOf returns the source of a short wrapper sent by an earlier version', () => {
+  expect(sourceOf(`${META_SHORT}\n\n<source>\n원인을 찾는다.\n</source>`)).toBe('원인을 찾는다.')
 })
 
 test('sourceOf returns the source of every wrapper wrapText builds', () => {
   for (const types of [[], ['research'], ['discuss'], ['execute'], ['research', 'execute']]) {
-    expect(sourceOf(wrapText('본문 한 줄.\n본문 두 줄.', { types }))).toBe('본문 한 줄.\n본문 두 줄.')
+    expect(sourceOf(wrapText('본문 한 줄.\n본문 두 줄.', { types, todo: false }))).toBe('본문 한 줄.\n본문 두 줄.')
   }
 })
 
@@ -205,7 +208,7 @@ test('sourceOf returns null for text that is not an intact wrapper', () => {
   expect(sourceOf(`앞 문장.\n${whole}`)).toBeNull()
 })
 
-test('the instruction is the twelve lines of the full form and the nine lines of the short form', () => {
+test('the instruction is the twelve lines of the full form, with or without a type', () => {
   const full = withMeta('원인을 찾는다.', '원인을 찾아 줘', ['research']).split('\n')
   expect(full.slice(0, 12)).toEqual(META_FULL.split('\n'))
   expect(full[12]).toBe('')
@@ -214,10 +217,9 @@ test('the instruction is the twelve lines of the full form and the nine lines of
   expect(full.at(-3)).toBe('<source>')
   expect(full.at(-2)).toBe('원인을 찾는다.')
   expect(full.at(-1)).toBe('</source>')
-  const short = withMeta('원인을 찾는다.', '원인을 찾아 줘', []).split('\n')
-  expect(short.slice(0, 9)).toEqual(META_SHORT.split('\n'))
-  expect(short[9]).toBe('')
-  expect(short[10]).toBe('<source>')
+  const bare = withMeta('원인을 찾는다.', '원인을 찾아 줘', []).split('\n')
+  expect(bare.slice(0, 12)).toEqual(META_FULL.split('\n'))
+  expect(bare[13]).toBe('<hard rule>')
 })
 
 test('several types put the common lines once and the type lines in the order of the types without repeats', () => {
@@ -229,10 +231,23 @@ test('several types put the common lines once and the type lines in the order of
   )
 })
 
-test('a draft without a known type gets the short instruction and the source only', () => {
-  const expected = `${META_SHORT}\n\n<source>\n원인을 찾는다.\n</source>`
+test('a draft without a known type gets the common rules only', () => {
+  const expected = wrapped('원인을 찾는다.', COMMON_TAIL)
   expect(withMeta('원인을 찾는다.', '원인을 찾아 줘', [])).toBe(expected)
   expect(withMeta('원인을 찾는다.', '원인을 찾아 줘', ['plan'])).toBe(expected)
+})
+
+test('the todo lines join the common rules only when the todo switch is on, and then leave the source', () => {
+  const todoLine = '이미 있는 할일 목록 중 이번 프롬프트와 관련없는 항목은 삭제한다.'
+  expect(withMeta('원인을 찾는다.', '원인을 찾아 줘', [], true)).toBe(wrapped('원인을 찾는다.', `${COMMON_TAIL}\n${TODO_TAIL}`))
+  expect(withMeta('원인을 찾는다.', '원인을 찾아 줘', ['research'], true)).toBe(
+    wrapped('원인을 찾는다.', `${COMMON_TAIL}\n${TODO_TAIL}\n\n${RESEARCH_TAIL}`),
+  )
+  expect(withMeta(`원인을 찾는다.\n${todoLine}`, '원인을 찾아 줘', [], true)).toBe(
+    wrapped('원인을 찾는다.', `${COMMON_TAIL}\n${TODO_TAIL}`),
+  )
+  expect(withMeta(`원인을 찾는다.\n${todoLine}`, '원인을 찾아 줘', [])).toBe(wrapped(`원인을 찾는다.\n${todoLine}`, COMMON_TAIL))
+  expect(splitMeta('원인을 찾는다.', '원인을 찾아 줘', [], true).wrap).toEqual({ types: [], todo: true })
 })
 
 test('a prompt without hangul is left as the draft, with or without a type', () => {
@@ -284,7 +299,7 @@ test('a draft that names a tag in the middle of a line gets no wrapper and the r
   expect(withMeta('`<hard rule>` 태그는 없어?', '태그가 없는지 알려 줘', ['research'])).toBe(
     `\`<hard rule>\` 태그는 없어?\n\n${RESEARCH_RULES}`,
   )
-  expect(withMeta('`<source>` 는 무엇인지 설명한다.', '설명해 줘', [])).toBe('`<source>` 는 무엇인지 설명한다.')
+  expect(withMeta('`<source>` 는 무엇인지 설명한다.', '설명해 줘', [])).toBe(`\`<source>\` 는 무엇인지 설명한다.\n\n${COMMON_TAIL}`)
 })
 
 test('an assembled message that is upgraded again gets one fresh wrapper', () => {
@@ -297,10 +312,10 @@ test('an assembled message that is upgraded again gets one fresh wrapper', () =>
 test('splitMeta puts the body alone in the box and wrapText builds the message withMeta built before', () => {
   const first = splitMeta('원인을 찾는다.', '원인을 찾아 줘', ['research'])
   expect(first.box).toBe('원인을 찾는다.')
-  expect(first.wrap).toEqual({ types: ['research'] })
+  expect(first.wrap).toEqual({ types: ['research'], todo: false })
   expect(wrapText(first.box, first.wrap!)).toBe(wrapped('원인을 찾는다.', RESEARCH_RULES))
   const several = splitMeta('원인을 찾고 고친다.', '원인을 찾고 고쳐 줘', ['execute', 'research', 'execute', 'plan'])
-  expect(several.wrap).toEqual({ types: ['execute', 'research'] })
+  expect(several.wrap).toEqual({ types: ['execute', 'research'], todo: false })
   expect(wrapText(several.box, several.wrap!)).toBe(
     wrapped('원인을 찾고 고친다.', `${COMMON_TAIL}\n\n${EXECUTE_TAIL}\n\n${RESEARCH_TAIL}`),
   )
@@ -308,19 +323,19 @@ test('splitMeta puts the body alone in the box and wrapText builds the message w
 
 test('no instruction line of either wrapper is an order to run', () => {
   for (const types of [[], ['research'], ['discuss'], ['execute']]) {
-    const text = wrapText('본문.', { types })
+    const text = wrapText('본문.', { types, todo: false })
     const head = text.slice(0, text.indexOf('\n\n<source>\n')).split('\n')
     expect(head.filter(line => line.endsWith('실행한다.'))).toEqual([])
     expect(head).toContain('이 지시문은 실행 승인이 아니다.')
   }
 })
 
-test('splitMeta keeps a wrap with no type, and wrapText then builds the short instruction and the source only', () => {
+test('splitMeta keeps a wrap with no type, and wrapText then builds the common rules and the source', () => {
   for (const types of [[], ['plan']]) {
     const { box, wrap } = splitMeta('원인을 찾는다.', '원인을 찾아 줘', types)
     expect(box).toBe('원인을 찾는다.')
-    expect(wrap).toEqual({ types: [] })
-    expect(wrapText(box, wrap!)).toBe(`${META_SHORT}\n\n<source>\n원인을 찾는다.\n</source>`)
+    expect(wrap).toEqual({ types: [], todo: false })
+    expect(wrapText(box, wrap!)).toBe(wrapped('원인을 찾는다.', COMMON_TAIL))
   }
 })
 
@@ -328,7 +343,7 @@ test('splitMeta drops the repeated rule lines from the box', () => {
   const draft = '두 안을 비교한다.\n결과나 결론을 첫 줄에 쓴다.\n각 단계에 파일 경로로 근거를 붙인다.'
   expect(splitMeta(draft, '두 안을 비교해 줘', ['discuss'])).toEqual({
     box: '두 안을 비교한다.\n각 단계에 파일 경로로 근거를 붙인다.',
-    wrap: { types: ['discuss'] },
+    wrap: { types: ['discuss'], todo: false },
   })
 })
 
@@ -339,7 +354,7 @@ test('splitMeta leaves no wrap for a prompt without hangul and for a draft that 
     wrap: null,
   })
   expect(splitMeta('`<source>` 는 무엇인지 설명한다.', '설명해 줘', [])).toEqual({
-    box: '`<source>` 는 무엇인지 설명한다.',
+    box: `\`<source>\` 는 무엇인지 설명한다.\n\n${COMMON_TAIL}`,
     wrap: null,
   })
 })
@@ -419,12 +434,12 @@ test('without skip-silent-trigger only the trigger starts an upgrade, and a prom
   expect(gate({ ...on, originKind: 'peer' })).toMatchObject({ intercept: false, reason: 'origin' })
 })
 
-test('skip-silent-trigger upgrades every long prompt and keeps the other checks', () => {
+test('skip-silent-trigger upgrades every prompt, marks the short ones, and keeps the other checks', () => {
   const on = { skipTrigger: true, silentTriggers: ['+++'] }
 
   expect(gate({ ...on })).toEqual({ intercept: true, text: base.text })
   expect(gate({ ...on, text: base.text + ' +++' })).toEqual({ intercept: true, text: base.text })
-  expect(gate({ ...on, text: 'short' })).toMatchObject({ intercept: false, reason: 'short' })
+  expect(gate({ ...on, text: 'short' })).toEqual({ intercept: true, short: true, text: 'short' })
   expect(gate({ ...on, text: '+++ short' })).toEqual({ intercept: true, text: 'short' })
   expect(gate({ ...on, text: '/compact now please do it' })).toMatchObject({ intercept: false, reason: 'slash' })
   expect(gate({ ...on, originKind: 'peer' })).toMatchObject({ intercept: false, reason: 'origin' })
@@ -538,7 +553,7 @@ test('a prompt that is only pasted material is intercepted like any other prompt
   expect(gate({ text: `please find the cause of this failure\n${PASTE}` })).toMatchObject({ intercept: true })
   expect(gate({ ...off, text: `+++ ${PASTE}` })).toEqual({ intercept: true, text: PASTE })
   expect(gate({ ...off, text: `${PASTE} ---` })).toEqual({ intercept: true, off: true, text: PASTE })
-  expect(gate({ ...off, minLen: 1000, text: PASTE })).toMatchObject({ intercept: false, reason: 'short' })
+  expect(gate({ ...off, minLen: 1000, text: PASTE })).toMatchObject({ intercept: true, short: true })
 })
 
 test('an @ inside pasted material is not a mention, and an @ outside it is', () => {

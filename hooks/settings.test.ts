@@ -21,6 +21,7 @@ import {
   resolveModel,
   silentOffTriggersOf,
   silentTriggersOf,
+  todoToolsOf,
   unfoldedToolsOf,
   withMissingDefaults,
   type FlagKey,
@@ -36,6 +37,17 @@ test('min-length comes from the first source with a valid whole number from 1 to
   expect(minLengthOf([minLength('40'), minLength(0), minLength(2.5), minLength(10001)])).toBeUndefined()
   expect(minLengthOf([minLength(0), minLength(25), minLength(40)])).toBe(25)
   expect(minLengthOf([{ ccChatTweaks: 'x' }, null, minLength(7)])).toBe(7)
+})
+
+test('the todo lines switch is env.CLAUDE_CODE_ENABLE_TODO_TOOLS, read from the first source that holds a string, and only 1 turns it on', () => {
+  const env = (value: unknown) => ({ env: { CLAUDE_CODE_ENABLE_TODO_TOOLS: value } })
+  expect(todoToolsOf([])).toBe(false)
+  expect(todoToolsOf([env('1')])).toBe(true)
+  expect(todoToolsOf([env('0')])).toBe(false)
+  expect(todoToolsOf([env('true')])).toBe(false)
+  expect(todoToolsOf([env(1), {}, null, { env: 'x' }])).toBe(false)
+  expect(todoToolsOf([env('0'), env('1')])).toBe(false)
+  expect(todoToolsOf([{}, env(1), env('1')])).toBe(true)
 })
 
 const nest = (path: readonly string[], leaf: Record<string, unknown>): Record<string, unknown> =>
