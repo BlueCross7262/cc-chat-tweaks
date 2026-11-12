@@ -56,21 +56,20 @@ export const secondsLeft = (expiresAt: number | null, now: number): number | nul
 
 const pad2 = (n: number): string => String(n).padStart(2, '0')
 
+export const NO_TIME = '--:--'
+
+const clock = (seconds: number | null): string =>
+  seconds === null || !Number.isFinite(seconds) ? NO_TIME : `${pad2(Math.floor(seconds / 60))}:${pad2(seconds % 60)}`
+
 export const cacheText = (seconds: number | null, isWorking: boolean): string => {
   if (isWorking) return '…'
-  if (seconds === null) return '—'
   if (seconds === 0) return 'expired'
 
-  return `${pad2(Math.floor(seconds / 60))}:${pad2(seconds % 60)}`
+  return clock(seconds)
 }
 
-export const elapsedText = (promptAt: number | null, doneAt: number | null, now: number): string => {
-  if (promptAt === null) return '—'
-
-  const seconds = Math.max(0, Math.floor(((doneAt ?? now) - promptAt) / 1000))
-
-  return `${pad2(Math.floor(seconds / 60))}:${pad2(seconds % 60)}`
-}
+export const elapsedText = (promptAt: number | null, doneAt: number | null, now: number): string =>
+  promptAt === null ? NO_TIME : clock(Math.max(0, Math.floor(((doneAt ?? now) - promptAt) / 1000)))
 
 export const CONTEXT_WARN_COLOR = '#ff8700'
 export const CONTEXT_ALERT_COLOR = 'red'

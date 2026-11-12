@@ -173,7 +173,7 @@ const firstTurn = async ($: Engine, w: World) => {
 test('the elapsed time runs from the prompt while the turn works and stops at its end', async ($, on) => {
   const w = world($, on)
 
-  expect((await draw($, { isWorking: true })).texts).toContain('—')
+  expect((await draw($, { isWorking: true })).texts).toContain('--:--')
 
   await prompt($)
   const s = stream($, 't1')

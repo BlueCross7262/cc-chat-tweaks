@@ -65,7 +65,8 @@ test('the speed sums the steps of a turn and keeps the previous value under the 
 })
 
 test('the cache text counts minutes and seconds, says expired at zero and dots while a turn runs', () => {
-  expect(cacheText(null, false)).toBe('—')
+  expect(cacheText(null, false)).toBe('--:--')
+  expect(cacheText(Number.NaN, false)).toBe('--:--')
   expect(cacheText(3600, false)).toBe('60:00')
   expect(cacheText(61, false)).toBe('01:01')
   expect(cacheText(0, false)).toBe('expired')
@@ -93,7 +94,9 @@ test('the warning is amber from 20 minutes, red from 10 and none while a turn ru
 })
 
 test('elapsed time runs from the prompt to the end of the turn as mm:ss', () => {
-  expect(elapsedText(null, null, 5000)).toBe('—')
+  expect(elapsedText(null, null, 5000)).toBe('--:--')
+  expect(elapsedText(undefined as unknown as null, undefined as unknown as null, 5000)).toBe('--:--')
+  expect(elapsedText(1000, null, Number.NaN)).toBe('--:--')
   expect(elapsedText(1000, null, 1999)).toBe('00:00')
   expect(elapsedText(1000, null, 126_000)).toBe('02:05')
   expect(elapsedText(1000, 61_000, 999_000)).toBe('01:00')
