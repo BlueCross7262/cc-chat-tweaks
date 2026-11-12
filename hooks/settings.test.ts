@@ -1,6 +1,8 @@
 import { expect, test } from 'claude-code/testing'
 
 import {
+  BAND_PATH,
+  bandOrderOf,
   CALL_NAMES,
   DEFAULT_MODELS,
   DEFAULT_UNFOLDED_TOOLS,
@@ -312,6 +314,13 @@ test('reads every flag at once', () => {
     'skip-silent-trigger': true,
     'use-char-count': false,
     'use-answer-colors': false,
+    'use-band': false,
+    'use-band-turns': true,
+    'use-band-speed': true,
+    'use-band-turn-cost': true,
+    'use-band-session-cost': true,
+    'use-band-context': true,
+    'use-band-cache': true,
   })
 })
 
@@ -339,12 +348,20 @@ test('adds only the missing switches with their default and keeps everything els
     'skip-silent-trigger',
     'use-char-count',
     'use-answer-colors',
+    'use-band',
+    'use-band-turns',
+    'use-band-speed',
+    'use-band-turn-cost',
+    'use-band-session-cost',
+    'use-band-context',
+    'use-band-cache',
     'min-length',
     'silent-triggers',
     'silent-off-triggers',
     'models.classify.model',
     'models.classify.effort',
     'unfolded-tools',
+    'order',
   ])
   expect(settings).toEqual({
     theme: 'dark',
@@ -353,6 +370,7 @@ test('adds only the missing switches with their default and keeps everything els
         'tool-fold': { use: true, 'unfolded-tools': ['AskUserQuestion', 'Skill', 'Agent'] },
         'use-edit-summary': false,
         'answer-colors': { use: false },
+        band: { use: false, 'use-turns': true, 'use-speed': true, 'use-turn-cost': true, 'use-session-cost': true, 'use-context': true, 'use-cache': true, order: ['turns', 'speed', 'turn-cost', 'session-cost', 'context', 'cache'] },
       },
       prompt: {
         later: { 'a-future-key': 1 },
@@ -374,14 +392,15 @@ test('adds only the missing switches with their default and keeps everything els
 })
 
 test('builds the whole section for an empty or malformed file', () => {
-  expect(withMissingDefaults({}).added).toHaveLength(12)
-  expect(withMissingDefaults(null).added).toHaveLength(12)
+  expect(withMissingDefaults({}).added).toHaveLength(20)
+  expect(withMissingDefaults(null).added).toHaveLength(20)
   expect(withMissingDefaults({ ccChatTweaks: 'x' }).settings).toEqual({
     ccChatTweaks: {
       chat: {
         'tool-fold': { use: false, 'unfolded-tools': ['AskUserQuestion', 'Skill', 'Agent'] },
         'use-edit-summary': false,
         'answer-colors': { use: false },
+        band: { use: false, 'use-turns': true, 'use-speed': true, 'use-turn-cost': true, 'use-session-cost': true, 'use-context': true, 'use-cache': true, order: ['turns', 'speed', 'turn-cost', 'session-cost', 'context', 'cache'] },
       },
       prompt: {
         'prompt-upgrade': {
@@ -469,6 +488,7 @@ test('describes every extra key with its value and the source it came from', () 
     { key: 'models.classify.model', value: 'sonnet', from: 'user' },
     { key: 'models.classify.effort', value: 'high', from: 'local' },
     { key: 'unfolded-tools', value: ['AskUserQuestion', 'Skill', 'Agent'], from: 'default' },
+    { key: 'order', value: ['turns', 'speed', 'turn-cost', 'session-cost', 'context', 'cache'], from: 'default' },
   ])
   expect(describeExtras([['user', {}]])).toEqual([
     { key: 'min-length', value: 10, from: 'default' },
@@ -477,8 +497,9 @@ test('describes every extra key with its value and the source it came from', () 
     { key: 'models.classify.model', value: 'haiku', from: 'default' },
     { key: 'models.classify.effort', value: 'low', from: 'default' },
     { key: 'unfolded-tools', value: ['AskUserQuestion', 'Skill', 'Agent'], from: 'default' },
+    { key: 'order', value: ['turns', 'speed', 'turn-cost', 'session-cost', 'context', 'cache'], from: 'default' },
   ])
-  expect(describeExtras([['user', chat({ 'unfolded-tools': [] })]]).at(-1)).toEqual({ key: 'unfolded-tools', value: [], from: 'user' })
+  expect(describeExtras([['user', chat({ 'unfolded-tools': [] })]]).find(row => row.key === 'unfolded-tools')).toEqual({ key: 'unfolded-tools', value: [], from: 'user' })
 })
 
 const chat = (group: Record<string, unknown>) => ({ ccChatTweaks: { chat: { 'tool-fold': group } } })
@@ -510,7 +531,7 @@ test('the default unfolded list written to a file is a copy', () => {
 test('reports nothing to add when every switch is present', () => {
   const full = {
     ccChatTweaks: {
-      chat: { 'tool-fold': { use: true, 'unfolded-tools': ['Bash'] }, 'use-edit-summary': false, 'answer-colors': { use: true } },
+      chat: { 'tool-fold': { use: true, 'unfolded-tools': ['Bash'] }, 'use-edit-summary': false, 'answer-colors': { use: true }, band: { use: false, 'use-turns': true, 'use-speed': true, 'use-turn-cost': true, 'use-session-cost': true, 'use-context': true, 'use-cache': true, order: ['turns', 'speed', 'turn-cost', 'session-cost', 'context', 'cache'] } },
       prompt: {
         'prompt-upgrade': {
           use: false,
@@ -529,4 +550,53 @@ test('reports nothing to add when every switch is present', () => {
 
   expect(withMissingDefaults(full).added).toEqual([])
   expect(withMissingDefaults(full).settings).toEqual(full)
+})
+
+const bandKeys: FlagKey[] = ['use-band-turns', 'use-band-speed', 'use-band-turn-cost', 'use-band-session-cost', 'use-band-context', 'use-band-cache']
+
+test('the band is switched by ccChatTweaks.chat.band.use and each item by its own use-* key in the same group', () => {
+  expect(BAND_PATH).toEqual(['chat', 'band'])
+  expect(FLAG_PATHS['use-band']).toEqual(['chat', 'band'])
+  expect(labelOf('use-band')).toBe('chat.band.use')
+  expect(labelOf('use-band-turns')).toBe('chat.band.use-turns')
+  expect(labelOf('use-band-speed')).toBe('chat.band.use-speed')
+  expect(labelOf('use-band-turn-cost')).toBe('chat.band.use-turn-cost')
+  expect(labelOf('use-band-session-cost')).toBe('chat.band.use-session-cost')
+  expect(labelOf('use-band-context')).toBe('chat.band.use-context')
+  expect(labelOf('use-band-cache')).toBe('chat.band.use-cache')
+  expect(labelOf('order')).toBe('chat.band.order')
+  expect(isFlagOn([], 'use-band')).toBe(false)
+  expect(isFlagOn([{ ccChatTweaks: { chat: { band: { use: true } } } }], 'use-band')).toBe(true)
+  expect(isFlagOn([{ ccChatTweaks: { chat: { band: { 'use-speed': false } } } }], 'use-band-speed')).toBe(false)
+  expect(isFlagOn([{ ccChatTweaks: { chat: { band: { 'use-band-speed': false } } } }], 'use-band-speed')).toBe(true)
+})
+
+test('the band switch is a feature and its item switches are options', () => {
+  expect(isFeatureKey('use-band')).toBe(true)
+
+  for (const key of bandKeys) {
+    expect(isFeatureKey(key)).toBe(false)
+    expect(isFlagOn([], key)).toBe(true)
+  }
+})
+
+const order = (value: unknown) => ({ ccChatTweaks: { chat: { band: { order: value } } } })
+
+test('the band order is the first array of known item names, trimmed and without repeats', () => {
+  expect(bandOrderOf([])).toBeUndefined()
+  expect(bandOrderOf([order([])])).toEqual([])
+  expect(bandOrderOf([order(['cache', 'turns'])])).toEqual(['cache', 'turns'])
+  expect(bandOrderOf([order(['x', 'speed'])])).toEqual(['speed'])
+  expect(bandOrderOf([order(['speed', 'speed', ' turns '])])).toEqual(['speed', 'turns'])
+  expect(bandOrderOf([order([1, null, 'context'])])).toEqual(['context'])
+  expect(bandOrderOf([order('speed')])).toBeUndefined()
+  expect(bandOrderOf([order(['x'])])).toBeUndefined()
+})
+
+test('the band order takes the first source with usable names, as unfolded-tools does', () => {
+  expect(bandOrderOf([order(['cache']), order(['turns'])])).toEqual(['cache'])
+  expect(bandOrderOf([order('x'), order(['turns'])])).toEqual(['turns'])
+  expect(bandOrderOf([order(['x']), order(['turns'])])).toEqual(['turns'])
+  expect(bandOrderOf([order([]), order(['turns'])])).toEqual([])
+  expect(describeExtras([['local', order(['cache'])]]).find(row => row.key === 'order')).toEqual({ key: 'order', value: ['cache'], from: 'local' })
 })

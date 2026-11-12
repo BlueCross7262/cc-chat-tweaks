@@ -12,7 +12,7 @@ Answer `y` to add the marketplace, then pick a scope.
 
 ## Settings
 
-Tool folding, the Edit/Write summary, the answer colours and the character count are off until you turn them on. The prompt upgrade is on by default, and it needs no setting to run. Switches live under `ccChatTweaks` in any settings file (`settings.json`, `settings.local.json`, project or user). Tool folding sits in `ccChatTweaks.chat.tool-fold`, the Edit/Write summary in `ccChatTweaks.chat`, the answer colours in `ccChatTweaks.chat.answer-colors`, the prompt upgrade in `ccChatTweaks.prompt.prompt-upgrade` and the character count in `ccChatTweaks.prompt.char-count`. A later prompt feature gets its own group under `ccChatTweaks.prompt`. A boolean in a higher-precedence source wins. A key that is absent uses its default.
+Tool folding, the Edit/Write summary, the answer colours, the session band and the character count are off until you turn them on. The prompt upgrade is on by default, and it needs no setting to run. Switches live under `ccChatTweaks` in any settings file (`settings.json`, `settings.local.json`, project or user). Tool folding sits in `ccChatTweaks.chat.tool-fold`, the Edit/Write summary in `ccChatTweaks.chat`, the answer colours in `ccChatTweaks.chat.answer-colors`, the session band in `ccChatTweaks.chat.band`, the prompt upgrade in `ccChatTweaks.prompt.prompt-upgrade` and the character count in `ccChatTweaks.prompt.char-count`. A later prompt feature gets its own group under `ccChatTweaks.prompt`. A boolean in a higher-precedence source wins. A key that is absent uses its default.
 
 | Group | Key | Default | Feature |
 |---|---|---|---|
@@ -20,6 +20,14 @@ Tool folding, the Edit/Write summary, the answer colours and the character count
 | `chat.tool-fold` | `unfolded-tools` | `["AskUserQuestion", "Skill", "Agent"]` | Option of `use`. The tools that are never folded. Each keeps its own row and ends the run before it. |
 | `chat` | `use-edit-summary` | `false` | Draw `Edit` and `Write` calls as one summary line. |
 | `chat.answer-colors` | `use` | `false` | Draw the row that holds your answers to Claude's questions in three colours: title, question and answer. |
+| `chat.band` | `use` | `false` | Draw one band above the prompt with the session at a glance. |
+| `chat.band` | `use-turns` | `true` | Option of `use`. Show the number of prompts you sent in this session. |
+| `chat.band` | `use-speed` | `true` | Option of `use`. Show the output speed of the current or last turn. |
+| `chat.band` | `use-turn-cost` | `true` | Option of `use`. Show the cost of the current or last turn. |
+| `chat.band` | `use-session-cost` | `true` | Option of `use`. Show the cost of the session. |
+| `chat.band` | `use-context` | `true` | Option of `use`. Show how full the context window is. |
+| `chat.band` | `use-cache` | `true` | Option of `use`. Show the time left on the prompt cache. |
+| `chat.band` | `order` | `["turns", "speed", "turn-cost", "session-cost", "context", "cache"]` | Option of `use`. The order of the items. An item that is not in the array goes to the end, in the default order. Unknown names and repeats are left out. |
 | `prompt.prompt-upgrade` | `use` | `true` | Send a Korean prompt with an instruction and answer rules added. A prompt without Korean characters is sent as you typed it. |
 | `prompt.prompt-upgrade` | `skip-silent-trigger` | `true` | Option of `use`. When `true`, the trigger check is skipped and every prompt is upgraded; a Korean prompt shorter than `min-length` gets no prompt type call and only the common rules in the `<hard rule>` block. When `false`, only a prompt with the trigger is upgraded. |
 | `prompt.prompt-upgrade` | `silent-triggers` | `["+++"]` | The trigger texts for the silent upgrade, as an array of strings. |
@@ -39,6 +47,16 @@ Tool folding, the Edit/Write summary, the answer colours and the character count
       "use-edit-summary": false,
       "answer-colors": {
         "use": true
+      },
+      "band": {
+        "use": true,
+        "use-turns": true,
+        "use-speed": true,
+        "use-turn-cost": true,
+        "use-session-cost": true,
+        "use-context": true,
+        "use-cache": true,
+        "order": ["turns", "speed", "turn-cost", "session-cost", "context", "cache"]
       }
     },
     "prompt": {
@@ -67,7 +85,7 @@ The prompt upgrade keys are read only from `ccChatTweaks.prompt.prompt-upgrade`.
 
 First it writes every key your user `settings.json` lacks, switches and value keys alike, with its default, so you can see and flip them. It never changes a value that is already there. It leaves a file that is not plain JSON alone and says so.
 
-Then it prints each switch and each value key (`unfolded-tools`, `min-length`, `silent-triggers`, `silent-off-triggers`, `models.classify.model` and `models.classify.effort`) by its path under `ccChatTweaks`, such as `chat.tool-fold.use`, with its value and the source it came from, the fold counters, the prompt upgrade threshold, the environment and a list of checks. The checks include one warning for each old key `type-model` or `type-effort` found in your settings, because the mod no longer reads them.
+Then it prints each switch and each value key (`unfolded-tools`, `min-length`, `silent-triggers`, `silent-off-triggers`, `models.classify.model`, `models.classify.effort` and `order`) by its path under `ccChatTweaks`, such as `chat.tool-fold.use`, with its value and the source it came from, the fold counters, the prompt upgrade threshold, the environment and a list of checks. The checks include one warning for each old key `type-model` or `type-effort` found in your settings, because the mod no longer reads them.
 
 ## Features
 
@@ -129,6 +147,24 @@ The row the engine draws after you answer an `AskUserQuestion` dialog is drawn a
 - An answer the dialog filled in by itself after an idle time, an errored call and every other tool keep the engine row.
 - The colours are constants in `hooks/answer-view.ts`. They are not settings.
 
+### `chat.band.use`
+
+One band above the prompt shows the session at a glance:
+
+```
+ Turn 12   84 tok/s   $0.31   $4.20   42%   37:12
+```
+
+- `Turn 12` is the number of prompts you sent in this session.
+- The speed is output tokens per second over the current turn. Each model request is timed from its first text, thinking or tool chunk to its end, less the time of tools the API ran itself (the advisor is one). The requests of a turn are added up. Subagent requests are left out. The value of the last turn stays until the new turn has at least 20 tokens over half a second.
+- The first cost is the turn so far, the second the session. A turn whose start cost is not known shows `—`.
+- The percentage is the context window fill.
+- The countdown is the time left on the 1-hour prompt cache since the last answer. The band gets an amber frame 20 minutes before it expires and a red one at 10, and the hourglass and the time take that colour. It shows `…` while a turn runs and `expired` at zero.
+- A value the session does not have yet shows `—`.
+- Under 64 cells the turn and speed text gets shorter (`#12`, `84/s`). Under 52 the icons get smaller. A row that is still too wide is cut at the right, so the last items in `order` go first.
+- Each item has its own `use-*` switch, and `order` sets their order. The band is not drawn while a survey holds it, before your first prompt, or when every item is off.
+- After you change a switch, run `/reload-plugins`.
+
 ### `prompt.prompt-upgrade.use`
 
 A prompt you type at the prompt box and send is sent at once. With the default `skip-silent-trigger` every prompt is upgraded, and one shorter than `min-length` gets the common rules only. With `false` only a prompt that starts or ends with the trigger `+++` is. A prompt that starts or ends with `---` is sent as it is.
@@ -171,10 +207,12 @@ The sources are TypeScript loaded as is, with no build step.
 
 | File | Role |
 |---|---|
-| `hooks/register.tsx` | The hooks module: the tool-call features and the doctor command. It calls `registerUpgrade(on)` and `registerCharCount(on)`. `$` crosses an import only into a function declaration, so a function that takes `$` from another file is written `function name($) { ... }`, as `recount` in `hooks/char-count.tsx` is. |
+| `hooks/register.tsx` | The hooks module: the tool-call features and the doctor command. It calls `registerUpgrade(on)`, `registerCharCount(on)` and `registerBand(on)`, and the band's `startBandTick($)` and `completeBand($, e)` from its own `session.start` and `turn.complete` hooks. `$` crosses an import only into a function declaration, so a function that takes `$` from another file is written `function name($) { ... }`, as `recount` in `hooks/char-count.tsx` is. |
 | `hooks/upgrade.tsx` | The prompt upgrade hooks and command. |
 | `hooks/char-count.tsx` | The character count hooks and `recount`, which the prompt upgrade calls after it fills the box and after a prompt is sent. |
 | `hooks/answer-colors.tsx` | `drawAnswer` and `drawDeclined`, which draw the answer row and the declined row in their colours. `register.tsx` calls them from its `ToolResult` and `ToolUse` hooks. |
+| `hooks/band.tsx` | The session band: its `turn.step` and `AbovePrompt` hooks, `startBandTick` and `completeBand`. |
+| `hooks/band-logic.ts` | Pure band logic: item order, step timing and speed, cache countdown text and warning colour, layout by width. |
 | `hooks/answer-view.ts` | Pure reading of an `AskUserQuestion` result into a title, rows and a response, and of its call input into the declined lines, and the three colours. |
 | `hooks/char-count-logic.ts` | Pure grapheme and code point counting and the label, the count alone. |
 | `hooks/upgrade-logic.ts` | Pure gate, flow and parsing logic for the prompt upgrade. |

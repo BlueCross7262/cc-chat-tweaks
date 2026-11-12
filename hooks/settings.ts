@@ -1,3 +1,5 @@
+import { BAND_ITEMS, isBandItem, type BandItem } from './band-logic'
+
 export const SETTINGS_NAMESPACE = 'ccChatTweaks'
 export const SETTINGS_SOURCES = ['policy', 'flag', 'local', 'project', 'user'] as const
 
@@ -8,6 +10,13 @@ export const FLAG_DEFAULTS = {
   'skip-silent-trigger': true,
   'use-char-count': false,
   'use-answer-colors': false,
+  'use-band': false,
+  'use-band-turns': true,
+  'use-band-speed': true,
+  'use-band-turn-cost': true,
+  'use-band-session-cost': true,
+  'use-band-context': true,
+  'use-band-cache': true,
 } as const
 
 export type FlagKey = keyof typeof FLAG_DEFAULTS
@@ -17,6 +26,7 @@ export const TOOL_FOLD_PATH: readonly string[] = ['chat', 'tool-fold']
 export const PROMPT_UPGRADE_PATH: readonly string[] = ['prompt', 'prompt-upgrade']
 export const CHAR_COUNT_PATH: readonly string[] = ['prompt', 'char-count']
 export const ANSWER_COLORS_PATH: readonly string[] = ['chat', 'answer-colors']
+export const BAND_PATH: readonly string[] = ['chat', 'band']
 
 export const FLAG_PATHS: Record<FlagKey, readonly string[]> = {
   'use-tool-fold': TOOL_FOLD_PATH,
@@ -25,17 +35,44 @@ export const FLAG_PATHS: Record<FlagKey, readonly string[]> = {
   'skip-silent-trigger': PROMPT_UPGRADE_PATH,
   'use-char-count': CHAR_COUNT_PATH,
   'use-answer-colors': ANSWER_COLORS_PATH,
+  'use-band': BAND_PATH,
+  'use-band-turns': BAND_PATH,
+  'use-band-speed': BAND_PATH,
+  'use-band-turn-cost': BAND_PATH,
+  'use-band-session-cost': BAND_PATH,
+  'use-band-context': BAND_PATH,
+  'use-band-cache': BAND_PATH,
 }
 
-const FLAG_PROPS: Partial<Record<FlagKey, string>> = { 'use-tool-fold': 'use', 'use-prompt-upgrade': 'use', 'use-char-count': 'use', 'use-answer-colors': 'use' }
+const FLAG_PROPS: Partial<Record<FlagKey, string>> = {
+  'use-tool-fold': 'use',
+  'use-prompt-upgrade': 'use',
+  'use-char-count': 'use',
+  'use-answer-colors': 'use',
+  'use-band': 'use',
+  'use-band-turns': 'use-turns',
+  'use-band-speed': 'use-speed',
+  'use-band-turn-cost': 'use-turn-cost',
+  'use-band-session-cost': 'use-session-cost',
+  'use-band-context': 'use-context',
+  'use-band-cache': 'use-cache',
+}
 
 export const propOf = (key: FlagKey): string => FLAG_PROPS[key] ?? key
 
-export const GROUP_PATHS: readonly (readonly string[])[] = [CHAT_PATH, TOOL_FOLD_PATH, PROMPT_UPGRADE_PATH, CHAR_COUNT_PATH, ANSWER_COLORS_PATH]
+export const GROUP_PATHS: readonly (readonly string[])[] = [CHAT_PATH, TOOL_FOLD_PATH, PROMPT_UPGRADE_PATH, CHAR_COUNT_PATH, ANSWER_COLORS_PATH, BAND_PATH]
 
 export const pathText = (path: readonly string[]): string => [SETTINGS_NAMESPACE, ...path].join('.')
 
-export const OPTION_KEYS: readonly FlagKey[] = ['skip-silent-trigger']
+export const OPTION_KEYS: readonly FlagKey[] = [
+  'skip-silent-trigger',
+  'use-band-turns',
+  'use-band-speed',
+  'use-band-turn-cost',
+  'use-band-session-cost',
+  'use-band-context',
+  'use-band-cache',
+]
 
 export const isFeatureKey = (key: FlagKey): boolean => !OPTION_KEYS.includes(key)
 
@@ -105,6 +142,7 @@ export const SILENT_OFF_TRIGGERS_KEY = 'silent-off-triggers'
 export const UNFOLDED_TOOLS_KEY = 'unfolded-tools'
 export const DEFAULT_UNFOLDED_TOOLS: readonly string[] = ['AskUserQuestion', 'Skill', 'Agent']
 export const MAX_UNFOLDED_TOOLS = 50
+export const BAND_ORDER_KEY = 'order'
 
 const EXTRA_DEFAULTS = {
   [MIN_LENGTH_KEY]: DEFAULT_MIN_LENGTH,
@@ -113,6 +151,7 @@ const EXTRA_DEFAULTS = {
   'models.classify.model': DEFAULT_MODELS.classify.model,
   'models.classify.effort': DEFAULT_MODELS.classify.effort,
   [UNFOLDED_TOOLS_KEY]: DEFAULT_UNFOLDED_TOOLS,
+  [BAND_ORDER_KEY]: BAND_ITEMS,
 } as const
 
 const EXTRA_PATHS: Record<keyof typeof EXTRA_DEFAULTS, readonly string[]> = {
@@ -122,6 +161,7 @@ const EXTRA_PATHS: Record<keyof typeof EXTRA_DEFAULTS, readonly string[]> = {
   'models.classify.model': PROMPT_UPGRADE_PATH,
   'models.classify.effort': PROMPT_UPGRADE_PATH,
   [UNFOLDED_TOOLS_KEY]: TOOL_FOLD_PATH,
+  [BAND_ORDER_KEY]: BAND_PATH,
 }
 
 export const labelOf = (key: AddedKey): string =>
@@ -316,6 +356,27 @@ export const unfoldedToolsOf = (sources: readonly unknown[]): string[] | undefin
   return undefined
 }
 
+export const bandOrderOf = (sources: readonly unknown[]): BandItem[] | undefined => {
+  for (const source of sources) {
+    const value = groupAt(source, BAND_PATH)?.[BAND_ORDER_KEY]
+
+    if (!Array.isArray(value)) continue
+    if (value.length === 0) return []
+    const items = [
+      ...new Set(
+        value
+          .filter((item): item is string => typeof item === 'string')
+          .map(item => item.trim())
+          .filter(isBandItem),
+      ),
+    ]
+
+    if (items.length > 0) return items
+  }
+
+  return undefined
+}
+
 export type ExtraReport = { key: ExtraKey; value: number | string | string[]; from: string }
 
 type ExtraReader = (sources: readonly unknown[]) => number | string | string[] | undefined
@@ -334,6 +395,8 @@ const extraReader = (key: ExtraKey): ExtraReader => {
       return sources => effortIn(sources, 'classify')
     case UNFOLDED_TOOLS_KEY:
       return unfoldedToolsOf
+    case BAND_ORDER_KEY:
+      return bandOrderOf
     default: {
       const unhandled: never = key
 
@@ -363,4 +426,11 @@ export const flagsOf = (sources: readonly unknown[]): Flags => ({
   'skip-silent-trigger': isFlagOn(sources, 'skip-silent-trigger'),
   'use-char-count': isFlagOn(sources, 'use-char-count'),
   'use-answer-colors': isFlagOn(sources, 'use-answer-colors'),
+  'use-band': isFlagOn(sources, 'use-band'),
+  'use-band-turns': isFlagOn(sources, 'use-band-turns'),
+  'use-band-speed': isFlagOn(sources, 'use-band-speed'),
+  'use-band-turn-cost': isFlagOn(sources, 'use-band-turn-cost'),
+  'use-band-session-cost': isFlagOn(sources, 'use-band-session-cost'),
+  'use-band-context': isFlagOn(sources, 'use-band-context'),
+  'use-band-cache': isFlagOn(sources, 'use-band-cache'),
 })

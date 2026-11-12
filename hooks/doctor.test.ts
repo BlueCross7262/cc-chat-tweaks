@@ -162,3 +162,25 @@ test('says the mod draws nothing when every switch is off', () => {
 
   expect(checksOf(off).some(check => check.includes('Every feature is off'))).toBe(true)
 })
+
+test('the band item switches alone do not count as a feature being on, and the hint names the band switch', () => {
+  const items = ['use-band-turns', 'use-band-speed', 'use-band-turn-cost', 'use-band-session-cost', 'use-band-context', 'use-band-cache'] as const
+  const onlyItems = input({
+    flags: [
+      { key: 'use-tool-fold', value: false, from: 'default' },
+      { key: 'use-edit-summary', value: false, from: 'default' },
+      { key: 'use-prompt-upgrade', value: false, from: 'user' },
+      { key: 'use-char-count', value: false, from: 'default' },
+      { key: 'use-answer-colors', value: false, from: 'default' },
+      { key: 'use-band', value: false, from: 'default' },
+      ...items.map(key => ({ key, value: true, from: 'default' })),
+    ],
+  })
+  const hint = checksOf(onlyItems).find(check => check.includes('Every feature is off'))
+
+  expect(hint).toContain('use under ccChatTweaks.chat.band')
+
+  const bandOn = input({ flags: [{ key: 'use-band', value: true, from: 'user' }] })
+
+  expect(checksOf(bandOn).some(check => check.includes('Every feature is off'))).toBe(false)
+})
