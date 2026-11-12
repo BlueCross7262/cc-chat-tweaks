@@ -79,8 +79,8 @@ export const contextColor = (percent: number): string | null =>
 
 export const TURN_COST_NOTE_COLOR = 'yellow'
 
-export const turnCostColor = (turnCost: number | null, total: number | null): string | null => {
-  if (turnCost === null || total === null || total <= 0) return null
+export const turnCostColor = (turnCost: number | null, total: number | null, prompts: number | null = null): string | null => {
+  if (turnCost === null || total === null || total <= 0 || prompts === 1) return null
 
   const ratio = turnCost / total
 

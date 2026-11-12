@@ -129,6 +129,12 @@ test('the turn cost turns yellow from 50% of the session cost, orange from 100% 
   expect(turnCostColor(1, 0)).toBeNull()
 })
 
+test('the turn cost keeps the default colour on the first turn', () => {
+  expect(turnCostColor(9, 4, 1)).toBeNull()
+  expect(turnCostColor(9, 4, 2)).toBe('red')
+  expect(turnCostColor(9, 4, 0)).toBe('red')
+})
+
 test('the layout makes the icons smaller under 52 cells and the gap stays 0', () => {
   expect(layoutOf(78)).toEqual({ icon: 22, gap: 0 })
   expect(layoutOf(52)).toEqual({ icon: 22, gap: 0 })
