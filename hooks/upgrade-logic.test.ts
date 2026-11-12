@@ -110,8 +110,6 @@ test('prompt types are empty for no answer, broken JSON or a missing list', () =
   expect(parseTypes('null')).toEqual([])
 })
 
-const QUESTION_TAIL = '대화 중에 선택지가 생기면 AskUserQuestion 도구로 나에게 권장안과 함께 질문한다.\n권장 보기는 선택지 목록의 맨 앞에 둔다.'
-
 const COMMON_TAIL = [
   '원본 데이터에서 확인이 필요 없을 때까지 충분히 조사한다.',
   '결과나 결론을 첫 줄에 쓴다.',
@@ -177,7 +175,7 @@ const wrapped = (source: string, rules: string) =>
 test('a Korean draft is wrapped with the instruction, the source and the hard rule block', () => {
   expect(withMeta('원인을 찾는다.', '원인을 찾아 줘', ['research'])).toBe(wrapped('원인을 찾는다.', RESEARCH_RULES))
   expect(withMeta('두 안을 비교한다.', '두 안을 비교해 줘', ['discuss'])).toBe(
-    wrapped('두 안을 비교한다.', `${COMMON_TAIL}\n\n${DISCUSS_TAIL}\n${QUESTION_TAIL}`),
+    wrapped('두 안을 비교한다.', `${COMMON_TAIL}\n\n${DISCUSS_TAIL}`),
   )
   expect(withMeta('버그를 고친다.', '버그를 고쳐 줘', ['execute'])).toBe(
     wrapped('버그를 고친다.', `${COMMON_TAIL}\n\n${EXECUTE_TAIL}`),
@@ -227,7 +225,7 @@ test('several types put the common lines once and the type lines in the order of
     wrapped('원인을 찾고 고친다.', `${COMMON_TAIL}\n\n${EXECUTE_TAIL}\n\n${RESEARCH_TAIL}`),
   )
   expect(withMeta('원인을 찾고 비교한다.', '원인을 찾고 비교해 줘', ['research', 'discuss'])).toBe(
-    wrapped('원인을 찾고 비교한다.', `${COMMON_TAIL}\n\n${RESEARCH_TAIL}\n\n${DISCUSS_TAIL}\n${QUESTION_TAIL}`),
+    wrapped('원인을 찾고 비교한다.', `${COMMON_TAIL}\n\n${RESEARCH_TAIL}\n\n${DISCUSS_TAIL}`),
   )
 })
 
@@ -258,26 +256,24 @@ test('a prompt without hangul is left as the draft, with or without a type', () 
   )
 })
 
-test('the lines of the draft that repeat a rule leave the source, even without the word 나에게 or with other white space', () => {
+test('the lines of the draft that repeat a rule leave the source, even with other white space', () => {
   const draft = [
     '두 안을 비교한다.',
     '결과나 결론을 첫 줄에 쓴다.',
-    '권장안을 고른 기준을 밝힌다.',
+    '권장안을 고른  기준을 밝힌다.',
     '각 단계에 파일 경로로 근거를 붙인다.',
-    '대화 중에 선택지가 생기면 AskUserQuestion 도구로 권장안과 함께 질문한다.',
-    '권장  보기는 선택지 목록의 맨 앞에 둔다.',
   ].join('\n')
   expect(withMeta(draft, '두 안을 비교해 줘', ['discuss'])).toBe(
-    wrapped('두 안을 비교한다.\n각 단계에 파일 경로로 근거를 붙인다.', `${COMMON_TAIL}\n\n${DISCUSS_TAIL}\n${QUESTION_TAIL}`),
+    wrapped('두 안을 비교한다.\n각 단계에 파일 경로로 근거를 붙인다.', `${COMMON_TAIL}\n\n${DISCUSS_TAIL}`),
   )
   expect(withMeta('원인을 찾는다.\n확인한 사실과  추측을 구분해 쓴다.\n결과나 결론을 첫 줄에 쓴다.', '원인을 찾아 줘', ['research'])).toBe(
     wrapped('원인을 찾는다.', RESEARCH_RULES),
   )
 })
 
-test('a question line of the draft stays in the source when the types add no question lines', () => {
+test('a former question line of the draft stays in the source with a discuss type', () => {
   const draft = '질문 도구를 고친다.\n대화 중에 선택지가 생기면 AskUserQuestion 도구로 나에게 권장안과 함께 질문한다.'
-  expect(withMeta(draft, '질문 도구를 고쳐 줘', ['execute'])).toBe(wrapped(draft, `${COMMON_TAIL}\n\n${EXECUTE_TAIL}`))
+  expect(withMeta(draft, '질문 도구를 고쳐 줘', ['discuss'])).toBe(wrapped(draft, `${COMMON_TAIL}\n\n${DISCUSS_TAIL}`))
 })
 
 test('a hand typed hard rule block in the draft leaves no tag line and no empty tag pair', () => {

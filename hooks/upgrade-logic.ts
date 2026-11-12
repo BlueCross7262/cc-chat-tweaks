@@ -166,14 +166,7 @@ export const clip = (text: string, max: number): string =>
 const HANGUL = /[ㄱ-ㆎ가-힣]/
 
 export const hasHangul = (text: string): boolean => HANGUL.test(text)
-const QUESTION_LINES: readonly string[] = [
-  '대화 중에 선택지가 생기면 AskUserQuestion 도구로 나에게 권장안과 함께 질문한다.',
-  '권장 보기는 선택지 목록의 맨 앞에 둔다.',
-]
-
 type PromptType = (typeof PROMPT_TYPES)[number]
-
-const QUESTION_TYPES: readonly PromptType[] = ['discuss']
 
 const COMMON_LINES: readonly string[] = [
   '원본 데이터에서 확인이 필요 없을 때까지 충분히 조사한다.',
@@ -208,9 +201,7 @@ const TYPE_LINES: Readonly<Record<PromptType, readonly string[]>> = {
 const isPromptType = (type: string): type is PromptType => (PROMPT_TYPES as readonly string[]).includes(type)
 
 const typeBlocks = (types: readonly string[]): readonly (readonly string[])[] =>
-  [...new Set(types.filter(isPromptType))].map(type =>
-    QUESTION_TYPES.includes(type) ? [...TYPE_LINES[type], ...QUESTION_LINES] : TYPE_LINES[type],
-  )
+  [...new Set(types.filter(isPromptType))].map(type => TYPE_LINES[type])
 
 const ruleTail = (types: readonly string[], todo: boolean): string =>
   [todo ? [...COMMON_LINES, ...TODO_LINES] : COMMON_LINES, ...typeBlocks(types)].map(lines => lines.join('\n')).join('\n\n')

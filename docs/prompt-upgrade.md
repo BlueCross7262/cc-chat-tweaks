@@ -105,7 +105,6 @@ Your prompt > Prompt type > Sent with the instruction and the fixed lines
   - The `research` rules ask for evidence on every claim and for a claim that rests on memory to be marked as a guess.
   - The `discuss` rules ask for the questions in order with an easy explanation before each, and for one recommendation first with the reason and the criteria for it.
   - The `execute` rules ask for done, failed and skipped work, and for proof of the done work with an independent tool.
-  - When the types hold `discuss`, the `<hard rule>` block ends with two more fixed lines. They ask Claude to put its questions through AskUserQuestion with the recommended option first.
 - Before the mod builds the message, it cleans your prompt. It removes every line that repeats a fixed line or an instruction line, ignoring white space and the word "나에게", and every line that holds only one of the four tags. It reduces a run of blank lines to one blank line outside `<input>` blocks, and trims both ends. So a message that is sent again gets one fresh wrapper.
 - If a tag still stands inside a line, for example when the prompt talks about the tags, the mod adds no wrapper. The prompt then ends with the fixed lines once.
 - The prompt row in the chat shows only the part between `<source>` and `</source>`. The instruction and the `<hard rule>` block are not drawn, in the ctrl+o view too.

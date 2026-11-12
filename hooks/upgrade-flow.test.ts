@@ -6,8 +6,6 @@ import { CLASSIFY_SYSTEM } from './upgrade-prompts'
 const LONG = 'please summarise the attached design document for me'
 const USAGE = { input_tokens: 1, output_tokens: 1 }
 const KOREAN = '첨부한 설계 문서의 내용을 요약해 줄 수 있을까'
-const QUESTION_LINE_ONE = '대화 중에 선택지가 생기면 AskUserQuestion 도구로 나에게 권장안과 함께 질문한다.'
-const QUESTION_LINE_TWO = '권장 보기는 선택지 목록의 맨 앞에 둔다.'
 const EXECUTE_LINE = '완료한 작업, 실패한 작업, 하지 않은 작업을 나눠 쓴다.'
 
 type Setup = {
@@ -172,20 +170,18 @@ test('a Korean prompt is sent at once with the instruction and the rules, after 
   expect(s.copied).toEqual([])
 })
 
-test('a Korean prompt with a discuss type gets the two question lines', async ($, on) => {
+test('a Korean prompt with a discuss type gets no AskUserQuestion line', async ($, on) => {
   const s = world($, on, { types: JSON.stringify({ types: ['discuss'] }) })
   await submit($, `+++ ${KOREAN}`)
   expect(s.entered).toHaveLength(1)
-  expect(s.entered[0]).toContain(QUESTION_LINE_ONE)
-  expect(s.entered[0]).toContain(QUESTION_LINE_TWO)
+  expect(s.entered[0]).not.toContain('AskUserQuestion')
   expect(s.entered[0]).toContain(`<source>\n${KOREAN}\n</source>`)
 })
 
-test('a Korean prompt with an execute type gets the execute lines and no question lines', async ($, on) => {
+test('a Korean prompt with an execute type gets the execute lines', async ($, on) => {
   const s = world($, on, { types: JSON.stringify({ types: ['execute'] }) })
   await submit($, `${KOREAN} +++`)
   expect(s.entered[0]).toContain(EXECUTE_LINE)
-  expect(s.entered[0]).not.toContain(QUESTION_LINE_ONE)
 })
 
 test('a failed classify call sends the Korean prompt with the common rules only', async ($, on) => {
