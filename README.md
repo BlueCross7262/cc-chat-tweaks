@@ -154,7 +154,7 @@ The row the engine draws after you answer an `AskUserQuestion` dialog is drawn a
 One band above the prompt shows the session at a glance:
 
 ```
- Turn 12   02:05   84 tok/s   $0.31   $4.20   42%   37:12
+ Turn 12 | 02:05 | 84 tok/s | $0.31 | $4.20 | 42% | 37:12
 ```
 
 - `Turn 12` is the number of prompts you sent at the input or through Remote Control since the plugin loaded. Notifications, scheduled prompts and prompts of other sessions or plugins do not count. After `/reload-plugins` or a resume it counts from your next prompt and shows `—` until then.

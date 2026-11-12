@@ -331,11 +331,18 @@ export const registerBand = (on: Parameters<Register>[0]): void => {
         paddingX={1}
         {...(warn ? { borderStyle: 'round', borderColor: warn } : {})}
       >
-        {items.map(item => (
+        {items.flatMap((item, at) => [
+          ...(at === 0
+            ? []
+            : [
+                <Text key={`${item}-sep`} dimColor>
+                  |
+                </Text>,
+              ]),
           <Box key={item} flexDirection="row" alignItems="center" columnGap={1} flexShrink={0}>
             {cell(item)}
-          </Box>
-        ))}
+          </Box>,
+        ])}
       </Box>
     )
 

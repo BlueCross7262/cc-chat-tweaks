@@ -113,10 +113,10 @@ test('context percent turns orange from 50 and red from 80', () => {
   expect(contextColor(100)).toBe('red')
 })
 
-test('the layout makes the icons smaller under 52 cells and the gap stays 2', () => {
-  expect(layoutOf(78)).toEqual({ icon: 22, gap: 2 })
-  expect(layoutOf(52)).toEqual({ icon: 22, gap: 2 })
-  expect(layoutOf(51)).toEqual({ icon: 18, gap: 2 })
+test('the layout makes the icons smaller under 52 cells and the gap stays 1', () => {
+  expect(layoutOf(78)).toEqual({ icon: 22, gap: 1 })
+  expect(layoutOf(52)).toEqual({ icon: 22, gap: 1 })
+  expect(layoutOf(51)).toEqual({ icon: 18, gap: 1 })
 })
 
 test('money is two decimals and a dash when absent', () => {

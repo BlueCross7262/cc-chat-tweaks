@@ -397,6 +397,19 @@ test('a narrow band keeps the long turn and speed text', async ($, on) => {
   expect(narrow.texts).not.toContain('#1')
 })
 
+test('a dim | sits between items and not at either end', async ($, on) => {
+  const w = world($, on)
+  await firstTurn($, w)
+
+  const drawn = await draw($)
+  const items = drawn.texts.slice(1)
+
+  expect(items.filter(text => text === '|').length).toBe(6)
+  expect(items[0]).not.toBe('|')
+  expect(items.at(-1)).not.toBe('|')
+  expect(drawn.colored.filter(item => item.text === '|').length).toBe(6)
+})
+
 test('the terminal band draws no emoji in place of the icons', async ($, on) => {
   const w = world($, on)
   await firstTurn($, w)
