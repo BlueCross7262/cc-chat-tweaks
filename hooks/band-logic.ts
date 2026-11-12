@@ -77,6 +77,19 @@ export const CONTEXT_ALERT_COLOR = 'red'
 export const contextColor = (percent: number): string | null =>
   percent >= 80 ? CONTEXT_ALERT_COLOR : percent >= 50 ? CONTEXT_WARN_COLOR : null
 
+export const TURN_COST_NOTE_COLOR = 'yellow'
+
+export const turnCostColor = (turnCost: number | null, total: number | null): string | null => {
+  if (turnCost === null || total === null || total <= 0) return null
+
+  const ratio = turnCost / total
+
+  if (ratio >= 2) return CONTEXT_ALERT_COLOR
+  if (ratio >= 1) return CONTEXT_WARN_COLOR
+
+  return ratio >= 0.5 ? TURN_COST_NOTE_COLOR : null
+}
+
 export const WARN_COLOR = '#e2a94e'
 export const ALERT_COLOR = '#e0846b'
 

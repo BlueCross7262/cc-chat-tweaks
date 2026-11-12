@@ -17,6 +17,7 @@ import {
   usd,
   warnColor,
   contextColor,
+  turnCostColor,
   type BandItem,
   type StepEvent,
 } from './band-logic'
@@ -274,6 +275,7 @@ export const registerBand = (on: Parameters<Register>[0]): void => {
     const layout = layoutOf(e.props.bodyColumns)
     const warn = items.includes('cache') ? warnColor(seconds, e.props.isWorking) : null
     const contextWarn = state.context === null ? null : contextColor(state.context)
+    const turnCostTint = turnCostColor(state.turnCost, state.total) ?? MONEY
     const icon = (source: string, alt: string) =>
       Svg ? <Svg source={source} alt={alt} width={layout.icon} height={layout.icon} /> : null
 
@@ -295,8 +297,8 @@ export const registerBand = (on: Parameters<Register>[0]): void => {
           )
         case 'turn-cost':
           return parts(
-            icon(moneyIcon(MONEY), 'turn cost'),
-            <Text bold color={MONEY}>
+            icon(moneyIcon(turnCostTint), 'turn cost'),
+            <Text bold color={turnCostTint}>
               {usd(state.turnCost)}
             </Text>,
           )

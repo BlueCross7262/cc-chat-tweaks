@@ -14,6 +14,7 @@ import {
   WARN_COLOR,
   elapsedText,
   contextColor,
+  turnCostColor,
   warnColor,
   type BandItem,
   type SpeedSum,
@@ -111,6 +112,21 @@ test('context percent turns orange from 50 and red from 80', () => {
   expect(contextColor(79)).toBe('#ff8700')
   expect(contextColor(80)).toBe('red')
   expect(contextColor(100)).toBe('red')
+})
+
+test('the turn cost turns yellow from 50% of the session cost, orange from 100% and red from 200%', () => {
+  expect(turnCostColor(0, 4)).toBeNull()
+  expect(turnCostColor(1.99, 4)).toBeNull()
+  expect(turnCostColor(2, 4)).toBe('yellow')
+  expect(turnCostColor(3.99, 4)).toBe('yellow')
+  expect(turnCostColor(4, 4)).toBe('#ff8700')
+  expect(turnCostColor(7.99, 4)).toBe('#ff8700')
+  expect(turnCostColor(8, 4)).toBe('red')
+  expect(turnCostColor(9, 4)).toBe('red')
+  expect(turnCostColor(null, 4)).toBeNull()
+  expect(turnCostColor(1, null)).toBeNull()
+  expect(turnCostColor(0, 0)).toBeNull()
+  expect(turnCostColor(1, 0)).toBeNull()
 })
 
 test('the layout makes the icons smaller under 52 cells and the gap stays 0', () => {
