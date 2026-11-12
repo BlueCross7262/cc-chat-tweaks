@@ -397,17 +397,16 @@ test('a narrow band keeps the long turn and speed text', async ($, on) => {
   expect(narrow.texts).not.toContain('#1')
 })
 
-test('a dim | sits between items and not at either end', async ($, on) => {
+test('a dim | with one space on each side sits between items and not at either end', async ($, on) => {
   const w = world($, on)
   await firstTurn($, w)
 
   const drawn = await draw($)
   const items = drawn.texts.slice(1)
 
-  expect(items.filter(text => text === '|').length).toBe(6)
-  expect(items[0]).not.toBe('|')
-  expect(items.at(-1)).not.toBe('|')
-  expect(drawn.colored.filter(item => item.text === '|').length).toBe(6)
+  expect(items.filter(text => text === ' | ').length).toBe(6)
+  expect(items[0]).not.toBe(' | ')
+  expect(items.at(-1)).not.toBe(' | ')
 })
 
 test('the terminal band draws no emoji in place of the icons', async ($, on) => {
@@ -415,6 +414,27 @@ test('the terminal band draws no emoji in place of the icons', async ($, on) => 
   await firstTurn($, w)
 
   expect((await draw($)).line).not.toMatch(/[⚡⏱⧗]/)
+})
+
+test('only a surface that draws svg gets the icon elements', async ($, on) => {
+  const w = world($, on)
+  await firstTurn($, w)
+
+  const svgs = async (surface: 'terminal' | 'desktop') => {
+    const ui = await $.ui.mount({
+      plugin: PLUGIN,
+      surface,
+      component: 'AbovePrompt',
+      requestId: 'band',
+      props: { hasSurvey: false, isWorking: false, maxRows: 10, bodyColumns: 90 } as never,
+    })
+    const found = await ui.findAll({ type: 'Svg' })
+    await ui.unmount()
+    return found.length
+  }
+
+  expect(await svgs('terminal')).toBe(0)
+  expect(await svgs('desktop')).toBeGreaterThan(0)
 })
 
 test('steps of the same turn add up even when a turn start of another turn comes between them', async ($, on) => {

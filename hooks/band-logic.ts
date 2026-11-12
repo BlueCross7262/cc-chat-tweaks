@@ -94,7 +94,7 @@ export type Layout = { icon: number; gap: number }
 
 export const layoutOf = (columns: number): Layout => ({
   icon: columns < 52 ? 18 : 22,
-  gap: 1,
+  gap: 0,
 })
 
 export const USER_ORIGINS = ['composer', 'bridge'] as const

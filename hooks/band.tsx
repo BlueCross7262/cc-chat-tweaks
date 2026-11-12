@@ -268,7 +268,7 @@ export const registerBand = (on: Parameters<Register>[0]): void => {
 
     const ui = $.ui.resolve(e)
     const { Box, Text } = ui
-    const Svg = 'Svg' in ui ? ui.Svg : null
+    const Svg = e.surface !== 'terminal' && 'Svg' in ui ? ui.Svg : null
     const { items, state, seconds, now } = view
     const turns = state.prompts === 0 ? '—' : String(state.prompts)
     const layout = layoutOf(e.props.bodyColumns)
@@ -336,7 +336,7 @@ export const registerBand = (on: Parameters<Register>[0]): void => {
             ? []
             : [
                 <Text key={`${item}-sep`} dimColor>
-                  |
+                  {' | '}
                 </Text>,
               ]),
           <Box key={item} flexDirection="row" alignItems="center" columnGap={1} flexShrink={0}>
