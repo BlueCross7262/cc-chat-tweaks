@@ -295,7 +295,9 @@ export const registerBand = (on: Parameters<Register>[0]): void => {
       }
     }
 
-    return (
+    const inner = await next(e)
+
+    const mine = (
       <Box
         flexDirection="row"
         alignItems="center"
@@ -310,6 +312,13 @@ export const registerBand = (on: Parameters<Register>[0]): void => {
             {cell(item)}
           </Box>
         ))}
+      </Box>
+    )
+
+    return (
+      <Box flexDirection="column">
+        {inner}
+        {mine}
       </Box>
     )
   })

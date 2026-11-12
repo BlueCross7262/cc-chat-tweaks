@@ -170,7 +170,17 @@ test('after one turn the band shows turns, speed, turn cost, session cost, conte
   const drawn = await draw($)
 
   expect(inOrder(drawn.line, ['Turn 3', '125 tok/s', '$0.25', '$1.25', '42%', '60:00'])).toBe(true)
-  expect(drawn.texts).not.toContain('BASE')
+  expect(drawn.texts[0]).toBe('BASE')
+})
+
+test('the band keeps what the hooks beneath drew and stacks its own row under it', async ($, on) => {
+  const w = world($, on)
+  await firstTurn($, w)
+
+  const drawn = await draw($)
+
+  expect(drawn.texts.filter(text => text === 'BASE')).toHaveLength(1)
+  expect(inOrder(drawn.line, ['BASE', 'Turn 3', '60:00'])).toBe(true)
 })
 
 test('the band draws nothing of its own when its switch is off', async ($, on) => {
