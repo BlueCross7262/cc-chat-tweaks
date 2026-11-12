@@ -170,6 +170,32 @@ const firstTurn = async ($: Engine, w: World) => {
   await complete($, 't1')
 }
 
+test('the elapsed time runs from the prompt while the turn works and stops at its end', async ($, on) => {
+  const w = world($, on)
+
+  expect((await draw($, { isWorking: true })).texts).toContain('—')
+
+  await prompt($)
+  const s = stream($, 't1')
+  await w.clock.advance(65_000)
+
+  expect((await draw($, { isWorking: true })).texts).toContain('01:05')
+
+  await s.next()
+  await w.clock.advance(60_000)
+  await s.next()
+  await s.next()
+  await complete($, 't1')
+  await w.clock.advance(30_000)
+
+  expect((await draw($)).texts).toContain('02:05')
+
+  await prompt($)
+  await w.clock.advance(3000)
+
+  expect((await draw($, { isWorking: true })).texts).toContain('00:03')
+})
+
 test('after one turn the band shows turns, speed, turn cost, session cost, context and cache in the default order', async ($, on) => {
   const w = world($, on)
   await firstTurn($, w)
@@ -266,7 +292,7 @@ test('a subagent turn end keeps the cache countdown and adds its cost to the tur
 })
 
 test('the band hides when every item is off', async ($, on) => {
-  const off = { 'use-turns': false, 'use-speed': false, 'use-turn-cost': false, 'use-session-cost': false, 'use-context': false, 'use-cache': false }
+  const off = { 'use-turns': false, 'use-elapsed': false, 'use-speed': false, 'use-turn-cost': false, 'use-session-cost': false, 'use-context': false, 'use-cache': false }
   const w = world($, on, { band: off })
   await firstTurn($, w)
 
@@ -328,7 +354,7 @@ test('the cache frame turns amber 20 minutes before expiry and red at 10, with t
 
   expect(red.bordered.map(box => box.props.borderColor)).toEqual(['#e0846b'])
   expect(red.bordered[0]?.props.borderStyle).toBe('round')
-  expect(red.colored.find(item => /^\d\d:\d\d$/.test(item.text))?.color).toBe('#e0846b')
+  expect(red.colored.filter(item => /^\d\d:\d\d$/.test(item.text)).at(-1)?.color).toBe('#e0846b')
 })
 
 test('no frame while a turn runs, and the cache text is dots even before the first countdown', async ($, on) => {
@@ -360,17 +386,22 @@ test('the cache says expired after the hour and never a negative time', async ($
   expect((await draw($)).texts).toContain('expired')
 })
 
-test('a narrow band shortens the turn and speed text', async ($, on) => {
+test('a narrow band keeps the long turn and speed text', async ($, on) => {
   const w = world($, on)
   await firstTurn($, w)
 
-  expect((await draw($, { bodyColumns: 70 })).line).toContain('Turn 1')
-  expect((await draw($, { bodyColumns: 70 })).line).toContain('125 tok/s')
+  const narrow = await draw($, { bodyColumns: 40 })
 
-  const narrow = await draw($, { bodyColumns: 60 })
+  expect(narrow.line).toContain('Turn 1')
+  expect(narrow.line).toContain('125 tok/s')
+  expect(narrow.texts).not.toContain('#1')
+})
 
-  expect(narrow.texts).toContain('#1')
-  expect(narrow.texts).toContain('125/s')
+test('the terminal band draws no emoji in place of the icons', async ($, on) => {
+  const w = world($, on)
+  await firstTurn($, w)
+
+  expect((await draw($)).line).not.toMatch(/[⚡⏱⧗]/)
 })
 
 test('steps of the same turn add up even when a turn start of another turn comes between them', async ($, on) => {

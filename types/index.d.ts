@@ -13,6 +13,8 @@ export type Wrap = { types: string[]; todo: boolean }
 export type BandState = {
   turnId: string | null
   prompts: number
+  promptAt: number | null
+  doneAt: number | null
   costAtStart: number | null
   turnCost: number | null
   total: number | null

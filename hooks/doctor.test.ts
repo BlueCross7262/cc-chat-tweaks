@@ -164,7 +164,7 @@ test('says the mod draws nothing when every switch is off', () => {
 })
 
 test('the band item switches alone do not count as a feature being on, and the hint names the band switch', () => {
-  const items = ['use-band-turns', 'use-band-speed', 'use-band-turn-cost', 'use-band-session-cost', 'use-band-context', 'use-band-cache'] as const
+  const items = ['use-band-turns', 'use-band-elapsed', 'use-band-speed', 'use-band-turn-cost', 'use-band-session-cost', 'use-band-context', 'use-band-cache'] as const
   const onlyItems = input({
     flags: [
       { key: 'use-tool-fold', value: false, from: 'default' },

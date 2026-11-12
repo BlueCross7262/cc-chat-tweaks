@@ -12,24 +12,26 @@ import {
   speedOf,
   usd,
   WARN_COLOR,
+  elapsedText,
+  contextColor,
   warnColor,
   type BandItem,
   type SpeedSum,
 } from './band-logic'
 
-const DEFAULT: BandItem[] = ['turns', 'speed', 'turn-cost', 'session-cost', 'context', 'cache']
+const DEFAULT: BandItem[] = ['turns', 'elapsed', 'speed', 'turn-cost', 'session-cost', 'context', 'cache']
 
-test('the default order is turns, speed, turn cost, session cost, context, cache', () => {
+test('the default order is turns, elapsed, speed, turn cost, session cost, context, cache', () => {
   expect([...BAND_ITEMS]).toEqual(DEFAULT)
 })
 
 test('orderOf puts the listed items first and every missing item after them in the default order', () => {
   expect(orderOf(undefined)).toEqual(DEFAULT)
   expect(orderOf([])).toEqual(DEFAULT)
-  expect(orderOf(['cache', 'turns'])).toEqual(['cache', 'turns', 'speed', 'turn-cost', 'session-cost', 'context'])
-  expect(orderOf(['speed'])).toEqual(['speed', 'turns', 'turn-cost', 'session-cost', 'context', 'cache'])
-  expect(orderOf(['speed', 'turns'])).toEqual(['speed', 'turns', 'turn-cost', 'session-cost', 'context', 'cache'])
-  expect(orderOf(['context'])).toEqual(['context', 'turns', 'speed', 'turn-cost', 'session-cost', 'cache'])
+  expect(orderOf(['cache', 'turns'])).toEqual(['cache', 'turns', 'elapsed', 'speed', 'turn-cost', 'session-cost', 'context'])
+  expect(orderOf(['speed'])).toEqual(['speed', 'turns', 'elapsed', 'turn-cost', 'session-cost', 'context', 'cache'])
+  expect(orderOf(['speed', 'turns'])).toEqual(['speed', 'turns', 'elapsed', 'turn-cost', 'session-cost', 'context', 'cache'])
+  expect(orderOf(['context'])).toEqual(['context', 'turns', 'elapsed', 'speed', 'turn-cost', 'session-cost', 'cache'])
 })
 
 test('measureStep times a step from its first content chunk to its stop, less the server tool time', () => {
@@ -90,13 +92,28 @@ test('the warning is amber from 20 minutes, red from 10 and none while a turn ru
   expect(ALERT_COLOR).toBe('#e0846b')
 })
 
-test('the layout narrows the text under 64 cells, the icons under 52 and the gap as the original tiers do', () => {
-  expect(layoutOf(78)).toEqual({ isNarrow: false, icon: 22, gap: 3 })
-  expect(layoutOf(77)).toEqual({ isNarrow: false, icon: 22, gap: 2 })
-  expect(layoutOf(64)).toEqual({ isNarrow: false, icon: 22, gap: 2 })
-  expect(layoutOf(63)).toEqual({ isNarrow: true, icon: 22, gap: 2 })
-  expect(layoutOf(52)).toEqual({ isNarrow: true, icon: 22, gap: 2 })
-  expect(layoutOf(51)).toEqual({ isNarrow: true, icon: 18, gap: 1 })
+test('elapsed time runs from the prompt to the end of the turn as mm:ss', () => {
+  expect(elapsedText(null, null, 5000)).toBe('—')
+  expect(elapsedText(1000, null, 1999)).toBe('00:00')
+  expect(elapsedText(1000, null, 126_000)).toBe('02:05')
+  expect(elapsedText(1000, 61_000, 999_000)).toBe('01:00')
+  expect(elapsedText(0, null, 75 * 60_000 + 3000)).toBe('75:03')
+  expect(elapsedText(5000, null, 1000)).toBe('00:00')
+})
+
+test('context percent turns orange from 50 and red from 80', () => {
+  expect(contextColor(0)).toBeNull()
+  expect(contextColor(49)).toBeNull()
+  expect(contextColor(50)).toBe('#ff8700')
+  expect(contextColor(79)).toBe('#ff8700')
+  expect(contextColor(80)).toBe('red')
+  expect(contextColor(100)).toBe('red')
+})
+
+test('the layout makes the icons smaller under 52 cells and the gap stays 2', () => {
+  expect(layoutOf(78)).toEqual({ icon: 22, gap: 2 })
+  expect(layoutOf(52)).toEqual({ icon: 22, gap: 2 })
+  expect(layoutOf(51)).toEqual({ icon: 18, gap: 2 })
 })
 
 test('money is two decimals and a dash when absent', () => {

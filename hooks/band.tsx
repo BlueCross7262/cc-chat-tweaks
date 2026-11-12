@@ -6,6 +6,7 @@ import {
   addStep,
   CACHE_TTL_MS,
   cacheText,
+  elapsedText,
   CONTENT_KINDS,
   isUserOrigin,
   layoutOf,
@@ -15,6 +16,7 @@ import {
   speedOf,
   usd,
   warnColor,
+  contextColor,
   type BandItem,
   type StepEvent,
 } from './band-logic'
@@ -23,6 +25,8 @@ import { bandOrderOf, flagsOf, SETTINGS_SOURCES, type FlagKey } from './settings
 const BAND_INITIAL: BandState = {
   turnId: null,
   prompts: 0,
+  promptAt: null,
+  doneAt: null,
   costAtStart: null,
   turnCost: null,
   total: null,
@@ -38,6 +42,7 @@ const bandNowAtom = atom({ plugin: 'cc-chat-tweaks', key: 'bandNow' } as const, 
 
 const ITEM_FLAGS: Record<BandItem, FlagKey> = {
   turns: 'use-band-turns',
+  elapsed: 'use-band-elapsed',
   speed: 'use-band-speed',
   'turn-cost': 'use-band-turn-cost',
   'session-cost': 'use-band-session-cost',
@@ -50,6 +55,11 @@ const MONEY = '#4caf6e'
 const MUTED = '#8a8f8c'
 const CONTEXT = '#5fa8d3'
 const CACHE = '#4fb3a9'
+const ELAPSED = '#c9a26b'
+
+const ELAPSED_ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+    <circle cx="12" cy="13" r="9" fill="none" stroke="${ELAPSED}" stroke-width="2"/>
+    <path d="M12 13V8.5M12 13l3 2M10 2.5h4" fill="none" stroke="${ELAPSED}" stroke-width="1.8" stroke-linecap="round"/></svg>`
 
 const ring = (color: string, glyph: string) =>
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
@@ -118,14 +128,23 @@ async function refresh($: EngineInterface): Promise<void> {
 }
 
 async function startTurn($: EngineInterface, turnId: string): Promise<void> {
-  await update($, bandAtom, state => ({ ...state, turnId, sum: { tokens: 0, ms: 0 } }))
+  await update($, bandAtom, state => ({ ...state, turnId, doneAt: null, sum: { tokens: 0, ms: 0 } }))
 }
 
 export async function startPrompt($: EngineInterface, origin: PromptOrigin | undefined): Promise<void> {
   try {
     if (!isUserOrigin(origin?.kind) || !(await isBandOn($))) return
 
-    await update($, bandAtom, state => ({ ...state, prompts: state.prompts + 1, costAtStart: null, turnCost: null }))
+    const promptAt = await $.clock.now()
+
+    await update($, bandAtom, state => ({
+      ...state,
+      prompts: state.prompts + 1,
+      promptAt,
+      doneAt: null,
+      costAtStart: null,
+      turnCost: null,
+    }))
 
     const cost = (await $.session.usage()).cost?.usd ?? 0
 
@@ -137,7 +156,7 @@ export async function startPrompt($: EngineInterface, origin: PromptOrigin | und
 
 const parts = (...nodes: (RenderElement | null)[]): RenderElement[] => nodes.filter((node): node is RenderElement => node !== null)
 
-type BandView = { items: BandItem[]; state: BandState; seconds: number | null }
+type BandView = { items: BandItem[]; state: BandState; seconds: number | null; now: number }
 
 async function viewOf($: EngineInterface, hasSurvey: boolean): Promise<BandView | null> {
   if (hasSurvey) return null
@@ -156,19 +175,20 @@ async function viewOf($: EngineInterface, hasSurvey: boolean): Promise<BandView 
   const state = await read($, bandAtom)
   await read($, bandNowAtom)
 
-  return { items, state, seconds: secondsLeft(state.expiresAt, await $.clock.now()) }
+  const now = await $.clock.now()
+
+  return { items, state, seconds: secondsLeft(state.expiresAt, now), now }
 }
 
 export function startBandTick($: EngineInterface): void {
   $.clock.every(1000, async () => {
     try {
-      const { expiresAt } = await read($, bandAtom)
-
-      if (expiresAt === null) return
-
+      const { expiresAt, promptAt, doneAt } = await read($, bandAtom)
       const now = await $.clock.now()
+      const isTiming = promptAt !== null && doneAt === null
+      const isCounting = expiresAt !== null && now < expiresAt + 1000
 
-      if (now >= expiresAt + 1000) return
+      if (!isTiming && !isCounting) return
 
       await update($, bandNowAtom, () => now)
     } catch {
@@ -186,7 +206,7 @@ export async function completeBand($: EngineInterface, e: TurnRef): Promise<void
     if (e.agentId === undefined) {
       const now = await $.clock.now()
 
-      await update($, bandAtom, state => ({ ...state, expiresAt: now + CACHE_TTL_MS }))
+      await update($, bandAtom, state => ({ ...state, doneAt: now, expiresAt: now + CACHE_TTL_MS }))
     }
   } catch {
     return
@@ -249,47 +269,49 @@ export const registerBand = (on: Parameters<Register>[0]): void => {
     const ui = $.ui.resolve(e)
     const { Box, Text } = ui
     const Svg = 'Svg' in ui ? ui.Svg : null
-    const { items, state, seconds } = view
+    const { items, state, seconds, now } = view
     const turns = state.prompts === 0 ? '—' : String(state.prompts)
     const layout = layoutOf(e.props.bodyColumns)
     const warn = items.includes('cache') ? warnColor(seconds, e.props.isWorking) : null
-    const icon = (source: string, alt: string, glyph: string | null, color: string) =>
-      Svg ? (
-        <Svg source={source} alt={alt} width={layout.icon} height={layout.icon} />
-      ) : glyph === null ? null : (
-        <Text color={color}>{glyph}</Text>
-      )
+    const contextWarn = state.context === null ? null : contextColor(state.context)
+    const icon = (source: string, alt: string) =>
+      Svg ? <Svg source={source} alt={alt} width={layout.icon} height={layout.icon} /> : null
 
     const cell = (item: BandItem): RenderElement[] => {
       switch (item) {
         case 'turns':
-          return layout.isNarrow
-            ? parts(<Text bold>{`#${turns}`}</Text>)
-            : parts(<Text dimColor>Turn</Text>, <Text bold>{turns}</Text>)
+          return parts(<Text dimColor>Turn</Text>, <Text bold>{turns}</Text>)
+        case 'elapsed':
+          return parts(
+            icon(ELAPSED_ICON, 'elapsed'),
+            <Text bold>{elapsedText(state.promptAt, state.doneAt, now)}</Text>,
+          )
         case 'speed':
           return parts(
-            icon(SPEED_ICON, 'speed', '⚡', SPEED),
+            icon(SPEED_ICON, 'speed'),
             <Text bold wrap="truncate-end">
-              {state.speed === null ? '—' : layout.isNarrow ? `${state.speed}/s` : `${state.speed} tok/s`}
+              {state.speed === null ? '—' : `${state.speed} tok/s`}
             </Text>,
           )
         case 'turn-cost':
           return parts(
-            icon(moneyIcon(MONEY), 'turn cost', '$', MONEY),
+            icon(moneyIcon(MONEY), 'turn cost'),
             <Text bold color={MONEY}>
               {usd(state.turnCost)}
             </Text>,
           )
         case 'session-cost':
-          return parts(icon(moneyIcon(MUTED), 'session cost', '$', MUTED), <Text bold>{usd(state.total)}</Text>)
+          return parts(icon(moneyIcon(MUTED), 'session cost'), <Text bold>{usd(state.total)}</Text>)
         case 'context':
           return parts(
-            state.context === null ? null : icon(contextIcon(state.context), 'context', null, CONTEXT),
-            <Text bold>{state.context === null ? '—' : `${state.context}%`}</Text>,
+            state.context === null ? null : icon(contextIcon(state.context), 'context'),
+            <Text bold {...(contextWarn ? { color: contextWarn } : {})}>
+              {state.context === null ? '—' : `${state.context}%`}
+            </Text>,
           )
         case 'cache':
           return parts(
-            icon(cacheIcon(warn ?? CACHE), 'cache', '⧗', warn ?? CACHE),
+            icon(cacheIcon(warn ?? CACHE), 'cache'),
             <Text bold {...(warn ? { color: warn } : {})}>
               {cacheText(seconds, e.props.isWorking)}
             </Text>,

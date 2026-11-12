@@ -22,12 +22,13 @@ Tool folding, the Edit/Write summary, the answer colours, the session band and t
 | `chat.answer-colors` | `use` | `false` | Draw the row that holds your answers to Claude's questions in three colours: title, question and answer. |
 | `chat.band` | `use` | `false` | Draw one band above the prompt with the session at a glance. |
 | `chat.band` | `use-turns` | `true` | Option of `use`. Show the number of prompts you sent at the input or through Remote Control. |
+| `chat.band` | `use-elapsed` | `true` | Option of `use`. Show the time since your last prompt, as `mm:ss`. |
 | `chat.band` | `use-speed` | `true` | Option of `use`. Show the output speed of the current or last turn. |
 | `chat.band` | `use-turn-cost` | `true` | Option of `use`. Show the cost since your last prompt. |
 | `chat.band` | `use-session-cost` | `true` | Option of `use`. Show the cost of the session. |
 | `chat.band` | `use-context` | `true` | Option of `use`. Show how full the context window is. |
 | `chat.band` | `use-cache` | `true` | Option of `use`. Show the time left on the prompt cache. |
-| `chat.band` | `order` | `["turns", "speed", "turn-cost", "session-cost", "context", "cache"]` | Option of `use`. The order of the items. An item that is not in the array goes to the end, in the default order. Unknown names and repeats are left out. |
+| `chat.band` | `order` | `["turns", "elapsed", "speed", "turn-cost", "session-cost", "context", "cache"]` | Option of `use`. The order of the items. An item that is not in the array goes to the end, in the default order. Unknown names and repeats are left out. |
 | `prompt.prompt-upgrade` | `use` | `true` | Send a Korean prompt with an instruction and answer rules added. A prompt without Korean characters is sent as you typed it. |
 | `prompt.prompt-upgrade` | `skip-silent-trigger` | `true` | Option of `use`. When `true`, the trigger check is skipped and every prompt is upgraded; a Korean prompt shorter than `min-length` gets no prompt type call and only the common rules in the `<hard rule>` block. When `false`, only a prompt with the trigger is upgraded. |
 | `prompt.prompt-upgrade` | `silent-triggers` | `["+++"]` | The trigger texts for the silent upgrade, as an array of strings. |
@@ -51,12 +52,13 @@ Tool folding, the Edit/Write summary, the answer colours, the session band and t
       "band": {
         "use": true,
         "use-turns": true,
+        "use-elapsed": true,
         "use-speed": true,
         "use-turn-cost": true,
         "use-session-cost": true,
         "use-context": true,
         "use-cache": true,
-        "order": ["turns", "speed", "turn-cost", "session-cost", "context", "cache"]
+        "order": ["turns", "elapsed", "speed", "turn-cost", "session-cost", "context", "cache"]
       }
     },
     "prompt": {
@@ -152,16 +154,17 @@ The row the engine draws after you answer an `AskUserQuestion` dialog is drawn a
 One band above the prompt shows the session at a glance:
 
 ```
- Turn 12   84 tok/s   $0.31   $4.20   42%   37:12
+ Turn 12   02:05   84 tok/s   $0.31   $4.20   42%   37:12
 ```
 
 - `Turn 12` is the number of prompts you sent at the input or through Remote Control since the plugin loaded. Notifications, scheduled prompts and prompts of other sessions or plugins do not count. After `/reload-plugins` or a resume it counts from your next prompt and shows `—` until then.
+- The time after the turn number runs from your last prompt, as `mm:ss`. It counts each second while a turn works and stops at the end of the last turn that followed the prompt, notifications included. It shows `—` until your first prompt after the plugin loaded.
 - The speed is output tokens per second over the current turn. Each model request is timed from its first text, thinking or tool chunk to its end, less the time of tools the API ran itself (the advisor is one). The requests of a turn are added up. Subagent requests are left out. The value of the last turn stays until the new turn has at least 20 tokens over half a second.
 - The first cost is what the session spent since your last prompt, the second the session. It takes in every turn, subagent and notification that followed that prompt, and the prompt upgrade of that prompt. A prompt whose start cost could not be read shows `—`.
-- The percentage is the context window fill.
+- The percentage is the context window fill. It turns orange at 50% and red at 80%.
 - The countdown is the time left on the 1-hour prompt cache since the last answer. The band gets an amber frame 20 minutes before it expires and a red one at 10, and the hourglass and the time take that colour. It shows `…` while a turn runs and `expired` at zero.
 - A value the session does not have yet shows `—`.
-- Under 64 cells the turn and speed text gets shorter (`#12`, `84/s`). Under 52 the icons get smaller. A row that is still too wide is cut at the right, so the last items in `order` go first.
+- Under 52 cells the icons get smaller. A row that is still too wide is cut at the right, so the last items in `order` go first.
 - Each item has its own `use-*` switch, and `order` sets their order. The band is not drawn while a survey holds it, before your first prompt, or when every item is off.
 - After you change a switch, run `/reload-plugins`.
 

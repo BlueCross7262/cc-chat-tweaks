@@ -1,4 +1,4 @@
-export const BAND_ITEMS = ['turns', 'speed', 'turn-cost', 'session-cost', 'context', 'cache'] as const
+export const BAND_ITEMS = ['turns', 'elapsed', 'speed', 'turn-cost', 'session-cost', 'context', 'cache'] as const
 
 export type BandItem = (typeof BAND_ITEMS)[number]
 
@@ -64,6 +64,20 @@ export const cacheText = (seconds: number | null, isWorking: boolean): string =>
   return `${pad2(Math.floor(seconds / 60))}:${pad2(seconds % 60)}`
 }
 
+export const elapsedText = (promptAt: number | null, doneAt: number | null, now: number): string => {
+  if (promptAt === null) return '—'
+
+  const seconds = Math.max(0, Math.floor(((doneAt ?? now) - promptAt) / 1000))
+
+  return `${pad2(Math.floor(seconds / 60))}:${pad2(seconds % 60)}`
+}
+
+export const CONTEXT_WARN_COLOR = '#ff8700'
+export const CONTEXT_ALERT_COLOR = 'red'
+
+export const contextColor = (percent: number): string | null =>
+  percent >= 80 ? CONTEXT_ALERT_COLOR : percent >= 50 ? CONTEXT_WARN_COLOR : null
+
 export const WARN_COLOR = '#e2a94e'
 export const ALERT_COLOR = '#e0846b'
 
@@ -77,12 +91,11 @@ export const warnColor = (seconds: number | null, isWorking: boolean): string | 
   return seconds <= WARN_S ? WARN_COLOR : null
 }
 
-export type Layout = { isNarrow: boolean; icon: number; gap: number }
+export type Layout = { icon: number; gap: number }
 
 export const layoutOf = (columns: number): Layout => ({
-  isNarrow: columns < 64,
   icon: columns < 52 ? 18 : 22,
-  gap: columns >= 78 ? 3 : columns >= 52 ? 2 : 1,
+  gap: 2,
 })
 
 export const USER_ORIGINS = ['composer', 'bridge'] as const

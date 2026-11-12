@@ -316,6 +316,7 @@ test('reads every flag at once', () => {
     'use-answer-colors': false,
     'use-band': false,
     'use-band-turns': true,
+    'use-band-elapsed': true,
     'use-band-speed': true,
     'use-band-turn-cost': true,
     'use-band-session-cost': true,
@@ -350,6 +351,7 @@ test('adds only the missing switches with their default and keeps everything els
     'use-answer-colors',
     'use-band',
     'use-band-turns',
+    'use-band-elapsed',
     'use-band-speed',
     'use-band-turn-cost',
     'use-band-session-cost',
@@ -370,7 +372,7 @@ test('adds only the missing switches with their default and keeps everything els
         'tool-fold': { use: true, 'unfolded-tools': ['AskUserQuestion', 'Skill', 'Agent'] },
         'use-edit-summary': false,
         'answer-colors': { use: false },
-        band: { use: false, 'use-turns': true, 'use-speed': true, 'use-turn-cost': true, 'use-session-cost': true, 'use-context': true, 'use-cache': true, order: ['turns', 'speed', 'turn-cost', 'session-cost', 'context', 'cache'] },
+        band: { use: false, 'use-turns': true, 'use-elapsed': true, 'use-speed': true, 'use-turn-cost': true, 'use-session-cost': true, 'use-context': true, 'use-cache': true, order: ['turns', 'elapsed', 'speed', 'turn-cost', 'session-cost', 'context', 'cache'] },
       },
       prompt: {
         later: { 'a-future-key': 1 },
@@ -392,15 +394,15 @@ test('adds only the missing switches with their default and keeps everything els
 })
 
 test('builds the whole section for an empty or malformed file', () => {
-  expect(withMissingDefaults({}).added).toHaveLength(20)
-  expect(withMissingDefaults(null).added).toHaveLength(20)
+  expect(withMissingDefaults({}).added).toHaveLength(21)
+  expect(withMissingDefaults(null).added).toHaveLength(21)
   expect(withMissingDefaults({ ccChatTweaks: 'x' }).settings).toEqual({
     ccChatTweaks: {
       chat: {
         'tool-fold': { use: false, 'unfolded-tools': ['AskUserQuestion', 'Skill', 'Agent'] },
         'use-edit-summary': false,
         'answer-colors': { use: false },
-        band: { use: false, 'use-turns': true, 'use-speed': true, 'use-turn-cost': true, 'use-session-cost': true, 'use-context': true, 'use-cache': true, order: ['turns', 'speed', 'turn-cost', 'session-cost', 'context', 'cache'] },
+        band: { use: false, 'use-turns': true, 'use-elapsed': true, 'use-speed': true, 'use-turn-cost': true, 'use-session-cost': true, 'use-context': true, 'use-cache': true, order: ['turns', 'elapsed', 'speed', 'turn-cost', 'session-cost', 'context', 'cache'] },
       },
       prompt: {
         'prompt-upgrade': {
@@ -488,7 +490,7 @@ test('describes every extra key with its value and the source it came from', () 
     { key: 'models.classify.model', value: 'sonnet', from: 'user' },
     { key: 'models.classify.effort', value: 'high', from: 'local' },
     { key: 'unfolded-tools', value: ['AskUserQuestion', 'Skill', 'Agent'], from: 'default' },
-    { key: 'order', value: ['turns', 'speed', 'turn-cost', 'session-cost', 'context', 'cache'], from: 'default' },
+    { key: 'order', value: ['turns', 'elapsed', 'speed', 'turn-cost', 'session-cost', 'context', 'cache'], from: 'default' },
   ])
   expect(describeExtras([['user', {}]])).toEqual([
     { key: 'min-length', value: 10, from: 'default' },
@@ -497,7 +499,7 @@ test('describes every extra key with its value and the source it came from', () 
     { key: 'models.classify.model', value: 'haiku', from: 'default' },
     { key: 'models.classify.effort', value: 'low', from: 'default' },
     { key: 'unfolded-tools', value: ['AskUserQuestion', 'Skill', 'Agent'], from: 'default' },
-    { key: 'order', value: ['turns', 'speed', 'turn-cost', 'session-cost', 'context', 'cache'], from: 'default' },
+    { key: 'order', value: ['turns', 'elapsed', 'speed', 'turn-cost', 'session-cost', 'context', 'cache'], from: 'default' },
   ])
   expect(describeExtras([['user', chat({ 'unfolded-tools': [] })]]).find(row => row.key === 'unfolded-tools')).toEqual({ key: 'unfolded-tools', value: [], from: 'user' })
 })
@@ -531,7 +533,7 @@ test('the default unfolded list written to a file is a copy', () => {
 test('reports nothing to add when every switch is present', () => {
   const full = {
     ccChatTweaks: {
-      chat: { 'tool-fold': { use: true, 'unfolded-tools': ['Bash'] }, 'use-edit-summary': false, 'answer-colors': { use: true }, band: { use: false, 'use-turns': true, 'use-speed': true, 'use-turn-cost': true, 'use-session-cost': true, 'use-context': true, 'use-cache': true, order: ['turns', 'speed', 'turn-cost', 'session-cost', 'context', 'cache'] } },
+      chat: { 'tool-fold': { use: true, 'unfolded-tools': ['Bash'] }, 'use-edit-summary': false, 'answer-colors': { use: true }, band: { use: false, 'use-turns': true, 'use-elapsed': true, 'use-speed': true, 'use-turn-cost': true, 'use-session-cost': true, 'use-context': true, 'use-cache': true, order: ['turns', 'elapsed', 'speed', 'turn-cost', 'session-cost', 'context', 'cache'] } },
       prompt: {
         'prompt-upgrade': {
           use: false,
@@ -552,13 +554,14 @@ test('reports nothing to add when every switch is present', () => {
   expect(withMissingDefaults(full).settings).toEqual(full)
 })
 
-const bandKeys: FlagKey[] = ['use-band-turns', 'use-band-speed', 'use-band-turn-cost', 'use-band-session-cost', 'use-band-context', 'use-band-cache']
+const bandKeys: FlagKey[] = ['use-band-turns', 'use-band-elapsed', 'use-band-speed', 'use-band-turn-cost', 'use-band-session-cost', 'use-band-context', 'use-band-cache']
 
 test('the band is switched by ccChatTweaks.chat.band.use and each item by its own use-* key in the same group', () => {
   expect(BAND_PATH).toEqual(['chat', 'band'])
   expect(FLAG_PATHS['use-band']).toEqual(['chat', 'band'])
   expect(labelOf('use-band')).toBe('chat.band.use')
   expect(labelOf('use-band-turns')).toBe('chat.band.use-turns')
+  expect(labelOf('use-band-elapsed')).toBe('chat.band.use-elapsed')
   expect(labelOf('use-band-speed')).toBe('chat.band.use-speed')
   expect(labelOf('use-band-turn-cost')).toBe('chat.band.use-turn-cost')
   expect(labelOf('use-band-session-cost')).toBe('chat.band.use-session-cost')
