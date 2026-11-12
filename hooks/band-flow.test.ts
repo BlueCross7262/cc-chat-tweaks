@@ -77,10 +77,16 @@ const world = ($: Engine, on: On, options: Options = {}): World => {
   } as never)
   on('turn.complete', () => ({ text: '' }) as never)
   on('turn.start', (_$, e) => ({ turnId: (e as { turnId: string }).turnId }) as never)
+  on('prompt.submit', (_$, e) => ({ text: (e as { text: string }).text }) as never)
+  on('ui.log', () => ({ value: undefined }) as never)
+  on('ui.toast', () => ({ value: undefined }) as never)
   on('ui.render', () => ({ type: 'Text', props: {}, children: ['BASE'] }) as never)
 
   return w
 }
+
+const prompt = ($: Engine, kind: 'composer' | 'bridge' | 'task-notification' = 'composer') =>
+  $.prompt.submit({ text: 'x', wait: false, origin: { kind } as never })
 
 type StepCall = { turnId: string; index: number; model: string; messageCount: number; agentId?: string }
 
@@ -157,6 +163,7 @@ const inOrder = (line: string, parts: readonly string[]): boolean => {
 }
 
 const firstTurn = async ($: Engine, w: World) => {
+  await prompt($)
   w.server = [{ startedAt: 4500, endedAt: 4900 }]
   await step($, w, { turnId: 't1', wait: 2000, content: 2000, costAfter: 1.25 })
   w.server = []
@@ -169,7 +176,7 @@ test('after one turn the band shows turns, speed, turn cost, session cost, conte
 
   const drawn = await draw($)
 
-  expect(inOrder(drawn.line, ['Turn 3', '125 tok/s', '$0.25', '$1.25', '42%', '60:00'])).toBe(true)
+  expect(inOrder(drawn.line, ['Turn 1', '125 tok/s', '$0.25', '$1.25', '42%', '60:00'])).toBe(true)
   expect(drawn.texts[0]).toBe('BASE')
 })
 
@@ -180,7 +187,7 @@ test('the band keeps what the hooks beneath drew and stacks its own row under it
   const drawn = await draw($)
 
   expect(drawn.texts.filter(text => text === 'BASE')).toHaveLength(1)
-  expect(inOrder(drawn.line, ['BASE', 'Turn 3', '60:00'])).toBe(true)
+  expect(inOrder(drawn.line, ['BASE', 'Turn 1', '60:00'])).toBe(true)
 })
 
 test('the band draws nothing of its own when its switch is off', async ($, on) => {
@@ -244,7 +251,7 @@ test('a subagent step changes neither the speed nor the costs', async ($, on) =>
   expect(drawn.line).toContain('$1.25')
 })
 
-test('a subagent turn end keeps the cache countdown and the turn cost and updates the session cost', async ($, on) => {
+test('a subagent turn end keeps the cache countdown and adds its cost to the turn cost of the prompt', async ($, on) => {
   const w = world($, on)
   await firstTurn($, w)
   await w.clock.advance(30 * MIN)
@@ -254,7 +261,7 @@ test('a subagent turn end keeps the cache countdown and the turn cost and update
   const drawn = await draw($)
 
   expect(drawn.line).toContain('30:00')
-  expect(drawn.line).toContain('$0.25')
+  expect(drawn.line).toContain('$1.00')
   expect(drawn.line).toContain('$2.00')
 })
 
@@ -297,14 +304,14 @@ test('an item switched off is left out and the others stay', async ($, on) => {
   const drawn = await draw($)
 
   expect(drawn.line).not.toContain('tok/s')
-  expect(inOrder(drawn.line, ['Turn 3', '$0.25', '$1.25', '42%', '60:00'])).toBe(true)
+  expect(inOrder(drawn.line, ['Turn 1', '$0.25', '$1.25', '42%', '60:00'])).toBe(true)
 })
 
 test('the order setting puts its items first and the rest after them in the default order', async ($, on) => {
   const w = world($, on, { band: { order: ['cache', 'turns'] } })
   await firstTurn($, w)
 
-  expect(inOrder((await draw($)).line, ['60:00', 'Turn 3', '125 tok/s', '$0.25', '$1.25', '42%'])).toBe(true)
+  expect(inOrder((await draw($)).line, ['60:00', 'Turn 1', '125 tok/s', '$0.25', '$1.25', '42%'])).toBe(true)
 })
 
 test('the cache frame turns amber 20 minutes before expiry and red at 10, with the icon and the text in that color', async ($, on) => {
@@ -357,12 +364,12 @@ test('a narrow band shortens the turn and speed text', async ($, on) => {
   const w = world($, on)
   await firstTurn($, w)
 
-  expect((await draw($, { bodyColumns: 70 })).line).toContain('Turn 3')
+  expect((await draw($, { bodyColumns: 70 })).line).toContain('Turn 1')
   expect((await draw($, { bodyColumns: 70 })).line).toContain('125 tok/s')
 
   const narrow = await draw($, { bodyColumns: 60 })
 
-  expect(narrow.texts).toContain('#3')
+  expect(narrow.texts).toContain('#1')
   expect(narrow.texts).toContain('125/s')
 })
 
@@ -377,59 +384,80 @@ test('steps of the same turn add up even when a turn start of another turn comes
   expect((await draw($)).line).toContain('100 tok/s')
 })
 
-test('a turn that starts with no cost known has no turn cost', async ($, on) => {
+test('a prompt sent before any cost is known counts the turn cost from zero', async ($, on) => {
   const w = world($, on)
   w.cost = undefined
+  await prompt($)
   await step($, w, { turnId: 't1', wait: 1000, content: 1000, costAfter: 1.25 })
   await complete($, 't1')
 
-  const drawn = await draw($)
-
-  expect(drawn.line).toContain('$1.25')
-  expect(drawn.line).not.toContain('$0.')
+  expect(inOrder((await draw($)).line, ['Turn 1', '$1.25', '$1.25'])).toBe(true)
 })
 
-test('a usage failure at the start of a turn leaves that turn without a turn cost', async ($, on) => {
+test('a usage failure at a prompt leaves that prompt without a turn cost', async ($, on) => {
   const w = world($, on)
   await firstTurn($, w)
   w.usageFails = true
-  const s = stream($, 't2')
-  await w.clock.advance(1000)
-  await s.next()
+  await prompt($)
   w.usageFails = false
-  w.cost = 1.5
-  await w.clock.advance(1000)
-  await s.next()
-  await s.next()
+  await step($, w, { turnId: 't2', wait: 1000, content: 1000, costAfter: 1.5 })
   await complete($, 't2')
 
   const drawn = await draw($)
 
+  expect(drawn.line).toContain('Turn 2')
   expect(drawn.line).not.toContain('$0.25')
+  expect(drawn.line).not.toContain('$0.00')
   expect(drawn.line).toContain('$1.50')
 })
 
-test('a main turn end the band saw no step of has no turn cost', async ($, on) => {
+test('a turn the user did not prompt adds its cost to the last prompt', async ($, on) => {
   const w = world($, on)
   await firstTurn($, w)
-  w.cost = 1.75
+  await step($, w, { turnId: 't9', wait: 1000, content: 1000, costAfter: 1.75 })
   await complete($, 't9')
 
   const drawn = await draw($)
 
-  expect(drawn.line).not.toContain('$0.25')
-  expect(drawn.line).not.toContain('$0.50')
-  expect(drawn.line).toContain('$1.75')
+  expect(inOrder(drawn.line, ['Turn 1', '$0.75', '$1.75'])).toBe(true)
 })
 
-test('a step whose usage has no cost leaves the new turn without a turn cost instead of mixing turns', async ($, on) => {
+test('a notification prompt neither counts as a turn nor starts the turn cost over', async ($, on) => {
+  const w = world($, on)
+  await firstTurn($, w)
+  await prompt($, 'task-notification')
+  await step($, w, { turnId: 't2', wait: 1000, content: 1000, costAfter: 1.5 })
+  await complete($, 't2')
+
+  expect(inOrder((await draw($)).line, ['Turn 1', '$0.50', '$1.50'])).toBe(true)
+})
+
+test('a prompt typed at the input or sent through the bridge counts the next turn and starts its cost over', async ($, on) => {
+  const w = world($, on)
+  await firstTurn($, w)
+  await prompt($, 'bridge')
+  await step($, w, { turnId: 't2', wait: 1000, content: 1000, costAfter: 1.4 })
+  await complete($, 't2')
+  await prompt($)
+  await step($, w, { turnId: 't3', wait: 1000, content: 1000, costAfter: 1.5 })
+  await complete($, 't3')
+
+  expect(inOrder((await draw($)).line, ['Turn 3', '$0.10', '$1.50'])).toBe(true)
+})
+
+test('a step whose usage has no cost keeps the last costs', async ($, on) => {
   const w = world($, on)
   await firstTurn($, w)
   await step($, w, { turnId: 't2', wait: 1000, content: 1000, costAfter: undefined })
 
   const drawn = await draw($)
 
-  expect(drawn.line).not.toContain('$0.25')
-  expect(drawn.line).not.toContain('$0.00')
-  expect(drawn.line).toContain('$1.25')
+  expect(inOrder(drawn.line, ['$0.25', '$1.25'])).toBe(true)
+})
+
+test('with the band off a prompt reads no usage', async ($, on) => {
+  const w = world($, on, { band: null })
+  await prompt($)
+
+  expect(w.usageCalls).toBe(0)
 })

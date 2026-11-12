@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, Register, RenderElement } from 'claude-code'
+import type { EngineInterface, PromptOrigin, Register, RenderElement } from 'claude-code'
 
 import type { BandState } from '../types'
 import {
@@ -7,6 +7,7 @@ import {
   CACHE_TTL_MS,
   cacheText,
   CONTENT_KINDS,
+  isUserOrigin,
   layoutOf,
   measureStep,
   orderOf,
@@ -21,6 +22,7 @@ import { bandOrderOf, flagsOf, SETTINGS_SOURCES, type FlagKey } from './settings
 
 const BAND_INITIAL: BandState = {
   turnId: null,
+  prompts: 0,
   costAtStart: null,
   turnCost: null,
   total: null,
@@ -102,7 +104,7 @@ async function isBandOn($: EngineInterface): Promise<boolean> {
 
 type TurnRef = { turnId: string; agentId?: string | undefined }
 
-async function refresh($: EngineInterface, e: TurnRef): Promise<void> {
+async function refresh($: EngineInterface): Promise<void> {
   const usage = await $.session.usage()
   const fresh = usage.cost?.usd
   const percent = usage.context.percent
@@ -111,26 +113,31 @@ async function refresh($: EngineInterface, e: TurnRef): Promise<void> {
     ...state,
     total: fresh ?? state.total,
     context: percent ?? state.context,
-    turnCost:
-      e.agentId === undefined && e.turnId === state.turnId && fresh !== undefined && state.costAtStart !== null
-        ? fresh - state.costAtStart
-        : state.turnCost,
+    turnCost: fresh !== undefined && state.costAtStart !== null ? fresh - state.costAtStart : state.turnCost,
   }))
 }
 
 async function startTurn($: EngineInterface, turnId: string): Promise<void> {
-  await update($, bandAtom, state => ({ ...state, turnId, sum: { tokens: 0, ms: 0 }, costAtStart: null, turnCost: null }))
+  await update($, bandAtom, state => ({ ...state, turnId, sum: { tokens: 0, ms: 0 } }))
+}
 
-  const cost = (await $.session.usage()).cost?.usd
+export async function startPrompt($: EngineInterface, origin: PromptOrigin | undefined): Promise<void> {
+  try {
+    if (!isUserOrigin(origin?.kind) || !(await isBandOn($))) return
 
-  if (cost !== undefined) {
-    await update($, bandAtom, state => (state.turnId === turnId ? { ...state, costAtStart: cost } : state))
+    await update($, bandAtom, state => ({ ...state, prompts: state.prompts + 1, costAtStart: null, turnCost: null }))
+
+    const cost = (await $.session.usage()).cost?.usd ?? 0
+
+    await update($, bandAtom, state => ({ ...state, costAtStart: cost, turnCost: 0 }))
+  } catch {
+    return
   }
 }
 
 const parts = (...nodes: (RenderElement | null)[]): RenderElement[] => nodes.filter((node): node is RenderElement => node !== null)
 
-type BandView = { items: BandItem[]; turns: number; state: BandState; seconds: number | null }
+type BandView = { items: BandItem[]; state: BandState; seconds: number | null }
 
 async function viewOf($: EngineInterface, hasSurvey: boolean): Promise<BandView | null> {
   if (hasSurvey) return null
@@ -144,14 +151,12 @@ async function viewOf($: EngineInterface, hasSurvey: boolean): Promise<BandView 
 
   if (items.length === 0) return null
 
-  const turns = await $.session.turns()
-
-  if (turns === 0) return null
+  if ((await $.session.turns()) === 0) return null
 
   const state = await read($, bandAtom)
   await read($, bandNowAtom)
 
-  return { items, turns, state, seconds: secondsLeft(state.expiresAt, await $.clock.now()) }
+  return { items, state, seconds: secondsLeft(state.expiresAt, await $.clock.now()) }
 }
 
 export function startBandTick($: EngineInterface): void {
@@ -176,11 +181,7 @@ export async function completeBand($: EngineInterface, e: TurnRef): Promise<void
   try {
     if (!(await isBandOn($))) return
 
-    if (e.agentId === undefined && (await read($, bandAtom)).turnId !== e.turnId) {
-      await update($, bandAtom, state => ({ ...state, turnId: e.turnId, costAtStart: null, turnCost: null }))
-    }
-
-    await refresh($, e)
+    await refresh($)
 
     if (e.agentId === undefined) {
       const now = await $.clock.now()
@@ -232,7 +233,7 @@ export const registerBand = (on: Parameters<Register>[0]): void => {
         })
       }
 
-      await refresh($, e)
+      await refresh($)
     } catch {
       return result
     }
@@ -248,7 +249,8 @@ export const registerBand = (on: Parameters<Register>[0]): void => {
     const ui = $.ui.resolve(e)
     const { Box, Text } = ui
     const Svg = 'Svg' in ui ? ui.Svg : null
-    const { items, turns, state, seconds } = view
+    const { items, state, seconds } = view
+    const turns = state.prompts === 0 ? '—' : String(state.prompts)
     const layout = layoutOf(e.props.bodyColumns)
     const warn = items.includes('cache') ? warnColor(seconds, e.props.isWorking) : null
     const icon = (source: string, alt: string, glyph: string | null, color: string) =>
@@ -263,7 +265,7 @@ export const registerBand = (on: Parameters<Register>[0]): void => {
         case 'turns':
           return layout.isNarrow
             ? parts(<Text bold>{`#${turns}`}</Text>)
-            : parts(<Text dimColor>Turn</Text>, <Text bold>{String(turns)}</Text>)
+            : parts(<Text dimColor>Turn</Text>, <Text bold>{turns}</Text>)
         case 'speed':
           return parts(
             icon(SPEED_ICON, 'speed', '⚡', SPEED),

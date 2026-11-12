@@ -5,6 +5,7 @@ import type {
   Register,
 } from 'claude-code'
 
+import { startPrompt } from './band'
 import { recount } from './char-count'
 import {
   askInput,
@@ -193,6 +194,8 @@ const interceptOrPass = async ($: EngineInterface, e: PromptSubmitInput): Promis
 
 export const registerUpgrade = (on: Parameters<Register>[0]): void => {
   on('prompt.submit', async ($, e, next) => {
+    await startPrompt($, e.origin)
+
     try {
       await recordProbe($, e)
     } catch (cause) {

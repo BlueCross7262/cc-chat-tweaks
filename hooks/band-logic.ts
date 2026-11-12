@@ -85,4 +85,8 @@ export const layoutOf = (columns: number): Layout => ({
   gap: columns >= 78 ? 3 : columns >= 52 ? 2 : 1,
 })
 
+export const USER_ORIGINS = ['composer', 'bridge'] as const
+
+export const isUserOrigin = (kind: string | undefined): boolean => USER_ORIGINS.some(origin => origin === kind)
+
 export const usd = (value: number | null): string => (value === null ? '—' : `$${value.toFixed(2)}`)

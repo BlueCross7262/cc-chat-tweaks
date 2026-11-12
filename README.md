@@ -21,9 +21,9 @@ Tool folding, the Edit/Write summary, the answer colours, the session band and t
 | `chat` | `use-edit-summary` | `false` | Draw `Edit` and `Write` calls as one summary line. |
 | `chat.answer-colors` | `use` | `false` | Draw the row that holds your answers to Claude's questions in three colours: title, question and answer. |
 | `chat.band` | `use` | `false` | Draw one band above the prompt with the session at a glance. |
-| `chat.band` | `use-turns` | `true` | Option of `use`. Show the number of prompts you sent in this session. |
+| `chat.band` | `use-turns` | `true` | Option of `use`. Show the number of prompts you sent at the input or through Remote Control. |
 | `chat.band` | `use-speed` | `true` | Option of `use`. Show the output speed of the current or last turn. |
-| `chat.band` | `use-turn-cost` | `true` | Option of `use`. Show the cost of the current or last turn. |
+| `chat.band` | `use-turn-cost` | `true` | Option of `use`. Show the cost since your last prompt. |
 | `chat.band` | `use-session-cost` | `true` | Option of `use`. Show the cost of the session. |
 | `chat.band` | `use-context` | `true` | Option of `use`. Show how full the context window is. |
 | `chat.band` | `use-cache` | `true` | Option of `use`. Show the time left on the prompt cache. |
@@ -155,9 +155,9 @@ One band above the prompt shows the session at a glance:
  Turn 12   84 tok/s   $0.31   $4.20   42%   37:12
 ```
 
-- `Turn 12` is the number of prompts you sent in this session.
+- `Turn 12` is the number of prompts you sent at the input or through Remote Control since the plugin loaded. Notifications, scheduled prompts and prompts of other sessions or plugins do not count. After `/reload-plugins` or a resume it counts from your next prompt and shows `—` until then.
 - The speed is output tokens per second over the current turn. Each model request is timed from its first text, thinking or tool chunk to its end, less the time of tools the API ran itself (the advisor is one). The requests of a turn are added up. Subagent requests are left out. The value of the last turn stays until the new turn has at least 20 tokens over half a second.
-- The first cost is the turn so far, the second the session. A turn whose start cost is not known shows `—`.
+- The first cost is what the session spent since your last prompt, the second the session. It takes in every turn, subagent and notification that followed that prompt, and the prompt upgrade of that prompt. A prompt whose start cost could not be read shows `—`.
 - The percentage is the context window fill.
 - The countdown is the time left on the 1-hour prompt cache since the last answer. The band gets an amber frame 20 minutes before it expires and a red one at 10, and the hourglass and the time take that colour. It shows `…` while a turn runs and `expired` at zero.
 - A value the session does not have yet shows `—`.
@@ -211,7 +211,7 @@ The sources are TypeScript loaded as is, with no build step.
 | `hooks/upgrade.tsx` | The prompt upgrade hooks and command. |
 | `hooks/char-count.tsx` | The character count hooks and `recount`, which the prompt upgrade calls after it fills the box and after a prompt is sent. |
 | `hooks/answer-colors.tsx` | `drawAnswer` and `drawDeclined`, which draw the answer row and the declined row in their colours. `register.tsx` calls them from its `ToolResult` and `ToolUse` hooks. |
-| `hooks/band.tsx` | The session band: its `turn.step` and `AbovePrompt` hooks, `startBandTick` and `completeBand`. |
+| `hooks/band.tsx` | The session band: its `turn.step` and `AbovePrompt` hooks, `startBandTick`, `completeBand`, and `startPrompt`, which the `prompt.submit` hook in `hooks/upgrade.tsx` calls first. |
 | `hooks/band-logic.ts` | Pure band logic: item order, step timing and speed, cache countdown text and warning colour, layout by width. |
 | `hooks/answer-view.ts` | Pure reading of an `AskUserQuestion` result into a title, rows and a response, and of its call input into the declined lines, and the three colours. |
 | `hooks/char-count-logic.ts` | Pure grapheme and code point counting and the label, the count alone. |
