@@ -125,15 +125,13 @@ test('context percent turns orange from 50 and red from 80', () => {
   expect(contextColor(100)).toBe('red')
 })
 
-test('the turn cost turns yellow from 50% of the session cost, orange from 100% and red from 200%', () => {
+test('the turn cost turns yellow from 50% of the session cost and orange from 90%', () => {
   expect(turnCostColor(0, 4)).toBeNull()
   expect(turnCostColor(1.99, 4)).toBeNull()
   expect(turnCostColor(2, 4)).toBe('yellow')
-  expect(turnCostColor(3.99, 4)).toBe('yellow')
+  expect(turnCostColor(3.59, 4)).toBe('yellow')
+  expect(turnCostColor(3.6, 4)).toBe('#ff8700')
   expect(turnCostColor(4, 4)).toBe('#ff8700')
-  expect(turnCostColor(7.99, 4)).toBe('#ff8700')
-  expect(turnCostColor(8, 4)).toBe('red')
-  expect(turnCostColor(9, 4)).toBe('red')
   expect(turnCostColor(null, 4)).toBeNull()
   expect(turnCostColor(1, null)).toBeNull()
   expect(turnCostColor(0, 0)).toBeNull()
@@ -141,9 +139,9 @@ test('the turn cost turns yellow from 50% of the session cost, orange from 100% 
 })
 
 test('the turn cost keeps the default colour on the first turn', () => {
-  expect(turnCostColor(9, 4, 1)).toBeNull()
-  expect(turnCostColor(9, 4, 2)).toBe('red')
-  expect(turnCostColor(9, 4, 0)).toBe('red')
+  expect(turnCostColor(4, 4, 1)).toBeNull()
+  expect(turnCostColor(4, 4, 2)).toBe('#ff8700')
+  expect(turnCostColor(4, 4, 0)).toBe('#ff8700')
 })
 
 test('the layout makes the icons smaller under 52 cells and the gap stays 0', () => {

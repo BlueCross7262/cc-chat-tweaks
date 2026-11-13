@@ -87,8 +87,7 @@ export const turnCostColor = (turnCost: number | null, total: number | null, pro
 
   const ratio = turnCost / total
 
-  if (ratio >= 2) return CONTEXT_ALERT_COLOR
-  if (ratio >= 1) return CONTEXT_WARN_COLOR
+  if (ratio >= 0.9) return CONTEXT_WARN_COLOR
 
   return ratio >= 0.5 ? TURN_COST_NOTE_COLOR : null
 }
