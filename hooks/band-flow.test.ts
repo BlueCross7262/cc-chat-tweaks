@@ -362,17 +362,18 @@ test('the cache shows only in the last 10 minutes, and its frame is red with the
   expect(red.colored.filter(item => /^\d\d:\d\d$/.test(item.text)).at(-1)?.color).toBe('#e0846b')
 })
 
-test('no frame while a turn runs, and the cache text is dots even before the first countdown', async ($, on) => {
+test('the cache and its frame are left out while a turn runs', async ($, on) => {
   const w = world($, on)
-
-  expect((await draw($, { isWorking: true })).texts).not.toContain('…')
-
   await firstTurn($, w)
   await w.clock.advance(55 * MIN)
+
+  const idle = await draw($)
   const working = await draw($, { isWorking: true })
 
+  expect(idle.texts).toContain('05:00')
   expect(working.bordered).toEqual([])
-  expect(working.texts).toContain('…')
+  expect(working.texts).not.toContain('05:00')
+  expect(working.texts).not.toContain('…')
 })
 
 test('no frame when the cache item is off', async ($, on) => {

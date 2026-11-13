@@ -62,14 +62,14 @@ export const NO_TIME = '--:--'
 const clock = (seconds: number | null): string =>
   seconds === null || !Number.isFinite(seconds) ? NO_TIME : `${pad2(Math.floor(seconds / 60))}:${pad2(seconds % 60)}`
 
-export const cacheText = (seconds: number | null, isWorking: boolean): string => {
-  if (isWorking) return '…'
+export const cacheText = (seconds: number | null): string => {
   if (seconds === 0) return NO_TIME
 
   return clock(seconds)
 }
 
-export const cacheVisible = (seconds: number | null): boolean => seconds !== null && seconds <= CACHE_SHOW_S
+export const cacheVisible = (seconds: number | null, isWorking: boolean): boolean =>
+  !isWorking && seconds !== null && seconds <= CACHE_SHOW_S
 
 export const elapsedText = (promptAt: number | null, doneAt: number | null, now: number): string =>
   promptAt === null ? NO_TIME : clock(Math.max(0, Math.floor(((doneAt ?? now) - promptAt) / 1000)))

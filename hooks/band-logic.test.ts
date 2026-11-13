@@ -67,20 +67,23 @@ test('the speed sums the steps of a turn and keeps the previous value under the 
 })
 
 test('the cache shows only from 10 minutes down, and not without an expiry', () => {
-  expect(cacheVisible(null)).toBe(false)
-  expect(cacheVisible(601)).toBe(false)
-  expect(cacheVisible(600)).toBe(true)
-  expect(cacheVisible(0)).toBe(true)
+  expect(cacheVisible(null, false)).toBe(false)
+  expect(cacheVisible(601, false)).toBe(false)
+  expect(cacheVisible(600, false)).toBe(true)
+  expect(cacheVisible(0, false)).toBe(true)
 })
 
-test('the cache text counts minutes and seconds, says dashes at zero and dots while a turn runs', () => {
-  expect(cacheText(null, false)).toBe('--:--')
-  expect(cacheText(Number.NaN, false)).toBe('--:--')
-  expect(cacheText(3600, false)).toBe('60:00')
-  expect(cacheText(61, false)).toBe('01:01')
-  expect(cacheText(0, false)).toBe('--:--')
-  expect(cacheText(3600, true)).toBe('…')
-  expect(cacheText(null, true)).toBe('…')
+test('the cache is not shown while a turn runs', () => {
+  expect(cacheVisible(600, true)).toBe(false)
+  expect(cacheVisible(0, true)).toBe(false)
+})
+
+test('the cache text counts minutes and seconds and says dashes at zero', () => {
+  expect(cacheText(null)).toBe('--:--')
+  expect(cacheText(Number.NaN)).toBe('--:--')
+  expect(cacheText(3600)).toBe('60:00')
+  expect(cacheText(61)).toBe('01:01')
+  expect(cacheText(0)).toBe('--:--')
 })
 
 test('the seconds left are floored and never below zero', () => {

@@ -160,7 +160,7 @@ const parts = (...nodes: (RenderElement | null)[]): RenderElement[] => nodes.fil
 
 type BandView = { items: BandItem[]; state: BandState; seconds: number | null; now: number }
 
-async function viewOf($: EngineInterface, hasSurvey: boolean): Promise<BandView | null> {
+async function viewOf($: EngineInterface, hasSurvey: boolean, isWorking: boolean): Promise<BandView | null> {
   if (hasSurvey) return null
 
   const sources = await readSources($)
@@ -179,7 +179,7 @@ async function viewOf($: EngineInterface, hasSurvey: boolean): Promise<BandView 
 
   const now = await $.clock.now()
   const seconds = secondsLeft(state.expiresAt, now)
-  const items = enabled.filter(item => item !== 'cache' || cacheVisible(seconds))
+  const items = enabled.filter(item => item !== 'cache' || cacheVisible(seconds, isWorking))
 
   if (items.length === 0) return null
 
@@ -268,7 +268,7 @@ export const registerBand = (on: Parameters<Register>[0]): void => {
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
-    const view = await viewOf($, e.props.hasSurvey).catch(() => null)
+    const view = await viewOf($, e.props.hasSurvey, e.props.isWorking).catch(() => null)
 
     if (view === null) return next(e)
 
@@ -320,7 +320,7 @@ export const registerBand = (on: Parameters<Register>[0]): void => {
           return parts(
             icon(cacheIcon(warn ?? CACHE), 'cache'),
             <Text bold {...(warn ? { color: warn } : {})}>
-              {cacheText(seconds, e.props.isWorking)}
+              {cacheText(seconds)}
             </Text>,
           )
       }
