@@ -199,21 +199,23 @@ test('the elapsed time runs from the prompt while the turn works and stops at it
 test('after one turn the band shows turns, speed, turn cost, session cost, context and cache in the default order', async ($, on) => {
   const w = world($, on)
   await firstTurn($, w)
+  await w.clock.advance(51 * MIN)
 
   const drawn = await draw($)
 
-  expect(inOrder(drawn.line, ['Turn 1', '125 tok/s', '$0.25', '$1.25', '42%', '60:00'])).toBe(true)
-  expect(drawn.texts[0]).toBe('BASE')
+  expect(inOrder(drawn.line, ['Turn 1', '125 tok/s', '$0.25', '$1.25', '42%', '09:00'])).toBe(true)
+  expect(drawn.texts).toContain('BASE')
 })
 
 test('the band keeps what the hooks beneath drew and stacks its own row under it', async ($, on) => {
   const w = world($, on)
   await firstTurn($, w)
+  await w.clock.advance(51 * MIN)
 
   const drawn = await draw($)
 
   expect(drawn.texts.filter(text => text === 'BASE')).toHaveLength(1)
-  expect(inOrder(drawn.line, ['BASE', 'Turn 1', '60:00'])).toBe(true)
+  expect(inOrder(drawn.line, ['Turn 1', '09:00'])).toBe(true)
 })
 
 test('the band draws nothing of its own when its switch is off', async ($, on) => {
@@ -280,13 +282,13 @@ test('a subagent step changes neither the speed nor the costs', async ($, on) =>
 test('a subagent turn end keeps the cache countdown and adds its cost to the turn cost of the prompt', async ($, on) => {
   const w = world($, on)
   await firstTurn($, w)
-  await w.clock.advance(30 * MIN)
+  await w.clock.advance(55 * MIN)
   w.cost = 2
   await complete($, 'sub', 'a1')
 
   const drawn = await draw($)
 
-  expect(drawn.line).toContain('30:00')
+  expect(drawn.line).toContain('05:00')
   expect(drawn.line).toContain('$1.00')
   expect(drawn.line).toContain('$2.00')
 })
@@ -326,28 +328,31 @@ test('values the usage does not have are dashes, not zeros', async ($, on) => {
 test('an item switched off is left out and the others stay', async ($, on) => {
   const w = world($, on, { band: { 'use-speed': false } })
   await firstTurn($, w)
+  await w.clock.advance(51 * MIN)
 
   const drawn = await draw($)
 
   expect(drawn.line).not.toContain('tok/s')
-  expect(inOrder(drawn.line, ['Turn 1', '$0.25', '$1.25', '42%', '60:00'])).toBe(true)
+  expect(inOrder(drawn.line, ['Turn 1', '$0.25', '$1.25', '42%', '09:00'])).toBe(true)
 })
 
 test('the order setting puts its items first and the rest after them in the default order', async ($, on) => {
   const w = world($, on, { band: { order: ['cache', 'turns'] } })
   await firstTurn($, w)
+  await w.clock.advance(51 * MIN)
 
-  expect(inOrder((await draw($)).line, ['60:00', 'Turn 1', '125 tok/s', '$0.25', '$1.25', '42%'])).toBe(true)
+  expect(inOrder((await draw($)).line, ['09:00', 'Turn 1', '125 tok/s', '$0.25', '$1.25', '42%'])).toBe(true)
 })
 
-test('the cache frame turns amber 20 minutes before expiry and red at 10, with the icon and the text in that color', async ($, on) => {
+test('the cache shows only in the last 10 minutes, and its frame is red with the icon and the text in that color', async ($, on) => {
   const w = world($, on)
   await firstTurn($, w)
   await w.clock.advance(40 * MIN + 1000)
 
-  const amber = await draw($)
+  const hidden = await draw($)
 
-  expect(amber.bordered.map(box => box.props.borderColor)).toEqual(['#e2a94e'])
+  expect(hidden.bordered).toEqual([])
+  expect(hidden.texts.filter(text => /^\d\d:\d\d$/.test(text))).toEqual(['00:04'])
 
   await w.clock.advance(10 * MIN)
   const red = await draw($)
@@ -360,7 +365,7 @@ test('the cache frame turns amber 20 minutes before expiry and red at 10, with t
 test('no frame while a turn runs, and the cache text is dots even before the first countdown', async ($, on) => {
   const w = world($, on)
 
-  expect((await draw($, { isWorking: true })).texts).toContain('…')
+  expect((await draw($, { isWorking: true })).texts).not.toContain('…')
 
   await firstTurn($, w)
   await w.clock.advance(55 * MIN)
@@ -378,12 +383,19 @@ test('no frame when the cache item is off', async ($, on) => {
   expect((await draw($)).bordered).toEqual([])
 })
 
-test('the cache says expired after the hour and never a negative time', async ($, on) => {
+test('the cache says dashes after the hour and never a negative time', async ($, on) => {
   const w = world($, on)
   await firstTurn($, w)
   await w.clock.advance(65 * MIN)
 
-  expect((await draw($)).texts).toContain('expired')
+  expect((await draw($)).texts.filter(text => text === '--:--')).toHaveLength(1)
+})
+
+test('the cache is left out before the first turn ends and while more than 10 minutes remain', async ($, on) => {
+  const w = world($, on)
+  await firstTurn($, w)
+
+  expect((await draw($)).texts.filter(text => text === ' | ')).toHaveLength(5)
 })
 
 test('a narrow band keeps the long turn and speed text', async ($, on) => {
@@ -404,7 +416,7 @@ test('a dim | with one space on each side sits between items and not at either e
   const drawn = await draw($)
   const items = drawn.texts.slice(1)
 
-  expect(items.filter(text => text === ' | ').length).toBe(6)
+  expect(items.filter(text => text === ' | ').length).toBe(5)
   expect(items[0]).not.toBe(' | ')
   expect(items.at(-1)).not.toBe(' | ')
 })

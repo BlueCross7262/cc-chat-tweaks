@@ -6,6 +6,7 @@ import {
   addStep,
   CACHE_TTL_MS,
   cacheText,
+  cacheVisible,
   elapsedText,
   CONTENT_KINDS,
   isUserOrigin,
@@ -167,9 +168,9 @@ async function viewOf($: EngineInterface, hasSurvey: boolean): Promise<BandView 
 
   if (!flags['use-band']) return null
 
-  const items = orderOf(bandOrderOf(sources)).filter(item => flags[ITEM_FLAGS[item]])
+  const enabled = orderOf(bandOrderOf(sources)).filter(item => flags[ITEM_FLAGS[item]])
 
-  if (items.length === 0) return null
+  if (enabled.length === 0) return null
 
   if ((await $.session.turns()) === 0) return null
 
@@ -177,8 +178,12 @@ async function viewOf($: EngineInterface, hasSurvey: boolean): Promise<BandView 
   await read($, bandNowAtom)
 
   const now = await $.clock.now()
+  const seconds = secondsLeft(state.expiresAt, now)
+  const items = enabled.filter(item => item !== 'cache' || cacheVisible(seconds))
 
-  return { items, state, seconds: secondsLeft(state.expiresAt, now), now }
+  if (items.length === 0) return null
+
+  return { items, state, seconds, now }
 }
 
 export function startBandTick($: EngineInterface): void {

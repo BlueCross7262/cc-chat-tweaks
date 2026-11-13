@@ -5,6 +5,7 @@ import {
   ALERT_COLOR,
   BAND_ITEMS,
   cacheText,
+  cacheVisible,
   layoutOf,
   measureStep,
   orderOf,
@@ -65,12 +66,19 @@ test('the speed sums the steps of a turn and keeps the previous value under the 
   expect(speedOf({ tokens: 10, ms: 400 }, 80)).toBe(80)
 })
 
-test('the cache text counts minutes and seconds, says expired at zero and dots while a turn runs', () => {
+test('the cache shows only from 10 minutes down, and not without an expiry', () => {
+  expect(cacheVisible(null)).toBe(false)
+  expect(cacheVisible(601)).toBe(false)
+  expect(cacheVisible(600)).toBe(true)
+  expect(cacheVisible(0)).toBe(true)
+})
+
+test('the cache text counts minutes and seconds, says dashes at zero and dots while a turn runs', () => {
   expect(cacheText(null, false)).toBe('--:--')
   expect(cacheText(Number.NaN, false)).toBe('--:--')
   expect(cacheText(3600, false)).toBe('60:00')
   expect(cacheText(61, false)).toBe('01:01')
-  expect(cacheText(0, false)).toBe('expired')
+  expect(cacheText(0, false)).toBe('--:--')
   expect(cacheText(3600, true)).toBe('…')
   expect(cacheText(null, true)).toBe('…')
 })

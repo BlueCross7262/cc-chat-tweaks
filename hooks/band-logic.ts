@@ -50,6 +50,7 @@ export const speedOf = (sum: SpeedSum, previous: number | null): number | null =
 }
 
 export const CACHE_TTL_MS = 60 * 60 * 1000
+export const CACHE_SHOW_S = 10 * 60
 
 export const secondsLeft = (expiresAt: number | null, now: number): number | null =>
   expiresAt === null ? null : Math.max(0, Math.floor((expiresAt - now) / 1000))
@@ -63,10 +64,12 @@ const clock = (seconds: number | null): string =>
 
 export const cacheText = (seconds: number | null, isWorking: boolean): string => {
   if (isWorking) return '…'
-  if (seconds === 0) return 'expired'
+  if (seconds === 0) return NO_TIME
 
   return clock(seconds)
 }
+
+export const cacheVisible = (seconds: number | null): boolean => seconds !== null && seconds <= CACHE_SHOW_S
 
 export const elapsedText = (promptAt: number | null, doneAt: number | null, now: number): string =>
   promptAt === null ? NO_TIME : clock(Math.max(0, Math.floor(((doneAt ?? now) - promptAt) / 1000)))
