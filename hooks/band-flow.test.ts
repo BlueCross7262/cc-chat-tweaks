@@ -203,7 +203,7 @@ test('after one turn the band shows turns, speed, turn cost, session cost, conte
 
   const drawn = await draw($)
 
-  expect(inOrder(drawn.line, ['Turn 1', '125 tok/s', '$0.25', '$1.25', '42%', '09:00'])).toBe(true)
+  expect(inOrder(drawn.line, ['Turn 1', '125 t/s', '$0.25', '$1.25', '42%', '09:00'])).toBe(true)
   expect(drawn.texts).toContain('BASE')
 })
 
@@ -245,7 +245,7 @@ test('a stream the consumer closes early throws nothing and leaves the speed uns
   )
 
   expect(closed).toBe('ok')
-  expect((await draw($)).line).not.toContain('tok/s')
+  expect((await draw($)).line).not.toContain('t/s')
 })
 
 test('a usage failure leaves the chunks and the step result as they were', async ($, on) => {
@@ -263,7 +263,7 @@ test('the speed of a new turn starts over instead of mixing with the last turn',
   w.tokens = 100
   await step($, w, { turnId: 't2', wait: 1000, content: 2000 })
 
-  expect((await draw($)).line).toContain('50 tok/s')
+  expect((await draw($)).line).toContain('50 t/s')
 })
 
 test('a subagent step changes neither the speed nor the costs', async ($, on) => {
@@ -274,7 +274,7 @@ test('a subagent step changes neither the speed nor the costs', async ($, on) =>
 
   const drawn = await draw($)
 
-  expect(drawn.line).toContain('125 tok/s')
+  expect(drawn.line).toContain('125 t/s')
   expect(drawn.line).toContain('$0.25')
   expect(drawn.line).toContain('$1.25')
 })
@@ -332,7 +332,7 @@ test('an item switched off is left out and the others stay', async ($, on) => {
 
   const drawn = await draw($)
 
-  expect(drawn.line).not.toContain('tok/s')
+  expect(drawn.line).not.toContain('t/s')
   expect(inOrder(drawn.line, ['Turn 1', '$0.25', '$1.25', '42%', '09:00'])).toBe(true)
 })
 
@@ -341,7 +341,7 @@ test('the order setting puts its items first and the rest after them in the defa
   await firstTurn($, w)
   await w.clock.advance(51 * MIN)
 
-  expect(inOrder((await draw($)).line, ['09:00', 'Turn 1', '125 tok/s', '$0.25', '$1.25', '42%'])).toBe(true)
+  expect(inOrder((await draw($)).line, ['09:00', 'Turn 1', '125 t/s', '$0.25', '$1.25', '42%'])).toBe(true)
 })
 
 test('the cache shows only in the last 10 minutes, and its frame is red with the icon and the text in that color', async ($, on) => {
@@ -406,7 +406,7 @@ test('a narrow band keeps the long turn and speed text', async ($, on) => {
   const narrow = await draw($, { bodyColumns: 40 })
 
   expect(narrow.line).toContain('Turn 1')
-  expect(narrow.line).toContain('125 tok/s')
+  expect(narrow.line).toContain('125 t/s')
   expect(narrow.texts).not.toContain('#1')
 })
 
@@ -458,7 +458,7 @@ test('steps of the same turn add up even when a turn start of another turn comes
   w.tokens = 100
   await step($, w, { turnId: 't1', wait: 1000, content: 1000 })
 
-  expect((await draw($)).line).toContain('100 tok/s')
+  expect((await draw($)).line).toContain('100 t/s')
 })
 
 test('a prompt sent before any cost is known counts the turn cost from zero', async ($, on) => {

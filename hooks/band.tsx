@@ -297,7 +297,7 @@ export const registerBand = (on: Parameters<Register>[0]): void => {
           return parts(
             icon(SPEED_ICON, 'speed'),
             <Text bold wrap="truncate-end">
-              {state.speed === null ? '—' : `${state.speed} tok/s`}
+              {state.speed === null ? '—' : `${state.speed} t/s`}
             </Text>,
           )
         case 'turn-cost':
