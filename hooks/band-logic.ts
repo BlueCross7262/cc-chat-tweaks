@@ -114,6 +114,21 @@ export const layoutOf = (columns: number): Layout => ({
 
 export const USER_ORIGINS = ['composer', 'bridge'] as const
 
+export const PROMPT_SESSIONS_LIMIT = 200
+
+const isPositiveWhole = (value: unknown): value is number => typeof value === 'number' && Number.isInteger(value) && value > 0
+
+const countsIn = (value: unknown): [string, number][] =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? Object.entries(value).filter((entry): entry is [string, number] => isPositiveWhole(entry[1]))
+    : []
+
+export const promptCountOf = (value: unknown, sessionId: string): number =>
+  countsIn(value).find(([key]) => key === sessionId)?.[1] ?? 0
+
+export const withPromptCount = (value: unknown, sessionId: string, count: number, limit = PROMPT_SESSIONS_LIMIT): Record<string, number> =>
+  Object.fromEntries([...countsIn(value).filter(([key]) => key !== sessionId), [sessionId, count] as [string, number]].slice(-limit))
+
 export const isUserOrigin = (kind: string | undefined): boolean => USER_ORIGINS.some(origin => origin === kind)
 
 export const usd = (value: number | null): string => (value === null ? '—' : `$${value.toFixed(2)}`)

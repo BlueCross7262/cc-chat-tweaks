@@ -39,6 +39,7 @@ import {
 } from './runs'
 import { drawAnswer, drawDeclined } from './answer-colors'
 import { completeBand, registerBand, startBandTick } from './band'
+import { logTurn, TURN_LOG_COMMAND, TURN_LOG_HELP, turnLogReport } from './turn-log'
 import { registerCharCount } from './char-count'
 import { formatReport, versionText, type DoctorInput } from './doctor'
 import { COMMAND as UPGRADE_COMMAND, COMMAND_HELP, KEY_MIN_LEN, registerUpgrade } from './upgrade'
@@ -133,12 +134,15 @@ export const register: Register = on => {
       .catch(() => undefined)
 
     await $.command.register({ name: UPGRADE_COMMAND, description: COMMAND_HELP }).catch(() => undefined)
+    await $.command.register({ name: TURN_LOG_COMMAND, description: TURN_LOG_HELP }).catch(() => undefined)
 
     $.clock.every(BLINK_MS, blinkTick)
     startBandTick($)
 
     return next(e)
   })
+
+  on('command.run', { command: TURN_LOG_COMMAND }, async $ => ({ text: await turnLogReport($).catch(() => 'The turn log could not be read.') }))
 
   on('command.run', { command: DOCTOR_COMMAND }, async $ => {
     const applied = await applyDefaults($)
@@ -193,6 +197,7 @@ export const register: Register = on => {
 
   on('turn.complete', async ($, e, next) => {
     await completeBand($, e)
+    await logTurn($, e)
 
     try {
       if (e.agentId === undefined) {

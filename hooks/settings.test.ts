@@ -322,6 +322,7 @@ test('reads every flag at once', () => {
     'use-band-session-cost': true,
     'use-band-context': true,
     'use-band-cache': true,
+    'use-turn-log': false,
   })
 })
 
@@ -357,6 +358,7 @@ test('adds only the missing switches with their default and keeps everything els
     'use-band-session-cost',
     'use-band-context',
     'use-band-cache',
+    'use-turn-log',
     'min-length',
     'silent-triggers',
     'silent-off-triggers',
@@ -373,6 +375,7 @@ test('adds only the missing switches with their default and keeps everything els
         'use-edit-summary': false,
         'answer-colors': { use: false },
         band: { use: false, 'use-turns': true, 'use-elapsed': true, 'use-speed': true, 'use-turn-cost': true, 'use-session-cost': true, 'use-context': true, 'use-cache': true, order: ['turns', 'elapsed', 'speed', 'turn-cost', 'session-cost', 'context', 'cache'] },
+        'turn-log': { use: false },
       },
       prompt: {
         later: { 'a-future-key': 1 },
@@ -394,8 +397,8 @@ test('adds only the missing switches with their default and keeps everything els
 })
 
 test('builds the whole section for an empty or malformed file', () => {
-  expect(withMissingDefaults({}).added).toHaveLength(21)
-  expect(withMissingDefaults(null).added).toHaveLength(21)
+  expect(withMissingDefaults({}).added).toHaveLength(22)
+  expect(withMissingDefaults(null).added).toHaveLength(22)
   expect(withMissingDefaults({ ccChatTweaks: 'x' }).settings).toEqual({
     ccChatTweaks: {
       chat: {
@@ -403,6 +406,7 @@ test('builds the whole section for an empty or malformed file', () => {
         'use-edit-summary': false,
         'answer-colors': { use: false },
         band: { use: false, 'use-turns': true, 'use-elapsed': true, 'use-speed': true, 'use-turn-cost': true, 'use-session-cost': true, 'use-context': true, 'use-cache': true, order: ['turns', 'elapsed', 'speed', 'turn-cost', 'session-cost', 'context', 'cache'] },
+        'turn-log': { use: false },
       },
       prompt: {
         'prompt-upgrade': {
@@ -533,7 +537,7 @@ test('the default unfolded list written to a file is a copy', () => {
 test('reports nothing to add when every switch is present', () => {
   const full = {
     ccChatTweaks: {
-      chat: { 'tool-fold': { use: true, 'unfolded-tools': ['Bash'] }, 'use-edit-summary': false, 'answer-colors': { use: true }, band: { use: false, 'use-turns': true, 'use-elapsed': true, 'use-speed': true, 'use-turn-cost': true, 'use-session-cost': true, 'use-context': true, 'use-cache': true, order: ['turns', 'elapsed', 'speed', 'turn-cost', 'session-cost', 'context', 'cache'] } },
+      chat: { 'tool-fold': { use: true, 'unfolded-tools': ['Bash'] }, 'use-edit-summary': false, 'answer-colors': { use: true }, band: { use: false, 'use-turns': true, 'use-elapsed': true, 'use-speed': true, 'use-turn-cost': true, 'use-session-cost': true, 'use-context': true, 'use-cache': true, order: ['turns', 'elapsed', 'speed', 'turn-cost', 'session-cost', 'context', 'cache'] }, 'turn-log': { use: false } },
       prompt: {
         'prompt-upgrade': {
           use: false,
@@ -555,6 +559,13 @@ test('reports nothing to add when every switch is present', () => {
 })
 
 const bandKeys: FlagKey[] = ['use-band-turns', 'use-band-elapsed', 'use-band-speed', 'use-band-turn-cost', 'use-band-session-cost', 'use-band-context', 'use-band-cache']
+
+test('the turn log is switched by ccChatTweaks.chat.turn-log.use and is off by default', () => {
+  expect(FLAG_PATHS['use-turn-log']).toEqual(['chat', 'turn-log'])
+  expect(labelOf('use-turn-log')).toBe('chat.turn-log.use')
+  expect(isFlagOn([], 'use-turn-log')).toBe(false)
+  expect(isFlagOn([{ ccChatTweaks: { chat: { 'turn-log': { use: true } } } }], 'use-turn-log')).toBe(true)
+})
 
 test('the band is switched by ccChatTweaks.chat.band.use and each item by its own use-* key in the same group', () => {
   expect(BAND_PATH).toEqual(['chat', 'band'])

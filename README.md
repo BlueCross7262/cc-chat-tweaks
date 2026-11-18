@@ -12,7 +12,7 @@ Answer `y` to add the marketplace, then pick a scope.
 
 ## Settings
 
-Tool folding, the Edit/Write summary, the answer colours, the session band and the character count are off until you turn them on. The prompt upgrade is on by default, and it needs no setting to run. Switches live under `ccChatTweaks` in any settings file (`settings.json`, `settings.local.json`, project or user). Tool folding sits in `ccChatTweaks.chat.tool-fold`, the Edit/Write summary in `ccChatTweaks.chat`, the answer colours in `ccChatTweaks.chat.answer-colors`, the session band in `ccChatTweaks.chat.band`, the prompt upgrade in `ccChatTweaks.prompt.prompt-upgrade` and the character count in `ccChatTweaks.prompt.char-count`. A later prompt feature gets its own group under `ccChatTweaks.prompt`. A boolean in a higher-precedence source wins. A key that is absent uses its default.
+Tool folding, the Edit/Write summary, the answer colours, the session band, the turn log and the character count are off until you turn them on. The prompt upgrade is on by default, and it needs no setting to run. Switches live under `ccChatTweaks` in any settings file (`settings.json`, `settings.local.json`, project or user). Tool folding sits in `ccChatTweaks.chat.tool-fold`, the Edit/Write summary in `ccChatTweaks.chat`, the answer colours in `ccChatTweaks.chat.answer-colors`, the session band in `ccChatTweaks.chat.band`, the turn log in `ccChatTweaks.chat.turn-log`, the prompt upgrade in `ccChatTweaks.prompt.prompt-upgrade` and the character count in `ccChatTweaks.prompt.char-count`. A later prompt feature gets its own group under `ccChatTweaks.prompt`. A boolean in a higher-precedence source wins. A key that is absent uses its default.
 
 | Group | Key | Default | Feature |
 |---|---|---|---|
@@ -29,6 +29,7 @@ Tool folding, the Edit/Write summary, the answer colours, the session band and t
 | `chat.band` | `use-context` | `true` | Option of `use`. Show how full the context window is. |
 | `chat.band` | `use-cache` | `true` | Option of `use`. Show the time left on the prompt cache. |
 | `chat.band` | `order` | `["turns", "elapsed", "speed", "turn-cost", "session-cost", "context", "cache"]` | Option of `use`. The order of the items. An item that is not in the array goes to the end, in the default order. Unknown names and repeats are left out. |
+| `chat.turn-log` | `use` | `false` | Write one JSON line per finished turn with its tokens, cost and time. |
 | `prompt.prompt-upgrade` | `use` | `true` | Send a Korean prompt with an instruction and answer rules added. A prompt without Korean characters is sent as you typed it. |
 | `prompt.prompt-upgrade` | `skip-silent-trigger` | `true` | Option of `use`. When `true`, the trigger check is skipped and every prompt is upgraded; a Korean prompt shorter than `min-length` gets no prompt type call and only the common rules in the `<hard rule>` block. When `false`, only a prompt with the trigger is upgraded. |
 | `prompt.prompt-upgrade` | `silent-triggers` | `["+++"]` | The trigger texts for the silent upgrade, as an array of strings. |
@@ -59,6 +60,9 @@ Tool folding, the Edit/Write summary, the answer colours, the session band and t
         "use-context": true,
         "use-cache": true,
         "order": ["turns", "elapsed", "speed", "turn-cost", "session-cost", "context", "cache"]
+      },
+      "turn-log": {
+        "use": true
       }
     },
     "prompt": {
@@ -157,7 +161,7 @@ One band above the prompt shows the session at a glance:
  Turn 12 | 02:05 | 84 t/s | $0.31 | $4.20 | 42% | 37:12
 ```
 
-- `Turn 12` is the number of prompts you sent at the input or through Remote Control since the plugin loaded. Notifications, scheduled prompts and prompts of other sessions or plugins do not count. After `/reload-plugins` or a resume it counts from your next prompt and shows `—` until then.
+- `Turn 12` is the number of prompts you sent at the input or through Remote Control in this session. Notifications, scheduled prompts and prompts of other sessions or plugins do not count. The count is kept in the plugin store under the session id, so after `/reload-plugins` or a resume of the same session your next prompt goes on from the last number. It shows `—` until that prompt. The store keeps the counts of the newest 200 sessions. A session that gets a new id starts at 1.
 - The time after the turn number runs from your last prompt, as `mm:ss`. It counts each second while a turn works and stops at the end of the last turn that followed the prompt, notifications included. It shows `--:--` until your first prompt after the plugin loaded.
 - The speed is output tokens per second over the current turn. Each model request is timed from its first text, thinking or tool chunk to its end, less the time of tools the API ran itself (the advisor is one). The requests of a turn are added up. Subagent requests are left out. The value of the last turn stays until the new turn has at least 20 tokens over half a second.
 - The first cost is what the session spent since your last prompt, the second the session. It takes in every turn, subagent and notification that followed that prompt, and the prompt upgrade of that prompt. A prompt whose start cost could not be read shows `—`. The first cost is green, turns yellow at 50% of the session cost, orange at 100% and red at 200%.
@@ -167,6 +171,24 @@ One band above the prompt shows the session at a glance:
 - Under 52 cells the icons get smaller. A row that is still too wide is cut at the right, so the last items in `order` go first.
 - Each item has its own `use-*` switch, and `order` sets their order. The band is not drawn while a survey holds it, before your first prompt, or when every item is off.
 - After you change a switch, run `/reload-plugins`.
+
+### `chat.turn-log.use`
+
+Each finished turn adds one JSON line to a file of its session:
+
+```
+{"at":"2026-11-18T21:04:05.009+09:00","sessionId":"…","turnId":"…","agentId":null,"reason":"answer","durationMs":12345,"model":"claude-opus-5-5","inputTokens":10,"outputTokens":812,"cacheReadTokens":40210,"cacheCreationTokens":1530,"costUsd":0.31,"sessionCostUsd":4.2,"contextPercent":42}
+```
+
+- The file is `<git dir>/cc-chat-tweaks/turns/<session id>.jsonl`. The git dir is the `.git` folder found from the session's working directory upward. In a linked worktree it is the main repository's `.git`, read from the worktree's `.git` file and its `commondir`. Git does not track it, so it needs no `.gitignore` entry.
+- Outside a git repository the file is `~/.claude/cc-chat-tweaks/turns/<session id>.jsonl`.
+- `at` is Korea time. `durationMs` is the wall-clock length of the turn. The token fields are the usage the turn reports.
+- `costUsd` is what the session spent since the line before, so it takes in subagent and prompt upgrade costs that came between. The first line after the plugin loads has no line before, so it gets the whole cost of this process. `sessionCostUsd` is the cost since this process started: after a resume it starts again from 0, so it is not the cost of the whole session. `contextPercent` is the context window fill.
+- A subagent turn gets its own line with its `agentId`. `reason` is `answer`, `aborted`, `refusal` or `error`.
+- A value the turn does not have is `null`.
+- A file stops growing at 4 MiB, the read and write limit of the plugin file system.
+- After you change the switch, run `/reload-plugins`.
+- `/turn-log` shows the file of this session as a table: one row per turn with its time, length, input and output tokens, cache read and write tokens and cost, and a total row. A subagent row is marked `(sub)`. A value the turn does not have is `—` and counts as 0 in the total.
 
 ### `prompt.prompt-upgrade.use`
 
@@ -216,6 +238,8 @@ The sources are TypeScript loaded as is, with no build step.
 | `hooks/answer-colors.tsx` | `drawAnswer` and `drawDeclined`, which draw the answer row and the declined row in their colours. `register.tsx` calls them from its `ToolResult` and `ToolUse` hooks. |
 | `hooks/band.tsx` | The session band: its `turn.step` and `AbovePrompt` hooks, `startBandTick`, `completeBand`, and `startPrompt`, which the `prompt.submit` hook in `hooks/upgrade.tsx` calls first. |
 | `hooks/band-logic.ts` | Pure band logic: item order, step timing and speed, cache countdown text and warning colour, layout by width. |
+| `hooks/turn-log.tsx` | The turn log: `logTurn`, which the `turn.complete` hook in `hooks/register.tsx` calls, finds the log folder and adds the line. `turnLogReport` answers `/turn-log`. |
+| `hooks/turn-log-logic.ts` | Pure turn log logic: `.git` file and `commondir` reading, the file path, Korea time, the cost since the last line, the record, the `/turn-log` table. |
 | `hooks/answer-view.ts` | Pure reading of an `AskUserQuestion` result into a title, rows and a response, and of its call input into the declined lines, and the three colours. |
 | `hooks/char-count-logic.ts` | Pure grapheme and code point counting and the label, the count alone. |
 | `hooks/upgrade-logic.ts` | Pure gate, flow and parsing logic for the prompt upgrade. |

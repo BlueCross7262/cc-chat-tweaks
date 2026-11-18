@@ -13,12 +13,14 @@ import {
   layoutOf,
   measureStep,
   orderOf,
+  promptCountOf,
   secondsLeft,
   speedOf,
   usd,
   warnColor,
   contextColor,
   turnCostColor,
+  withPromptCount,
   type BandItem,
   type StepEvent,
 } from './band-logic'
@@ -133,20 +135,41 @@ async function startTurn($: EngineInterface, turnId: string): Promise<void> {
   await update($, bandAtom, state => ({ ...state, turnId, doneAt: null, sum: { tokens: 0, ms: 0 } }))
 }
 
+const KEY_PROMPTS = 'bandPrompts'
+
+async function storedPrompts($: EngineInterface): Promise<number> {
+  try {
+    return promptCountOf(await $.store.get(KEY_PROMPTS), await $.session.id())
+  } catch {
+    return 0
+  }
+}
+
+async function storePrompts($: EngineInterface, count: number): Promise<void> {
+  try {
+    await $.store.set(KEY_PROMPTS, withPromptCount(await $.store.get(KEY_PROMPTS), await $.session.id(), count))
+  } catch {
+    return
+  }
+}
+
 export async function startPrompt($: EngineInterface, origin: PromptOrigin | undefined): Promise<void> {
   try {
     if (!isUserOrigin(origin?.kind) || !(await isBandOn($))) return
 
     const promptAt = await $.clock.now()
+    const base = (await read($, bandAtom)).prompts === 0 ? await storedPrompts($) : 0
 
     await update($, bandAtom, state => ({
       ...state,
-      prompts: state.prompts + 1,
+      prompts: (state.prompts === 0 ? base : state.prompts) + 1,
       promptAt,
       doneAt: null,
       costAtStart: null,
       turnCost: null,
     }))
+
+    await storePrompts($, (await read($, bandAtom)).prompts)
 
     const cost = (await $.session.usage()).cost?.usd ?? 0
 

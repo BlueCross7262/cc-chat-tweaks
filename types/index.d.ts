@@ -26,6 +26,6 @@ export type BandState = {
 
 declare module 'claude-code' {
   interface PluginState {
-    'cc-chat-tweaks': { expanded: string[]; runs: RunState; blink: boolean; charCount: number; band: BandState; bandNow: number }
+    'cc-chat-tweaks': { expanded: string[]; runs: RunState; blink: boolean; charCount: number; band: BandState; bandNow: number; turnLogCost: number | null }
   }
 }

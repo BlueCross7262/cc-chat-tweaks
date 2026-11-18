@@ -18,6 +18,7 @@ export const FLAG_DEFAULTS = {
   'use-band-session-cost': true,
   'use-band-context': true,
   'use-band-cache': true,
+  'use-turn-log': false,
 } as const
 
 export type FlagKey = keyof typeof FLAG_DEFAULTS
@@ -28,6 +29,7 @@ export const PROMPT_UPGRADE_PATH: readonly string[] = ['prompt', 'prompt-upgrade
 export const CHAR_COUNT_PATH: readonly string[] = ['prompt', 'char-count']
 export const ANSWER_COLORS_PATH: readonly string[] = ['chat', 'answer-colors']
 export const BAND_PATH: readonly string[] = ['chat', 'band']
+export const TURN_LOG_PATH: readonly string[] = ['chat', 'turn-log']
 
 export const FLAG_PATHS: Record<FlagKey, readonly string[]> = {
   'use-tool-fold': TOOL_FOLD_PATH,
@@ -44,6 +46,7 @@ export const FLAG_PATHS: Record<FlagKey, readonly string[]> = {
   'use-band-session-cost': BAND_PATH,
   'use-band-context': BAND_PATH,
   'use-band-cache': BAND_PATH,
+  'use-turn-log': TURN_LOG_PATH,
 }
 
 const FLAG_PROPS: Partial<Record<FlagKey, string>> = {
@@ -59,11 +62,12 @@ const FLAG_PROPS: Partial<Record<FlagKey, string>> = {
   'use-band-session-cost': 'use-session-cost',
   'use-band-context': 'use-context',
   'use-band-cache': 'use-cache',
+  'use-turn-log': 'use',
 }
 
 export const propOf = (key: FlagKey): string => FLAG_PROPS[key] ?? key
 
-export const GROUP_PATHS: readonly (readonly string[])[] = [CHAT_PATH, TOOL_FOLD_PATH, PROMPT_UPGRADE_PATH, CHAR_COUNT_PATH, ANSWER_COLORS_PATH, BAND_PATH]
+export const GROUP_PATHS: readonly (readonly string[])[] = [CHAT_PATH, TOOL_FOLD_PATH, PROMPT_UPGRADE_PATH, CHAR_COUNT_PATH, ANSWER_COLORS_PATH, BAND_PATH, TURN_LOG_PATH]
 
 export const pathText = (path: readonly string[]): string => [SETTINGS_NAMESPACE, ...path].join('.')
 
@@ -438,4 +442,5 @@ export const flagsOf = (sources: readonly unknown[]): Flags => ({
   'use-band-session-cost': isFlagOn(sources, 'use-band-session-cost'),
   'use-band-context': isFlagOn(sources, 'use-band-context'),
   'use-band-cache': isFlagOn(sources, 'use-band-cache'),
+  'use-turn-log': isFlagOn(sources, 'use-turn-log'),
 })

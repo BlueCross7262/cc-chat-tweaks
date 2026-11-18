@@ -17,6 +17,8 @@ import {
   contextColor,
   turnCostColor,
   warnColor,
+  promptCountOf,
+  withPromptCount,
   type BandItem,
   type SpeedSum,
 } from './band-logic'
@@ -154,4 +156,19 @@ test('money is two decimals and a dash when absent', () => {
   expect(usd(0.25)).toBe('$0.25')
   expect(usd(4.2)).toBe('$4.20')
   expect(usd(null)).toBe('—')
+})
+
+test('the stored prompt count of a session is a positive whole number, else 0', () => {
+  expect(promptCountOf({ s1: 5 }, 's1')).toBe(5)
+  expect(promptCountOf({ s1: 5 }, 's2')).toBe(0)
+  expect(promptCountOf({ s1: -1, s2: 1.5, s3: '4' }, 's1')).toBe(0)
+  expect(promptCountOf({ s1: 1.5 }, 's1')).toBe(0)
+  expect(promptCountOf(undefined, 's1')).toBe(0)
+  expect(promptCountOf([5], '0')).toBe(0)
+})
+
+test('storing a count moves the session to the end and keeps only the newest sessions', () => {
+  expect(withPromptCount(undefined, 's1', 1)).toEqual({ s1: 1 })
+  expect(Object.keys(withPromptCount({ s1: 1, s2: 2 }, 's1', 3))).toEqual(['s2', 's1'])
+  expect(withPromptCount({ s1: 1, s2: 2, bad: 'x' }, 's3', 1, 2)).toEqual({ s2: 2, s3: 1 })
 })

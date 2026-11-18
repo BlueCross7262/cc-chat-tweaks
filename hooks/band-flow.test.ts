@@ -15,9 +15,10 @@ type World = {
   usageCalls: number
   tokens: number
   server: Server[]
+  stored: Record<string, unknown>
 }
 
-type Options = { band?: Record<string, unknown> | null; withUsage?: boolean }
+type Options = { band?: Record<string, unknown> | null; withUsage?: boolean; store?: Record<string, unknown> }
 
 const world = ($: Engine, on: On, options: Options = {}): World => {
   const w: World = {
@@ -29,11 +30,27 @@ const world = ($: Engine, on: On, options: Options = {}): World => {
     usageCalls: 0,
     tokens: 200,
     server: [],
+    stored: {},
   }
   const band = options.band === undefined ? {} : options.band
   const chat = band === null ? {} : { band: { use: true, ...band } }
 
-  mock.store(on, {})
+  Object.assign(w.stored, options.store ?? {})
+  on('store.get', (_$, e) => ({ value: w.stored[(e as { key: string }).key] }) as never)
+  on('store.set', (_$, e) => {
+    const { key, value } = e as { key: string; value: unknown }
+
+    w.stored[key] = JSON.parse(JSON.stringify(value)) as unknown
+
+    return { value: undefined } as never
+  })
+  on('store.delete', (_$, e) => {
+    delete w.stored[(e as { key: string }).key]
+
+    return { value: undefined } as never
+  })
+  on('store.keys', () => ({ value: Object.keys(w.stored) }) as never)
+  on('session.id', () => ({ value: 's1' }) as never)
   on('settings.read', (_$, e) =>
     ({
       value: (e as { source?: string }).source === 'user' ? { ccChatTweaks: { chat, prompt: { 'prompt-upgrade': { use: false } } } } : {},
@@ -486,6 +503,26 @@ test('a usage failure at a prompt leaves that prompt without a turn cost', async
   expect(drawn.line).not.toContain('$0.25')
   expect(drawn.line).not.toContain('$0.00')
   expect(drawn.line).toContain('$1.50')
+})
+
+test('after a resume the turn number goes on from the count stored for the session', async ($, on) => {
+  const w = world($, on, { store: { bandPrompts: { s0: 9, s1: 5 } } })
+  await firstTurn($, w)
+
+  expect((await draw($)).line).toContain('Turn 6')
+
+  await prompt($)
+
+  expect((await draw($)).line).toContain('Turn 7')
+  expect(w.stored.bandPrompts).toEqual({ s0: 9, s1: 7 })
+})
+
+test('a new session starts at turn 1 and stores its count', async ($, on) => {
+  const w = world($, on, { store: { bandPrompts: { s0: 9 } } })
+  await firstTurn($, w)
+
+  expect((await draw($)).line).toContain('Turn 1')
+  expect(w.stored.bandPrompts).toEqual({ s0: 9, s1: 1 })
 })
 
 test('a turn the user did not prompt adds its cost to the last prompt', async ($, on) => {
