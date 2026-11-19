@@ -118,21 +118,21 @@ test('elapsed time runs from the prompt to the end of the turn as mm:ss', () => 
   expect(elapsedText(5000, null, 1000)).toBe('00:00')
 })
 
-test('context percent turns orange from 50 and red from 80', () => {
+test('context percent turns yellow from 50 and orange from 80', () => {
   expect(contextColor(0)).toBeNull()
   expect(contextColor(49)).toBeNull()
-  expect(contextColor(50)).toBe('#ff8700')
-  expect(contextColor(79)).toBe('#ff8700')
-  expect(contextColor(80)).toBe('red')
-  expect(contextColor(100)).toBe('red')
+  expect(contextColor(50)).toBe('yellow')
+  expect(contextColor(79)).toBe('yellow')
+  expect(contextColor(80)).toBe('#ff8700')
+  expect(contextColor(100)).toBe('#ff8700')
 })
 
-test('the turn cost turns yellow from 50% of the session cost and orange from 90%', () => {
+test('the turn cost turns yellow from 50% of the session cost and orange from 80%', () => {
   expect(turnCostColor(0, 4)).toBeNull()
   expect(turnCostColor(1.99, 4)).toBeNull()
   expect(turnCostColor(2, 4)).toBe('yellow')
-  expect(turnCostColor(3.59, 4)).toBe('yellow')
-  expect(turnCostColor(3.6, 4)).toBe('#ff8700')
+  expect(turnCostColor(3.19, 4)).toBe('yellow')
+  expect(turnCostColor(3.2, 4)).toBe('#ff8700')
   expect(turnCostColor(4, 4)).toBe('#ff8700')
   expect(turnCostColor(null, 4)).toBeNull()
   expect(turnCostColor(1, null)).toBeNull()

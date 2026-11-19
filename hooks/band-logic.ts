@@ -75,10 +75,10 @@ export const elapsedText = (promptAt: number | null, doneAt: number | null, now:
   promptAt === null ? NO_TIME : clock(Math.max(0, Math.floor(((doneAt ?? now) - promptAt) / 1000)))
 
 export const CONTEXT_WARN_COLOR = '#ff8700'
-export const CONTEXT_ALERT_COLOR = 'red'
+export const CONTEXT_NOTE_COLOR = 'yellow'
 
 export const contextColor = (percent: number): string | null =>
-  percent >= 80 ? CONTEXT_ALERT_COLOR : percent >= 50 ? CONTEXT_WARN_COLOR : null
+  percent >= 80 ? CONTEXT_WARN_COLOR : percent >= 50 ? CONTEXT_NOTE_COLOR : null
 
 export const TURN_COST_NOTE_COLOR = 'yellow'
 
@@ -87,7 +87,7 @@ export const turnCostColor = (turnCost: number | null, total: number | null, pro
 
   const ratio = turnCost / total
 
-  if (ratio >= 0.9) return CONTEXT_WARN_COLOR
+  if (ratio >= 0.8) return CONTEXT_WARN_COLOR
 
   return ratio >= 0.5 ? TURN_COST_NOTE_COLOR : null
 }
