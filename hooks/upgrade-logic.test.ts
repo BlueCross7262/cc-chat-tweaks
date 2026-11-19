@@ -112,6 +112,7 @@ test('prompt types are empty for no answer, broken JSON or a missing list', () =
 
 const COMMON_TAIL = [
   '원본 데이터에서 확인이 필요 없을 때까지 충분히 조사한다.',
+  '기억으로 추정하지 않고 도구로 직접 확인한다.',
   '결과나 결론을 첫 줄에 쓴다.',
   '확인한 사실과 추측을 구분해 쓴다.',
 ].join('\n')

@@ -100,7 +100,7 @@ Your prompt > Prompt type > Sent with the instruction and the fixed lines
   - It asks Claude to copy only those sentences unchanged into the written prompt, and to leave both tags out of the written prompt.
 - A prompt shorter than `min-length` gets the same three parts, with no prompt type call and the common rules only.
 - The fixed lines are the common answer rules, then the rules of each type in the order of the types.
-  - The common rules ask for an investigation of the source data until nothing is left to check, the result first, and facts apart from guesses.
+  - The common rules ask for an investigation of the source data until nothing is left to check, a check with tools instead of a guess from memory, the result first, and facts apart from guesses.
   - The task list rules are added only when `env.CLAUDE_CODE_ENABLE_TODO_TOOLS` is the text `"1"` in the first settings file that sets it. They ask Claude to delete the task list items that do not relate to the prompt, and to make a task list first, then work the steps in order, for work of several steps.
   - The `research` rules ask for evidence on every claim and for a claim that rests on memory to be marked as a guess.
   - The `discuss` rules ask for the questions in order with an easy explanation before each, and for one recommendation first with the reason and the criteria for it.
