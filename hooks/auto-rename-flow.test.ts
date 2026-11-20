@@ -4,7 +4,7 @@ import { expect, mock, test, type Engine } from 'claude-code/testing'
 type World = {
   runs: { command: string; args: string }[]
   clock: ReturnType<typeof mock.clock>
-  model: { calls: number; prompts: string[]; reply: () => string }
+  model: { calls: number; prompts: string[]; systems: string[]; reply: () => string }
   runFails: boolean
   onRun: (() => Promise<unknown>) | null
 }
@@ -15,7 +15,7 @@ const world = ($: Engine, on: On, options: Options = {}): World => {
   const w: World = {
     runs: [],
     clock: mock.clock(on, { now: 1000 }),
-    model: { calls: 0, prompts: [], reply: () => 'Fix band timer\nextra' },
+    model: { calls: 0, prompts: [], systems: [], reply: () => 'Fix band timer\nextra' },
     runFails: false,
     onRun: null,
   }
@@ -39,6 +39,7 @@ const world = ($: Engine, on: On, options: Options = {}): World => {
   on('model.complete', (_$, e) => {
     w.model.calls += 1
     w.model.prompts.push((e as { prompt: string }).prompt)
+    w.model.systems.push((e as { system: string }).system)
 
     return { value: { text: w.model.reply() } } as never
   })
@@ -112,6 +113,7 @@ test('the Haiku name option passes the first line of the model reply as the name
   await settle(w)
 
   expect(w.model.calls).toBe(1)
+  expect(w.model.systems[0]).toContain('written in Korean')
   expect(w.runs).toEqual([{ command: 'rename', args: 'Fix band timer' }])
 })
 

@@ -8,7 +8,7 @@ export const NAME_MAX = 60
 const PROMPT_MAX = 2000
 const ANSWER_MAX = 6000
 const SUMMARY_SYSTEM =
-  'You name a coding chat session. Reply with only a short title of at most six words, in the language the user writes in. No quotes and no period at the end.'
+  'You name a coding chat session. Reply with only a short title of at most six words, written in Korean. Keep code identifiers, file names and commands as they are. No quotes and no period at the end.'
 
 let lastPrompt = ''
 let isPending = false

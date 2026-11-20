@@ -203,7 +203,8 @@ When a main turn ends, the session is renamed with the built-in `/rename`.
 - It runs at the same point where the band stops the turn time: on an answer, an interrupt, a refusal or an error.
 - A subagent turn does not rename the session.
 - With `use-haiku-generated-name` off, `/rename` gets no name and makes one from the conversation itself.
-- With `use-haiku-generated-name` on, a Haiku call reads your last prompt and the answer and returns a short name.
+- With `use-haiku-generated-name` on, a Haiku call reads your last prompt and the answer and returns a short name in Korean.
+  Code identifiers, file names and commands in the name stay as they are.
   If that call fails or returns nothing, `/rename` gets no name.
 - The command is queued after the turn hook ends and runs when the session is idle.
   A turn that ends while a rename still runs does not queue a second one.
