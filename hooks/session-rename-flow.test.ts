@@ -1,6 +1,8 @@
 import type { On } from 'claude-code'
 import { expect, mock, test, type Engine } from 'claude-code/testing'
 
+import { wrapText } from './upgrade-logic'
+
 type World = {
   runs: { command: string; args: string }[]
   clock: ReturnType<typeof mock.clock>
@@ -59,7 +61,16 @@ const world = ($: Engine, on: On, options: Options = {}): World => {
   return w
 }
 
-const complete = ($: Engine, turnId: string, extra: Record<string, unknown> = {}) =>
+const start = ($: Engine, turnId: string, text: string, agentId?: string) =>
+  ($.turn as unknown as { start: (e: unknown) => Promise<unknown> }).start({ text, turnId, ...(agentId === undefined ? {} : { agentId }) })
+
+const complete = async ($: Engine, turnId: string, extra: Record<string, unknown> = {}) => {
+  await start($, turnId, `prompt ${turnId}`)
+
+  return endOnly($, turnId, extra)
+}
+
+const endOnly = ($: Engine, turnId: string, extra: Record<string, unknown> = {}) =>
   ($.turn as unknown as { complete: (e: unknown) => Promise<unknown> }).complete({
     reason: 'answer',
     answer: 'the answer',
@@ -132,8 +143,8 @@ test('the Haiku name option falls back to no name when the model fails', async (
 
 test('a long prompt does not push the answer out of the summary input', async ($, on) => {
   const w = world($, on, { summary: true })
-  await ($.turn as unknown as { start: (e: unknown) => Promise<unknown> }).start({ text: 'p'.repeat(9000), turnId: 't1' })
-  await complete($, 't1', { answer: 'ANSWER-MARK' })
+  await start($, 't1', 'p'.repeat(9000))
+  await endOnly($, 't1', { answer: 'ANSWER-MARK' })
   await settle(w)
 
   expect(w.model.prompts).toHaveLength(1)
@@ -144,10 +155,9 @@ test('a long prompt does not push the answer out of the summary input', async ($
 
 test('a subagent turn start does not replace the prompt the summary reads', async ($, on) => {
   const w = world($, on, { summary: true })
-  const start = ($.turn as unknown as { start: (e: unknown) => Promise<unknown> }).start
-  await start({ text: 'MAIN-PROMPT', turnId: 't1' })
-  await start({ text: 'SUB-PROMPT', turnId: 's1', agentId: 'a1' })
-  await complete($, 't1')
+  await start($, 't1', 'MAIN-PROMPT')
+  await start($, 's1', 'SUB-PROMPT', 'a1')
+  await endOnly($, 't1')
   await settle(w)
 
   expect(w.model.prompts[0]).toContain('MAIN-PROMPT')
@@ -180,4 +190,53 @@ test('after a rejected rename the next turn end runs /rename again', async ($, o
     { command: 'rename', args: '' },
     { command: 'rename', args: '' },
   ])
+})
+
+test('a second turn end for the same prompt runs no second rename', async ($, on) => {
+  const w = world($, on)
+  await complete($, 't1')
+  await settle(w)
+  await start($, 't1b', '')
+  await endOnly($, 't1b')
+  await settle(w)
+
+  expect(w.runs).toEqual([{ command: 'rename', args: '' }])
+})
+
+test('a continuation turn start with no text keeps the prompt the summary reads', async ($, on) => {
+  const w = world($, on, { summary: true })
+  await start($, 't1', 'MAIN-PROMPT')
+  await start($, 't1b', '')
+  await endOnly($, 't1b')
+  await settle(w)
+
+  expect(w.model.prompts[0]).toContain('MAIN-PROMPT')
+})
+
+test('a new prompt after a rename runs /rename again', async ($, on) => {
+  const w = world($, on)
+  await complete($, 't1')
+  await settle(w)
+  await complete($, 't2')
+  await settle(w)
+
+  expect(w.runs).toHaveLength(2)
+})
+
+test('the summary reads the typed text inside a prompt-upgrade wrapper', async ($, on) => {
+  const w = world($, on, { summary: true })
+  await start($, 't1', wrapText('TYPED-TEXT', { types: [], todo: false }))
+  await endOnly($, 't1')
+  await settle(w)
+
+  expect(w.model.prompts[0]).toContain('<user_prompt>\nTYPED-TEXT\n</user_prompt>')
+})
+
+test('the Haiku name keeps only the first sentence of the model reply', async ($, on) => {
+  const w = world($, on, { summary: true })
+  w.model.reply = () => '고정 대기 제거하기. 작업 내용은 UI 테스트다'
+  await complete($, 't1')
+  await settle(w)
+
+  expect(w.runs).toEqual([{ command: 'rename', args: '고정 대기 제거하기' }])
 })

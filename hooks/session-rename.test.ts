@@ -12,3 +12,16 @@ test('nameOf takes the first non-blank line without quotes or a final period, cu
   expect(nameOf('a'.repeat(70))).toBe('a'.repeat(NAME_MAX))
   expect(nameOf('v1.2 release')).toBe('v1.2 release')
 })
+
+test('nameOf keeps only the first sentence of the line', () => {
+  expect(nameOf('고정 대기 제거하기. 작업 내용은 UI 테스트다')).toBe('고정 대기 제거하기')
+  expect(nameOf('밴드 수정하기! 다음')).toBe('밴드 수정하기')
+  expect(nameOf('Thread.Sleep 제거하기')).toBe('Thread.Sleep 제거하기')
+})
+
+test('nameOf cuts a long name at the last word that fits the limit', () => {
+  const name = nameOf('UI 테스트 고정 대기를 조건 대기로 바꾸고 판정 충돌 근거를 검토하기')
+
+  expect(name.length).toBeLessThanOrEqual(NAME_MAX)
+  expect(name).toBe('UI 테스트 고정 대기를 조건 대기로 바꾸고 판정 충돌')
+})

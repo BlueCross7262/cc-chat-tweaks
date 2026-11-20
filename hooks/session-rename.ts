@@ -1,27 +1,47 @@
 import type { EngineInterface } from 'claude-code'
 
 import { flagsOf, SETTINGS_SOURCES, type Flags } from './settings'
-import { normalizeCompletion } from './upgrade-logic'
+import { normalizeCompletion, sourceOf } from './upgrade-logic'
 
 export const RENAME_COMMAND = 'rename'
-export const NAME_MAX = 60
+export const NAME_MAX = 30
 const PROMPT_MAX = 2000
 const ANSWER_MAX = 6000
 const SUMMARY_SYSTEM =
-  'You name a coding chat session. Reply with only a short title of at most six words, written in Korean. Keep code identifiers, file names and commands as they are. Do not end the title with the word 세션 or session. End the title with a verb in the -하기 form, for example 밴드 턴 시간 수정하기. No quotes and no period at the end.'
+  'You name a coding chat session from the user prompt and the assistant answer you are given. Reply with only one short noun phrase of at most six words and at most 30 characters, written in Korean. It is a title, not a sentence: never explain, never describe the request, never address the user. Keep code identifiers, file names and commands as they are. Do not end the title with the word 세션 or session. End the title with a verb in the -하기 form, for example 밴드 턴 시간 수정하기. No quotes and no period at the end.'
 
 let lastPrompt = ''
+let promptSeq = 0
+let renamedSeq = -1
 let isPending = false
 
+const firstSentence = (line: string): string => line.split(/[.!?。](?:\s|$)/)[0] ?? ''
+
+const fitName = (name: string): string => {
+  if (name.length <= NAME_MAX) return name
+
+  const cut = name.slice(0, NAME_MAX + 1).lastIndexOf(' ')
+
+  return (cut > 0 ? name.slice(0, cut) : name.slice(0, NAME_MAX)).trim()
+}
+
 export const nameOf = (text: string | null): string =>
-  (text ?? '')
-    .split(/\r?\n/)
-    .map(line => line.trim().replace(/^["'`]+|["'`.]+$/g, '').trim())
-    .find(line => line !== '')
-    ?.slice(0, NAME_MAX) ?? ''
+  fitName(
+    firstSentence(
+      (text ?? '')
+        .split(/\r?\n/)
+        .map(line => line.trim().replace(/^["'`]+|["'`]+$/g, '').trim())
+        .find(line => line !== '') ?? '',
+    )
+      .replace(/["'`]+$/g, '')
+      .trim(),
+  )
 
 export function noteTurnStart(e: { text: string; agentId?: string }): void {
-  if (e.agentId === undefined) lastPrompt = e.text
+  if (e.agentId !== undefined || e.text.trim() === '') return
+
+  lastPrompt = sourceOf(e.text) ?? e.text
+  promptSeq += 1
 }
 
 function writeLog($: EngineInterface, row: string): void {
@@ -46,8 +66,8 @@ async function summaryOf($: EngineInterface, answer: string): Promise<string> {
       model: 'haiku',
       effort: 'low',
       system: SUMMARY_SYSTEM,
-      prompt: `User:\n${lastPrompt.slice(0, PROMPT_MAX)}\n\nAssistant:\n${answer.slice(0, ANSWER_MAX)}`,
-      maxTokens: 200,
+      prompt: `<user_prompt>\n${lastPrompt.slice(0, PROMPT_MAX)}\n</user_prompt>\n\n<assistant_answer>\n${answer.slice(0, ANSWER_MAX)}\n</assistant_answer>`,
+      maxTokens: 60,
       timeoutMs: 5000,
     })
 
@@ -58,13 +78,16 @@ async function summaryOf($: EngineInterface, answer: string): Promise<string> {
 }
 
 export async function renameSession($: EngineInterface, e: { answer: string; agentId?: string }): Promise<void> {
-  if (e.agentId !== undefined || isPending) return
+  if (e.agentId !== undefined || isPending || renamedSeq === promptSeq) return
 
   const flags = await flagsOrNull($)
 
-  if (flags === null || !flags['use-session-rename'] || isPending) return
+  if (flags === null || !flags['use-session-rename'] || isPending || renamedSeq === promptSeq) return
 
+  const seq = promptSeq
+  const previous = renamedSeq
   isPending = true
+  renamedSeq = seq
 
   const run = async (): Promise<void> => {
     try {
@@ -72,6 +95,7 @@ export async function renameSession($: EngineInterface, e: { answer: string; age
 
       await $.command.run({ command: RENAME_COMMAND, args })
     } catch (error) {
+      if (renamedSeq === seq) renamedSeq = previous
       writeLog($, `[session-rename] renameSession.run error=${error instanceof Error ? error.message : String(error)}`)
     } finally {
       isPending = false
@@ -83,6 +107,7 @@ export async function renameSession($: EngineInterface, e: { answer: string; age
       void run()
     })
   } catch {
+    renamedSeq = previous
     isPending = false
   }
 }
