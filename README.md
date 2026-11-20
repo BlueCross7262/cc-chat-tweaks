@@ -205,6 +205,7 @@ When a main turn ends, the session is renamed with the built-in `/rename`.
 - With `use-haiku-generated-name` off, `/rename` gets no name and makes one from the conversation itself.
 - With `use-haiku-generated-name` on, a Haiku call reads your last prompt and the answer and returns a short name in Korean.
   Code identifiers, file names and commands in the name stay as they are.
+  The name ends with a verb in the `-하기` form, such as `밴드 턴 시간 수정하기`, and not with `세션`.
   If that call fails or returns nothing, `/rename` gets no name.
 - The command is queued after the turn hook ends and runs when the session is idle.
   A turn that ends while a rename still runs does not queue a second one.

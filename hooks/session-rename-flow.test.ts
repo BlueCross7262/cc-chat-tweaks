@@ -114,6 +114,8 @@ test('the Haiku name option passes the first line of the model reply as the name
 
   expect(w.model.calls).toBe(1)
   expect(w.model.systems[0]).toContain('written in Korean')
+  expect(w.model.systems[0]).toContain('Do not end the title with the word 세션 or session.')
+  expect(w.model.systems[0]).toContain('End the title with a verb in the -하기 form')
   expect(w.runs).toEqual([{ command: 'rename', args: 'Fix band timer' }])
 })
 
