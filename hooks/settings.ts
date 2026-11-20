@@ -19,8 +19,8 @@ export const FLAG_DEFAULTS = {
   'use-band-context': true,
   'use-band-cache': true,
   'use-turn-log': false,
-  'use-auto-rename': false,
-  'use-auto-rename-haiku-generated-name': false,
+  'use-session-rename': false,
+  'use-session-rename-haiku-generated-name': false,
 } as const
 
 export type FlagKey = keyof typeof FLAG_DEFAULTS
@@ -32,7 +32,7 @@ export const CHAR_COUNT_PATH: readonly string[] = ['prompt', 'char-count']
 export const ANSWER_COLORS_PATH: readonly string[] = ['chat', 'answer-colors']
 export const BAND_PATH: readonly string[] = ['chat', 'band']
 export const TURN_LOG_PATH: readonly string[] = ['chat', 'turn-log']
-export const AUTO_RENAME_PATH: readonly string[] = ['chat', 'auto-rename']
+export const SESSION_RENAME_PATH: readonly string[] = ['chat', 'session-rename']
 
 export const FLAG_PATHS: Record<FlagKey, readonly string[]> = {
   'use-tool-fold': TOOL_FOLD_PATH,
@@ -50,8 +50,8 @@ export const FLAG_PATHS: Record<FlagKey, readonly string[]> = {
   'use-band-context': BAND_PATH,
   'use-band-cache': BAND_PATH,
   'use-turn-log': TURN_LOG_PATH,
-  'use-auto-rename': AUTO_RENAME_PATH,
-  'use-auto-rename-haiku-generated-name': AUTO_RENAME_PATH,
+  'use-session-rename': SESSION_RENAME_PATH,
+  'use-session-rename-haiku-generated-name': SESSION_RENAME_PATH,
 }
 
 const FLAG_PROPS: Partial<Record<FlagKey, string>> = {
@@ -68,13 +68,13 @@ const FLAG_PROPS: Partial<Record<FlagKey, string>> = {
   'use-band-context': 'use-context',
   'use-band-cache': 'use-cache',
   'use-turn-log': 'use',
-  'use-auto-rename': 'use',
-  'use-auto-rename-haiku-generated-name': 'use-haiku-generated-name',
+  'use-session-rename': 'use',
+  'use-session-rename-haiku-generated-name': 'use-haiku-generated-name',
 }
 
 export const propOf = (key: FlagKey): string => FLAG_PROPS[key] ?? key
 
-export const GROUP_PATHS: readonly (readonly string[])[] = [CHAT_PATH, TOOL_FOLD_PATH, PROMPT_UPGRADE_PATH, CHAR_COUNT_PATH, ANSWER_COLORS_PATH, BAND_PATH, TURN_LOG_PATH, AUTO_RENAME_PATH]
+export const GROUP_PATHS: readonly (readonly string[])[] = [CHAT_PATH, TOOL_FOLD_PATH, PROMPT_UPGRADE_PATH, CHAR_COUNT_PATH, ANSWER_COLORS_PATH, BAND_PATH, TURN_LOG_PATH, SESSION_RENAME_PATH]
 
 export const pathText = (path: readonly string[]): string => [SETTINGS_NAMESPACE, ...path].join('.')
 
@@ -87,7 +87,7 @@ export const OPTION_KEYS: readonly FlagKey[] = [
   'use-band-session-cost',
   'use-band-context',
   'use-band-cache',
-  'use-auto-rename-haiku-generated-name',
+  'use-session-rename-haiku-generated-name',
 ]
 
 export const isFeatureKey = (key: FlagKey): boolean => !OPTION_KEYS.includes(key)
@@ -451,6 +451,6 @@ export const flagsOf = (sources: readonly unknown[]): Flags => ({
   'use-band-context': isFlagOn(sources, 'use-band-context'),
   'use-band-cache': isFlagOn(sources, 'use-band-cache'),
   'use-turn-log': isFlagOn(sources, 'use-turn-log'),
-  'use-auto-rename': isFlagOn(sources, 'use-auto-rename'),
-  'use-auto-rename-haiku-generated-name': isFlagOn(sources, 'use-auto-rename-haiku-generated-name'),
+  'use-session-rename': isFlagOn(sources, 'use-session-rename'),
+  'use-session-rename-haiku-generated-name': isFlagOn(sources, 'use-session-rename-haiku-generated-name'),
 })

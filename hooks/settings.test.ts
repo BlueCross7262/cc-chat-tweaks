@@ -323,8 +323,8 @@ test('reads every flag at once', () => {
     'use-band-context': true,
     'use-band-cache': true,
     'use-turn-log': false,
-    'use-auto-rename': false,
-    'use-auto-rename-haiku-generated-name': false,
+    'use-session-rename': false,
+    'use-session-rename-haiku-generated-name': false,
   })
 })
 
@@ -361,8 +361,8 @@ test('adds only the missing switches with their default and keeps everything els
     'use-band-context',
     'use-band-cache',
     'use-turn-log',
-    'use-auto-rename',
-    'use-auto-rename-haiku-generated-name',
+    'use-session-rename',
+    'use-session-rename-haiku-generated-name',
     'min-length',
     'silent-triggers',
     'silent-off-triggers',
@@ -380,7 +380,7 @@ test('adds only the missing switches with their default and keeps everything els
         'answer-colors': { use: false },
         band: { use: false, 'use-turns': true, 'use-elapsed': true, 'use-speed': true, 'use-turn-cost': true, 'use-session-cost': true, 'use-context': true, 'use-cache': true, order: ['turns', 'elapsed', 'speed', 'turn-cost', 'session-cost', 'context', 'cache'] },
         'turn-log': { use: false },
-        'auto-rename': { use: false, 'use-haiku-generated-name': false },
+        'session-rename': { use: false, 'use-haiku-generated-name': false },
       },
       prompt: {
         later: { 'a-future-key': 1 },
@@ -412,7 +412,7 @@ test('builds the whole section for an empty or malformed file', () => {
         'answer-colors': { use: false },
         band: { use: false, 'use-turns': true, 'use-elapsed': true, 'use-speed': true, 'use-turn-cost': true, 'use-session-cost': true, 'use-context': true, 'use-cache': true, order: ['turns', 'elapsed', 'speed', 'turn-cost', 'session-cost', 'context', 'cache'] },
         'turn-log': { use: false },
-        'auto-rename': { use: false, 'use-haiku-generated-name': false },
+        'session-rename': { use: false, 'use-haiku-generated-name': false },
       },
       prompt: {
         'prompt-upgrade': {
@@ -543,7 +543,7 @@ test('the default unfolded list written to a file is a copy', () => {
 test('reports nothing to add when every switch is present', () => {
   const full = {
     ccChatTweaks: {
-      chat: { 'tool-fold': { use: true, 'unfolded-tools': ['Bash'] }, 'use-edit-summary': false, 'answer-colors': { use: true }, band: { use: false, 'use-turns': true, 'use-elapsed': true, 'use-speed': true, 'use-turn-cost': true, 'use-session-cost': true, 'use-context': true, 'use-cache': true, order: ['turns', 'elapsed', 'speed', 'turn-cost', 'session-cost', 'context', 'cache'] }, 'turn-log': { use: false }, 'auto-rename': { use: true, 'use-haiku-generated-name': false } },
+      chat: { 'tool-fold': { use: true, 'unfolded-tools': ['Bash'] }, 'use-edit-summary': false, 'answer-colors': { use: true }, band: { use: false, 'use-turns': true, 'use-elapsed': true, 'use-speed': true, 'use-turn-cost': true, 'use-session-cost': true, 'use-context': true, 'use-cache': true, order: ['turns', 'elapsed', 'speed', 'turn-cost', 'session-cost', 'context', 'cache'] }, 'turn-log': { use: false }, 'session-rename': { use: true, 'use-haiku-generated-name': false } },
       prompt: {
         'prompt-upgrade': {
           use: false,
@@ -564,15 +564,15 @@ test('reports nothing to add when every switch is present', () => {
   expect(withMissingDefaults(full).settings).toEqual(full)
 })
 
-test('auto rename is switched by ccChatTweaks.chat.auto-rename.use, its Haiku generated name by use-haiku-generated-name, and both are off by default', () => {
-  expect(FLAG_PATHS['use-auto-rename']).toEqual(['chat', 'auto-rename'])
-  expect(labelOf('use-auto-rename')).toBe('chat.auto-rename.use')
-  expect(labelOf('use-auto-rename-haiku-generated-name')).toBe('chat.auto-rename.use-haiku-generated-name')
-  expect(isFeatureKey('use-auto-rename')).toBe(true)
-  expect(isFeatureKey('use-auto-rename-haiku-generated-name')).toBe(false)
-  expect(isFlagOn([], 'use-auto-rename')).toBe(false)
-  expect(isFlagOn([], 'use-auto-rename-haiku-generated-name')).toBe(false)
-  expect(isFlagOn([{ ccChatTweaks: { chat: { 'auto-rename': { use: true, 'use-haiku-generated-name': true } } } }], 'use-auto-rename-haiku-generated-name')).toBe(true)
+test('session rename is switched by ccChatTweaks.chat.session-rename.use, its Haiku generated name by use-haiku-generated-name, and both are off by default', () => {
+  expect(FLAG_PATHS['use-session-rename']).toEqual(['chat', 'session-rename'])
+  expect(labelOf('use-session-rename')).toBe('chat.session-rename.use')
+  expect(labelOf('use-session-rename-haiku-generated-name')).toBe('chat.session-rename.use-haiku-generated-name')
+  expect(isFeatureKey('use-session-rename')).toBe(true)
+  expect(isFeatureKey('use-session-rename-haiku-generated-name')).toBe(false)
+  expect(isFlagOn([], 'use-session-rename')).toBe(false)
+  expect(isFlagOn([], 'use-session-rename-haiku-generated-name')).toBe(false)
+  expect(isFlagOn([{ ccChatTweaks: { chat: { 'session-rename': { use: true, 'use-haiku-generated-name': true } } } }], 'use-session-rename-haiku-generated-name')).toBe(true)
 })
 
 const bandKeys: FlagKey[] = ['use-band-turns', 'use-band-elapsed', 'use-band-speed', 'use-band-turn-cost', 'use-band-session-cost', 'use-band-context', 'use-band-cache']

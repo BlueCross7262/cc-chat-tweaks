@@ -29,7 +29,7 @@ const world = ($: Engine, on: On, options: Options = {}): World => {
         (e as { source?: string }).source === 'user'
           ? {
               ccChatTweaks: {
-                chat: { 'auto-rename': { use: options.use ?? true, 'use-haiku-generated-name': options.summary ?? false } },
+                chat: { 'session-rename': { use: options.use ?? true, 'use-haiku-generated-name': options.summary ?? false } },
                 prompt: { 'prompt-upgrade': { use: false } },
               },
             }

@@ -57,22 +57,22 @@ async function summaryOf($: EngineInterface, answer: string): Promise<string> {
   }
 }
 
-export async function autoRename($: EngineInterface, e: { answer: string; agentId?: string }): Promise<void> {
+export async function renameSession($: EngineInterface, e: { answer: string; agentId?: string }): Promise<void> {
   if (e.agentId !== undefined || isPending) return
 
   const flags = await flagsOrNull($)
 
-  if (flags === null || !flags['use-auto-rename'] || isPending) return
+  if (flags === null || !flags['use-session-rename'] || isPending) return
 
   isPending = true
 
   const run = async (): Promise<void> => {
     try {
-      const args = flags['use-auto-rename-haiku-generated-name'] ? await summaryOf($, e.answer) : ''
+      const args = flags['use-session-rename-haiku-generated-name'] ? await summaryOf($, e.answer) : ''
 
       await $.command.run({ command: RENAME_COMMAND, args })
     } catch (error) {
-      writeLog($, `[auto-rename] autoRename.run error=${error instanceof Error ? error.message : String(error)}`)
+      writeLog($, `[session-rename] renameSession.run error=${error instanceof Error ? error.message : String(error)}`)
     } finally {
       isPending = false
     }

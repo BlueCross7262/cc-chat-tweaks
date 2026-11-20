@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { NAME_MAX, nameOf } from './auto-rename'
+import { NAME_MAX, nameOf } from './session-rename'
 
 test('nameOf takes the first non-blank line without quotes or a final period, cut to the limit', () => {
   expect(nameOf(null)).toBe('')

@@ -40,7 +40,7 @@ import {
 import { drawAnswer, drawDeclined } from './answer-colors'
 import { completeBand, registerBand, startBandTick } from './band'
 import { logTurn, TURN_LOG_COMMAND, TURN_LOG_HELP, turnLogReport } from './turn-log'
-import { autoRename, noteTurnStart } from './auto-rename'
+import { renameSession, noteTurnStart } from './session-rename'
 import { registerCharCount } from './char-count'
 import { formatReport, versionText, type DoctorInput } from './doctor'
 import { COMMAND as UPGRADE_COMMAND, COMMAND_HELP, KEY_MIN_LEN, registerUpgrade } from './upgrade'
@@ -205,7 +205,7 @@ export const register: Register = on => {
   on('turn.complete', async ($, e, next) => {
     await completeBand($, e)
     await logTurn($, e)
-    await autoRename($, e)
+    await renameSession($, e)
 
     try {
       if (e.agentId === undefined) {
