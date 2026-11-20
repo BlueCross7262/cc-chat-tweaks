@@ -207,6 +207,7 @@ When a main turn ends, the session is renamed with the built-in `/rename`.
   Code identifiers, file names and commands in the name stay as they are.
   The name ends with a verb in the `-하기` form, such as `밴드 턴 시간 수정하기`, and not with `세션`.
   The name is one phrase: only the first sentence of the reply is kept, and a name longer than 30 characters is cut at the last word that fits.
+  A label in front of the name, such as `세션 제목:` or `Title:`, is removed.
   When the prompt upgrade wrapped your prompt, Haiku reads the text you typed, not the wrapper.
   If that call fails or returns nothing, `/rename` gets no name.
 - The command is queued after the turn hook ends and runs when the session is idle.

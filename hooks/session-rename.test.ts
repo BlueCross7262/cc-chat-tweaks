@@ -25,3 +25,11 @@ test('nameOf cuts a long name at the last word that fits the limit', () => {
   expect(name.length).toBeLessThanOrEqual(NAME_MAX)
   expect(name).toBe('UI 테스트 고정 대기를 조건 대기로 바꾸고 판정 충돌')
 })
+
+test('nameOf drops a label such as 세션 제목: before the name', () => {
+  expect(nameOf('세션 제목: 인자 없이 브랜치 키 사용하기')).toBe('인자 없이 브랜치 키 사용하기')
+  expect(nameOf('제목： "밴드 수정하기"')).toBe('밴드 수정하기')
+  expect(nameOf('Title: Fix band timer')).toBe('Fix band timer')
+  expect(nameOf('Session name: Fix band timer')).toBe('Fix band timer')
+  expect(nameOf('README: 설치 절차 고치기')).toBe('README: 설치 절차 고치기')
+})

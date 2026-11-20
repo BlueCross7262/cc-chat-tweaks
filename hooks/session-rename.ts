@@ -8,12 +8,14 @@ export const NAME_MAX = 30
 const PROMPT_MAX = 2000
 const ANSWER_MAX = 6000
 const SUMMARY_SYSTEM =
-  'You name a coding chat session from the user prompt and the assistant answer you are given. Reply with only one short noun phrase of at most six words and at most 30 characters, written in Korean. It is a title, not a sentence: never explain, never describe the request, never address the user. Keep code identifiers, file names and commands as they are. Do not end the title with the word 세션 or session. End the title with a verb in the -하기 form, for example 밴드 턴 시간 수정하기. No quotes and no period at the end.'
+  'You name a coding chat session from the user prompt and the assistant answer you are given. Reply with only one short noun phrase of at most six words and at most 30 characters, written in Korean. It is a title, not a sentence: never explain, never describe the request, never address the user. Keep code identifiers, file names and commands as they are. Do not end the title with the word 세션 or session. End the title with a verb in the -하기 form, for example 밴드 턴 시간 수정하기. Do not put a label such as 세션 제목: or Title: before the title. No quotes and no period at the end.'
 
 let lastPrompt = ''
 let promptSeq = 0
 let renamedSeq = -1
 let isPending = false
+
+const LABEL = /^(?:세션\s*)?(?:제목|이름|title|session\s*(?:name|title)|name)\s*[:：]\s*/i
 
 const firstSentence = (line: string): string => line.split(/[.!?。](?:\s|$)/)[0] ?? ''
 
@@ -30,7 +32,7 @@ export const nameOf = (text: string | null): string =>
     firstSentence(
       (text ?? '')
         .split(/\r?\n/)
-        .map(line => line.trim().replace(/^["'`]+|["'`]+$/g, '').trim())
+        .map(line => line.trim().replace(/^["'`]+|["'`]+$/g, '').trim().replace(LABEL, '').replace(/^["'`]+/, '').trim())
         .find(line => line !== '') ?? '',
     )
       .replace(/["'`]+$/g, '')
