@@ -12,7 +12,7 @@ Answer `y` to add the marketplace, then pick a scope.
 
 ## Settings
 
-Tool folding, the Edit/Write summary, the answer colours, the session band, the turn log and the character count are off until you turn them on. The prompt upgrade is on by default, and it needs no setting to run. Switches live under `ccChatTweaks` in any settings file (`settings.json`, `settings.local.json`, project or user). Tool folding sits in `ccChatTweaks.chat.tool-fold`, the Edit/Write summary in `ccChatTweaks.chat`, the answer colours in `ccChatTweaks.chat.answer-colors`, the session band in `ccChatTweaks.chat.band`, the turn log in `ccChatTweaks.chat.turn-log`, the prompt upgrade in `ccChatTweaks.prompt.prompt-upgrade` and the character count in `ccChatTweaks.prompt.char-count`. A later prompt feature gets its own group under `ccChatTweaks.prompt`. A boolean in a higher-precedence source wins. A key that is absent uses its default.
+Tool folding, the Edit/Write summary, the answer colours, the session band, the turn log, the auto rename and the character count are off until you turn them on. The prompt upgrade is on by default, and it needs no setting to run. Switches live under `ccChatTweaks` in any settings file (`settings.json`, `settings.local.json`, project or user). Tool folding sits in `ccChatTweaks.chat.tool-fold`, the Edit/Write summary in `ccChatTweaks.chat`, the answer colours in `ccChatTweaks.chat.answer-colors`, the session band in `ccChatTweaks.chat.band`, the turn log in `ccChatTweaks.chat.turn-log`, the auto rename in `ccChatTweaks.chat.auto-rename`, the prompt upgrade in `ccChatTweaks.prompt.prompt-upgrade` and the character count in `ccChatTweaks.prompt.char-count`. A later prompt feature gets its own group under `ccChatTweaks.prompt`. A boolean in a higher-precedence source wins. A key that is absent uses its default.
 
 | Group | Key | Default | Feature |
 |---|---|---|---|
@@ -30,6 +30,8 @@ Tool folding, the Edit/Write summary, the answer colours, the session band, the 
 | `chat.band` | `use-cache` | `true` | Option of `use`. Show the time left on the prompt cache. |
 | `chat.band` | `order` | `["turns", "elapsed", "speed", "turn-cost", "session-cost", "context", "cache"]` | Option of `use`. The order of the items. An item that is not in the array goes to the end, in the default order. Unknown names and repeats are left out. |
 | `chat.turn-log` | `use` | `false` | Write one JSON line per finished turn with its tokens, cost and time. |
+| `chat.auto-rename` | `use` | `false` | Run `/rename` when a main turn ends. |
+| `chat.auto-rename` | `use-haiku-generated-name` | `false` | Option of `use`. Pass a name that a Haiku call makes from the turn, instead of letting `/rename` make one. |
 | `prompt.prompt-upgrade` | `use` | `true` | Send a Korean prompt with an instruction and answer rules added. A prompt without Korean characters is sent as you typed it. |
 | `prompt.prompt-upgrade` | `skip-silent-trigger` | `true` | Option of `use`. When `true`, the trigger check is skipped and every prompt is upgraded; a Korean prompt shorter than `min-length` gets no prompt type call and only the common rules in the `<hard rule>` block. When `false`, only a prompt with the trigger is upgraded. |
 | `prompt.prompt-upgrade` | `silent-triggers` | `["+++"]` | The trigger texts for the silent upgrade, as an array of strings. |
@@ -63,6 +65,10 @@ Tool folding, the Edit/Write summary, the answer colours, the session band, the 
       },
       "turn-log": {
         "use": true
+      },
+      "auto-rename": {
+        "use": true,
+        "use-haiku-generated-name": false
       }
     },
     "prompt": {
@@ -190,6 +196,23 @@ Each finished turn adds one JSON line to a file of its session:
 - After you change the switch, run `/reload-plugins`.
 - `/turn-log` shows the file of this session as a table: one row per turn with its time, length, input and output tokens, cache read and write tokens and cost, and a total row. A subagent row is marked `(sub)`. A value the turn does not have is `—` and counts as 0 in the total.
 
+### `chat.auto-rename.use`
+
+When a main turn ends, the session is renamed with the built-in `/rename`.
+
+- It runs at the same point where the band stops the turn time: on an answer, an interrupt, a refusal or an error.
+- A subagent turn does not rename the session.
+- With `use-haiku-generated-name` off, `/rename` gets no name and makes one from the conversation itself.
+- With `use-haiku-generated-name` on, a Haiku call reads your last prompt and the answer and returns a short name.
+  If that call fails or returns nothing, `/rename` gets no name.
+- The command is queued after the turn hook ends and runs when the session is idle.
+  A turn that ends while a rename still runs does not queue a second one.
+- Each rename costs something on every turn:
+  - a `/rename` line in the transcript,
+  - a note to the model that names the session,
+  - and a model call, either the one inside `/rename` or the Haiku call.
+- After you change a switch, run `/reload-plugins`.
+
 ### `prompt.prompt-upgrade.use`
 
 A prompt you type at the prompt box and send is sent at once. With the default `skip-silent-trigger` every prompt is upgraded, and one shorter than `min-length` gets the common rules only. With `false` only a prompt that starts or ends with the trigger `+++` is. A prompt that starts or ends with `---` is sent as it is.
@@ -239,6 +262,7 @@ The sources are TypeScript loaded as is, with no build step.
 | `hooks/band.tsx` | The session band: its `turn.step` and `AbovePrompt` hooks, `startBandTick`, `completeBand`, and `startPrompt`, which the `prompt.submit` hook in `hooks/upgrade.tsx` calls first. |
 | `hooks/band-logic.ts` | Pure band logic: item order, step timing and speed, cache countdown text and warning colour, layout by width. |
 | `hooks/turn-log.tsx` | The turn log: `logTurn`, which the `turn.complete` hook in `hooks/register.tsx` calls, finds the log folder and adds the line. `turnLogReport` answers `/turn-log`. |
+| `hooks/auto-rename.ts` | The auto rename: `autoRename`, which the `turn.complete` hook in `hooks/register.tsx` calls, queues `/rename`. `noteTurnStart` keeps the last main prompt for the summary. |
 | `hooks/turn-log-logic.ts` | Pure turn log logic: `.git` file and `commondir` reading, the file path, Korea time, the cost since the last line, the record, the `/turn-log` table. |
 | `hooks/answer-view.ts` | Pure reading of an `AskUserQuestion` result into a title, rows and a response, and of its call input into the declined lines, and the three colours. |
 | `hooks/char-count-logic.ts` | Pure grapheme and code point counting and the label, the count alone. |
