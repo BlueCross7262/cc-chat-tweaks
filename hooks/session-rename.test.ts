@@ -33,3 +33,20 @@ test('nameOf drops a label such as 세션 제목: before the name', () => {
   expect(nameOf('Session name: Fix band timer')).toBe('Fix band timer')
   expect(nameOf('README: 설치 절차 고치기')).toBe('README: 설치 절차 고치기')
 })
+
+test('nameOf drops a label with other words around the title word', () => {
+  expect(nameOf('한국어 제목 생성: 규칙 파일 수정 및 wormhole')).toBe('규칙 파일 수정 및 wormhole')
+  expect(nameOf('Korean title: Fix band timer')).toBe('Fix band timer')
+  expect(nameOf('세션 이름 제안: 밴드 수정하기')).toBe('밴드 수정하기')
+  expect(nameOf('한국어 제목 생성:\n규칙 파일 수정하기')).toBe('규칙 파일 수정하기')
+  expect(nameOf('"한국어 제목 생성: 밴드 수정하기"')).toBe('밴드 수정하기')
+})
+
+test('nameOf keeps a colon phrase with no title word near it', () => {
+  expect(nameOf('README: 설치 절차 고치기')).toBe('README: 설치 절차 고치기')
+  expect(nameOf('rename: 훅 고치기')).toBe('rename: 훅 고치기')
+  expect(nameOf('filename 규칙: 정리하기')).toBe('filename 규칙: 정리하기')
+  expect(nameOf('제목줄 수정하기')).toBe('제목줄 수정하기')
+  expect(nameOf('세션 이름 바꾸기')).toBe('세션 이름 바꾸기')
+  expect(nameOf('a b c 제목: x')).toBe('a b c 제목: x')
+})

@@ -15,7 +15,7 @@ let promptSeq = 0
 let renamedSeq = -1
 let isPending = false
 
-const LABEL = /^(?:세션\s*)?(?:제목|이름|title|session\s*(?:name|title)|name)\s*[:：]\s*/i
+const LABEL = /^(?:[^\s:：]+\s+){0,2}(?:세션\s*)?(?:제목|이름|title|session\s*(?:name|title)|name)(?:\s+[^\s:：]+){0,2}\s*[:：]\s*/i
 
 const firstSentence = (line: string): string => line.split(/[.!?。](?:\s|$)/)[0] ?? ''
 
