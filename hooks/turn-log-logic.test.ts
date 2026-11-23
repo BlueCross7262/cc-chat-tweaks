@@ -69,6 +69,7 @@ test('builds one record from a finished turn', () => {
     costUsd: 0.25,
     sessionCostUsd: 1.5,
     contextPercent: 42,
+    promptTurnId: 'p1',
   })
 
   expect(record).toEqual({
@@ -86,6 +87,7 @@ test('builds one record from a finished turn', () => {
     costUsd: 0.25,
     sessionCostUsd: 1.5,
     contextPercent: 42,
+    promptTurnId: 'p1',
   })
 })
 
@@ -97,9 +99,11 @@ test('a turn without usage or with a subagent keeps the fields it has and nulls 
     costUsd: null,
     sessionCostUsd: null,
     contextPercent: null,
+    promptTurnId: null,
   })
 
   expect(record.agentId).toBe('a1')
+  expect(record.promptTurnId).toBeNull()
   expect(record.model).toBeNull()
   expect(record.inputTokens).toBeNull()
   expect(record.outputTokens).toBeNull()
@@ -130,6 +134,7 @@ const row = (over: Partial<TurnRecord>): TurnRecord => ({
   costUsd: 0.0139212,
   sessionCostUsd: 0.0139212,
   contextPercent: 7,
+  promptTurnId: null,
   ...over,
 })
 
@@ -140,7 +145,7 @@ test('reads the records of a log file and skips lines that are not records', () 
   expect(recordsOf('')).toEqual([])
 })
 
-test('draws one row per turn and a total row', () => {
+test('draws one row per prompt with its runs and a total row', () => {
   const text = turnLogText('D:/repo/.git/cc-chat-tweaks/turns/s1.jsonl', [
     row({}),
     row({ at: '2026-11-18T12:56:00.000+09:00', agentId: 'a1', durationMs: 1000, inputTokens: 3, outputTokens: 2, cacheReadTokens: 10, cacheCreationTokens: 0, costUsd: 0.5 }),
@@ -150,11 +155,11 @@ test('draws one row per turn and a total row', () => {
     [
       'Turn log: D:/repo/.git/cc-chat-tweaks/turns/s1.jsonl',
       '',
-      '| # | at | time | in | out | cache r/w | cost |',
-      '|---|---|---|---|---|---|---|',
-      '| 1 | 12:55:21 | 3.0s | 2 | 18 | 0/69560 | $0.0139 |',
-      '| 2 (sub) | 12:56:00 | 1.0s | 3 | 2 | 10/0 | $0.5000 |',
-      '| total | | 4.0s | 5 | 20 | 10/69560 | $0.5139 |',
+      '| # | at | time | in | out | cache r/w | cost | runs |',
+      '|---|---|---|---|---|---|---|---|',
+      '| 1 | 12:55:21 | 3.0s | 2 | 18 | 0/69560 | $0.0139 | 1 |',
+      '| 2 | 12:56:00 | 1.0s | 3 | 2 | 10/0 | $0.5000 | 1 |',
+      '| total | | 4.0s | 5 | 20 | 10/69560 | $0.5139 | 2 |',
     ].join('\n'),
   )
 })
@@ -162,8 +167,50 @@ test('draws one row per turn and a total row', () => {
 test('a value the turn does not have is a dash and counts as nothing in the total', () => {
   const text = turnLogText('p', [row({ inputTokens: null, outputTokens: null, cacheReadTokens: null, cacheCreationTokens: null, costUsd: null })])
 
-  expect(text).toContain('| 1 | 12:55:21 | 3.0s | — | — | — | — |')
-  expect(text).toContain('| total | | 3.0s | 0 | 0 | 0/0 | $0.0000 |')
+  expect(text).toContain('| 1 | 12:55:21 | 3.0s | — | — | — | — | 1 |')
+  expect(text).toContain('| total | | 3.0s | 0 | 0 | 0/0 | $0.0000 | 1 |')
+})
+
+test('the lines of one prompt make one row in the order the prompt first shows', () => {
+  const text = turnLogText('p', [
+    row({ promptTurnId: 'z', at: '2026-11-18T10:00:00.000+09:00', durationMs: 10000, inputTokens: 1, outputTokens: 2, cacheReadTokens: 3, cacheCreationTokens: 4, costUsd: 0.1 }),
+    row({ promptTurnId: 'z', agentId: 'a1', at: '2026-11-18T10:00:05.000+09:00', durationMs: 4000, inputTokens: 10, outputTokens: 20, cacheReadTokens: 30, cacheCreationTokens: 40, costUsd: 0.2 }),
+    row({ promptTurnId: 'a', at: '2026-11-18T10:01:00.000+09:00', durationMs: 2000, inputTokens: 100, outputTokens: 200, cacheReadTokens: 300, cacheCreationTokens: 400, costUsd: 0.4 }),
+    row({ promptTurnId: 'z', at: '2026-11-18T10:00:20.000+09:00', durationMs: 3000, inputTokens: 1000, outputTokens: 2000, cacheReadTokens: 3000, cacheCreationTokens: 4000, costUsd: 0.8 }),
+  ])
+
+  expect(text.split('\n').slice(4)).toEqual([
+    '| 1 | 10:00:00 | 13.0s | 1011 | 2022 | 3033/4044 | $1.1000 | 3 |',
+    '| 2 | 10:01:00 | 2.0s | 100 | 200 | 300/400 | $0.4000 | 1 |',
+    '| total | | 15.0s | 1111 | 2222 | 3333/4444 | $1.5000 | 4 |',
+  ])
+})
+
+test('a line with no prompt key is a row of its own', () => {
+  const old = { ...row({}) } as Partial<TurnRecord>
+  delete old.promptTurnId
+  const records = recordsOf(`${JSON.stringify(old)}\n${JSON.stringify(old)}\n`)
+
+  expect(turnLogText('p', records).split('\n').slice(4)).toEqual([
+    '| 1 | 12:55:21 | 3.0s | 2 | 18 | 0/69560 | $0.0139 | 1 |',
+    '| 2 | 12:55:21 | 3.0s | 2 | 18 | 0/69560 | $0.0139 | 1 |',
+    '| total | | 6.1s | 4 | 36 | 0/139120 | $0.0278 | 2 |',
+  ])
+})
+
+test('a prompt with subagent lines only takes the time of all its lines', () => {
+  const text = turnLogText('p', [
+    row({ promptTurnId: 'p', agentId: 'a1', durationMs: 1000 }),
+    row({ promptTurnId: 'p', agentId: 'a2', durationMs: 2000 }),
+  ])
+
+  expect(text).toContain('| 1 | 12:55:21 | 3.0s | 4 | 36 | 0/139120 | $0.0278 | 2 |')
+})
+
+test('a prompt whose lines have no cost shows a dash for its cost', () => {
+  const text = turnLogText('p', [row({ promptTurnId: 'p', costUsd: null }), row({ promptTurnId: 'p', costUsd: null })])
+
+  expect(text).toContain('| 1 | 12:55:21 | 6.1s | 4 | 36 | 0/139120 | — | 2 |')
 })
 
 test('a log without turns says so', () => {

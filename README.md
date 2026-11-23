@@ -29,7 +29,7 @@ Tool folding, the Edit/Write summary, the answer colours, the session band, the 
 | `chat.band` | `use-context` | `true` | Option of `use`. Show how full the context window is. |
 | `chat.band` | `use-cache` | `true` | Option of `use`. Show the time left on the prompt cache. |
 | `chat.band` | `order` | `["turns", "elapsed", "speed", "turn-cost", "session-cost", "context", "cache"]` | Option of `use`. The order of the items. An item that is not in the array goes to the end, in the default order. Unknown names and repeats are left out. |
-| `chat.turn-log` | `use` | `false` | Write one JSON line per finished turn with its tokens, cost and time. |
+| `chat.turn-log` | `use` | `false` | Write one JSON line per finished turn with its tokens, cost, time and prompt key. `/turn-log` sums the lines per prompt. |
 | `chat.session-rename` | `use` | `false` | Run `/rename` when a main turn ends. |
 | `chat.session-rename` | `use-haiku-generated-name` | `false` | Option of `use`. Pass a name that a Haiku call makes from the turn, instead of letting `/rename` make one. |
 | `prompt.prompt-upgrade` | `use` | `true` | Send a Korean prompt with an instruction and answer rules added. A prompt without Korean characters is sent as you typed it. |
@@ -183,7 +183,7 @@ One band above the prompt shows the session at a glance:
 Each finished turn adds one JSON line to a file of its session:
 
 ```
-{"at":"2026-11-18T21:04:05.009+09:00","sessionId":"…","turnId":"…","agentId":null,"reason":"answer","durationMs":12345,"model":"claude-opus-5-5","inputTokens":10,"outputTokens":812,"cacheReadTokens":40210,"cacheCreationTokens":1530,"costUsd":0.31,"sessionCostUsd":4.2,"contextPercent":42}
+{"at":"2026-11-18T21:04:05.009+09:00","sessionId":"…","turnId":"…","agentId":null,"reason":"answer","durationMs":12345,"model":"claude-opus-5-5","inputTokens":10,"outputTokens":812,"cacheReadTokens":40210,"cacheCreationTokens":1530,"costUsd":0.31,"sessionCostUsd":4.2,"contextPercent":42,"promptTurnId":"…"}
 ```
 
 - The file is `<git dir>/cc-chat-tweaks/turns/<session id>.jsonl`. The git dir is the `.git` folder found from the session's working directory upward. In a linked worktree it is the main repository's `.git`, read from the worktree's `.git` file and its `commondir`. Git does not track it, so it needs no `.gitignore` entry.
@@ -191,10 +191,15 @@ Each finished turn adds one JSON line to a file of its session:
 - `at` is Korea time. `durationMs` is the wall-clock length of the turn. The token fields are the usage the turn reports.
 - `costUsd` is what the session spent since the line before, so it takes in subagent and prompt upgrade costs that came between. The first line after the plugin loads has no line before, so it gets the whole cost of this process. `sessionCostUsd` is the cost since this process started: after a resume it starts again from 0, so it is not the cost of the whole session. `contextPercent` is the context window fill.
 - A subagent turn gets its own line with its `agentId`. `reason` is `answer`, `aborted`, `refusal` or `error`.
+- `promptTurnId` is the `turnId` of the main turn that your last typed prompt started. The turns that follow it share it: its subagent turns and its continuation turns, for example after a Stop hook. A turn that ends before any prompt was seen since the plugin loaded has `null`.
 - A value the turn does not have is `null`.
 - A file stops growing at 4 MiB, the read and write limit of the plugin file system.
 - After you change the switch, run `/reload-plugins`.
-- `/turn-log` shows the file of this session as a table: one row per turn with its time, length, input and output tokens, cache read and write tokens and cost, and a total row. A subagent row is marked `(sub)`. A value the turn does not have is `—` and counts as 0 in the total.
+- `/turn-log` shows the file of this session as a table: one row per prompt, and a total row. A row joins the lines that share a `promptTurnId`, in the order each prompt first shows. A line with no `promptTurnId` is a row of its own.
+  - `at` is the time of the first line of the prompt.
+  - `time` is the sum of the main-loop lines' `durationMs`. A subagent's time is inside the main turn that waits for it. A row with subagent lines only takes the sum of those lines.
+  - `in`, `out`, `cache r/w` and `cost` are the sums of the prompt's lines. `runs` is the number of its lines.
+  - A value that no line of the row has is `—` and counts as 0 in the total.
 
 ### `chat.session-rename.use`
 
@@ -269,9 +274,9 @@ The sources are TypeScript loaded as is, with no build step.
 | `hooks/answer-colors.tsx` | `drawAnswer` and `drawDeclined`, which draw the answer row and the declined row in their colours. `register.tsx` calls them from its `ToolResult` and `ToolUse` hooks. |
 | `hooks/band.tsx` | The session band: its `turn.step` and `AbovePrompt` hooks, `startBandTick`, `completeBand`, and `startPrompt`, which the `prompt.submit` hook in `hooks/upgrade.tsx` calls first. |
 | `hooks/band-logic.ts` | Pure band logic: item order, step timing and speed, cache countdown text and warning colour, layout by width. |
-| `hooks/turn-log.tsx` | The turn log: `logTurn`, which the `turn.complete` hook in `hooks/register.tsx` calls, finds the log folder and adds the line. `turnLogReport` answers `/turn-log`. |
+| `hooks/turn-log.tsx` | The turn log: `logTurn`, which the `turn.complete` hook in `hooks/register.tsx` calls, finds the log folder and adds the line with the prompt key that the hook read before its first wait. `noteUserTurn`, which the `turn.start` hook calls, keeps that key. `turnLogReport` answers `/turn-log`. |
 | `hooks/session-rename.ts` | The session rename: `renameSession`, which the `turn.complete` hook in `hooks/register.tsx` calls, queues `/rename`. `noteTurnStart` keeps the last main prompt for the summary. |
-| `hooks/turn-log-logic.ts` | Pure turn log logic: `.git` file and `commondir` reading, the file path, Korea time, the cost since the last line, the record, the `/turn-log` table. |
+| `hooks/turn-log-logic.ts` | Pure turn log logic: `.git` file and `commondir` reading, the file path, Korea time, the cost since the last line, the record, the `/turn-log` table with one row per prompt. |
 | `hooks/answer-view.ts` | Pure reading of an `AskUserQuestion` result into a title, rows and a response, and of its call input into the declined lines, and the three colours. |
 | `hooks/char-count-logic.ts` | Pure grapheme and code point counting and the label, the count alone. |
 | `hooks/upgrade-logic.ts` | Pure gate, flow and parsing logic for the prompt upgrade. |

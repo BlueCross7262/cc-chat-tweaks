@@ -17,11 +17,18 @@ import {
 } from './turn-log-logic'
 
 export const TURN_LOG_COMMAND = 'turn-log'
-export const TURN_LOG_HELP = 'Show the turn log of this session: time, tokens and cost per turn, with a total'
+export const TURN_LOG_HELP = 'Show the turn log of this session: time, tokens, cost and runs per prompt, with a total'
 
 const lastCostAtom = atom({ plugin: 'cc-chat-tweaks', key: 'turnLogCost' } as const, null as number | null)
 
 let queue: Promise<void> = Promise.resolve()
+let promptTurnId: string | null = null
+
+export function noteUserTurn(e: { text: string; turnId: string; agentId?: string }): void {
+  if (e.agentId === undefined && e.text.trim() !== '') promptTurnId = e.turnId
+}
+
+export const currentPromptTurnId = (): string | null => promptTurnId
 
 async function isTurnLogOn($: EngineInterface): Promise<boolean> {
   try {
@@ -62,7 +69,7 @@ async function logDirOf($: EngineInterface): Promise<string | null> {
   return home ? `${home.replace(/[\\/]+$/, '')}/.claude` : null
 }
 
-async function writeRecord($: EngineInterface, turn: FinishedTurn): Promise<void> {
+async function writeRecord($: EngineInterface, turn: FinishedTurn, key: string | null): Promise<void> {
   if (!(await isTurnLogOn($))) return
 
   const dir = await logDirOf($)
@@ -83,6 +90,7 @@ async function writeRecord($: EngineInterface, turn: FinishedTurn): Promise<void
     costUsd: costSince(total, last),
     sessionCostUsd: total,
     contextPercent: usage.context.percent ?? null,
+    promptTurnId: key,
   })
   const path = logPathOf(dir, sessionId)
   const existing = (await $.fs.exists(path)) ? await $.fs.read(path) : ''
@@ -107,8 +115,8 @@ export async function turnLogReport($: EngineInterface): Promise<string> {
   return turnLogText(path, recordsOf(await $.fs.read(path)))
 }
 
-export function logTurn($: EngineInterface, turn: FinishedTurn): Promise<void> {
-  queue = queue.then(() => writeRecord($, turn)).catch(() => undefined)
+export function logTurn($: EngineInterface, turn: FinishedTurn, key: string | null): Promise<void> {
+  queue = queue.then(() => writeRecord($, turn, key)).catch(() => undefined)
 
   return queue
 }

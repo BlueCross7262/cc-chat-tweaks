@@ -39,7 +39,7 @@ import {
 } from './runs'
 import { drawAnswer, drawDeclined } from './answer-colors'
 import { completeBand, registerBand, startBandTick } from './band'
-import { logTurn, TURN_LOG_COMMAND, TURN_LOG_HELP, turnLogReport } from './turn-log'
+import { currentPromptTurnId, logTurn, noteUserTurn, TURN_LOG_COMMAND, TURN_LOG_HELP, turnLogReport } from './turn-log'
 import { renameSession, noteTurnStart } from './session-rename'
 import { registerCharCount } from './char-count'
 import { formatReport, versionText, type DoctorInput } from './doctor'
@@ -198,13 +198,16 @@ export const register: Register = on => {
 
   on('turn.start', ($, e, next) => {
     noteTurnStart(e)
+    noteUserTurn(e)
 
     return next(e)
   })
 
   on('turn.complete', async ($, e, next) => {
+    const promptKey = currentPromptTurnId()
+
     await completeBand($, e)
-    await logTurn($, e)
+    await logTurn($, e, promptKey)
     await renameSession($, e)
 
     try {

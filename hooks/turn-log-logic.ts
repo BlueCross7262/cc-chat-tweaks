@@ -86,9 +86,10 @@ export type TurnRecordInput = {
   costUsd: number | null
   sessionCostUsd: number | null
   contextPercent: number | null
+  promptTurnId: string | null
 }
 
-export const turnRecordOf = ({ at, sessionId, turn, costUsd, sessionCostUsd, contextPercent }: TurnRecordInput) => ({
+export const turnRecordOf = ({ at, sessionId, turn, costUsd, sessionCostUsd, contextPercent, promptTurnId }: TurnRecordInput) => ({
   at: kstText(at),
   sessionId,
   turnId: turn.turnId,
@@ -103,6 +104,7 @@ export const turnRecordOf = ({ at, sessionId, turn, costUsd, sessionCostUsd, con
   costUsd,
   sessionCostUsd,
   contextPercent,
+  promptTurnId,
 })
 
 export type TurnRecord = ReturnType<typeof turnRecordOf>
@@ -139,33 +141,69 @@ const costText = (usd: number): string => `$${usd.toFixed(4)}`
 const sumOf = (records: readonly TurnRecord[], pick: (record: TurnRecord) => number | null): number =>
   records.reduce((total, record) => total + (pick(record) ?? 0), 0)
 
+const sumOrNull = (records: readonly TurnRecord[], pick: (record: TurnRecord) => number | null): number | null =>
+  records.every(record => pick(record) === null) ? null : sumOf(records, pick)
+
 const rowOf = (cells: readonly string[]): string => `| ${cells.join(' | ')} |`
+
+const groupsOf = (records: readonly TurnRecord[]): TurnRecord[][] => {
+  const groups: TurnRecord[][] = []
+  const byKey = new Map<string, TurnRecord[]>()
+
+  for (const record of records) {
+    const key = record.promptTurnId ?? null
+    const group = key === null ? undefined : byKey.get(key)
+
+    if (group !== undefined) {
+      group.push(record)
+      continue
+    }
+
+    const fresh = [record]
+    groups.push(fresh)
+
+    if (key !== null) byKey.set(key, fresh)
+  }
+
+  return groups
+}
+
+const timeOf = (group: readonly TurnRecord[]): number => {
+  const main = group.filter(record => record.agentId === null)
+
+  return sumOf(main.length > 0 ? main : group, record => record.durationMs)
+}
 
 export const turnLogText = (path: string, records: readonly TurnRecord[]): string => {
   const head = `Turn log: ${path}`
 
   if (records.length === 0) return `${head}\n\nNo turns yet.`
 
-  const rows = records.map((record, index) =>
-    rowOf([
-      record.agentId === null ? String(index + 1) : `${index + 1} (sub)`,
-      record.at.slice(11, 19),
-      secondsText(record.durationMs),
-      countText(record.inputTokens),
-      countText(record.outputTokens),
-      record.cacheReadTokens === null && record.cacheCreationTokens === null
-        ? DASH
-        : `${countText(record.cacheReadTokens)}/${countText(record.cacheCreationTokens)}`,
-      record.costUsd === null ? DASH : costText(record.costUsd),
-    ]),
-  )
+  const groups = groupsOf(records)
+  const rows = groups.map((group, index) => {
+    const read = sumOrNull(group, record => record.cacheReadTokens)
+    const write = sumOrNull(group, record => record.cacheCreationTokens)
+    const cost = sumOrNull(group, record => record.costUsd)
+
+    return rowOf([
+      String(index + 1),
+      (group[0]?.at ?? '').slice(11, 19),
+      secondsText(timeOf(group)),
+      countText(sumOrNull(group, record => record.inputTokens)),
+      countText(sumOrNull(group, record => record.outputTokens)),
+      read === null && write === null ? DASH : `${countText(read)}/${countText(write)}`,
+      cost === null ? DASH : costText(cost),
+      String(group.length),
+    ])
+  })
   const total = `| total | | ${[
-    secondsText(sumOf(records, record => record.durationMs)),
+    secondsText(groups.reduce((sum, group) => sum + timeOf(group), 0)),
     String(sumOf(records, record => record.inputTokens)),
     String(sumOf(records, record => record.outputTokens)),
     `${sumOf(records, record => record.cacheReadTokens)}/${sumOf(records, record => record.cacheCreationTokens)}`,
     costText(sumOf(records, record => record.costUsd)),
+    String(records.length),
   ].join(' | ')} |`
 
-  return [head, '', rowOf(['#', 'at', 'time', 'in', 'out', 'cache r/w', 'cost']), '|---|---|---|---|---|---|---|', ...rows, total].join('\n')
+  return [head, '', rowOf(['#', 'at', 'time', 'in', 'out', 'cache r/w', 'cost', 'runs']), '|---|---|---|---|---|---|---|---|', ...rows, total].join('\n')
 }

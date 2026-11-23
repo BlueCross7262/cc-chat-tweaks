@@ -59,11 +59,15 @@ const world = ($: Engine, on: On, options: Options = {}): World => {
 
     return { value: undefined } as never
   })
+  on('turn.start', (_$, e) => ({ turnId: (e as { turnId: string }).turnId }) as never)
   on('turn.complete', () => ({ text: '' }) as never)
   on('ui.log', () => ({ value: undefined }) as never)
 
   return w
 }
+
+const start = ($: Engine, turnId: string, text: string) =>
+  ($.turn as unknown as { start: (e: unknown) => Promise<unknown> }).start({ text, turnId })
 
 const complete = ($: Engine, turnId: string, agentId?: string) =>
   ($.turn as unknown as { complete: (e: unknown) => Promise<unknown> }).complete({
@@ -113,6 +117,7 @@ test('a turn adds one line under the .git folder of the working directory', asyn
       costUsd: 1,
       sessionCostUsd: 1,
       contextPercent: 42,
+      promptTurnId: null,
     },
   ])
 })
@@ -166,6 +171,55 @@ test('the next turns append, and each cost is what the session spent since the l
   ])
 })
 
+test('each line keeps the prompt that started its turn', async ($, on) => {
+  const w = world($, on)
+  w.dirs.add('D:/repo/.git')
+  await complete($, 't0')
+  await start($, 'p1', 'fix the band')
+  await complete($, 't1')
+  await complete($, 'sub', 'a1')
+  await start($, 'c1', '')
+  await complete($, 'c1')
+  await start($, 'c2', '  ')
+  await complete($, 'c2')
+  await start($, 'p2', 'next prompt')
+  await complete($, 't2')
+
+  expect(linesOf(w, MAIN).map(line => [line.turnId, line.promptTurnId])).toEqual([
+    ['t0', null],
+    ['t1', 'p1'],
+    ['sub', 'p1'],
+    ['c1', 'p1'],
+    ['c2', 'p1'],
+    ['t2', 'p2'],
+  ])
+})
+
+test('a subagent turn start does not replace the prompt key', async ($, on) => {
+  const w = world($, on)
+  w.dirs.add('D:/repo/.git')
+  await start($, 'p1', 'fix the band')
+  await ($.turn as unknown as { start: (e: unknown) => Promise<unknown> }).start({ text: 'sub prompt', turnId: 's1', agentId: 'a1' })
+  await complete($, 't1')
+
+  expect(linesOf(w, MAIN).map(line => [line.turnId, line.promptTurnId])).toEqual([['t1', 'p1']])
+})
+
+test('a prompt that starts while the turn before it still ends does not take that turn', async ($, on) => {
+  const w = world($, on)
+  w.dirs.add('D:/repo/.git')
+  await start($, 'p1', 'fix the band')
+  const ending = complete($, 't1')
+  await start($, 'p2', 'next prompt')
+  await ending
+  await complete($, 't2')
+
+  expect(linesOf(w, MAIN).map(line => [line.turnId, line.promptTurnId])).toEqual([
+    ['t1', 'p1'],
+    ['t2', 'p2'],
+  ])
+})
+
 test('an existing file that cannot be read is left as it was', async ($, on) => {
   const w = world($, on)
   w.dirs.add('D:/repo/.git')
@@ -197,9 +251,23 @@ test('/turn-log shows the log of this session as a table with a total', async ($
   const text = await commandText($)
 
   expect(text).toContain('Turn log: D:/repo/.git/cc-chat-tweaks/turns/s1.jsonl')
-  expect(text).toContain('| 1 | 09:00:00 | 1.5s | 1 | 2 | 3/4 | $1.0000 |')
-  expect(text).toContain('| 2 | 09:00:00 | 1.5s | 1 | 2 | 3/4 | $0.5000 |')
-  expect(text).toContain('| total | | 3.0s | 2 | 4 | 6/8 | $1.5000 |')
+  expect(text).toContain('| 1 | 09:00:00 | 1.5s | 1 | 2 | 3/4 | $1.0000 | 1 |')
+  expect(text).toContain('| 2 | 09:00:00 | 1.5s | 1 | 2 | 3/4 | $0.5000 | 1 |')
+  expect(text).toContain('| total | | 3.0s | 2 | 4 | 6/8 | $1.5000 | 2 |')
+})
+
+test('/turn-log draws the turns of one prompt as one row', async ($, on) => {
+  const w = world($, on)
+  w.dirs.add('D:/repo/.git')
+  await start($, 'p1', 'fix the band')
+  await complete($, 't1')
+  w.cost = 1.5
+  await complete($, 'sub', 'a1')
+
+  const text = await commandText($)
+
+  expect(text).toContain('| 1 | 09:00:00 | 1.5s | 2 | 4 | 6/8 | $1.5000 | 2 |')
+  expect(text).toContain('| total | | 1.5s | 2 | 4 | 6/8 | $1.5000 | 2 |')
 })
 
 test('/turn-log names the path and the switch when this session has no log', async ($, on) => {
