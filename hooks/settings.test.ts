@@ -59,10 +59,10 @@ const set = (key: FlagKey, value: unknown) => ({ ccChatTweaks: nest(FLAG_PATHS[k
 
 const triggers = (value: unknown) => up({ 'silent-triggers': value })
 
-test('silent-triggers is the first array with a valid entry, each entry a trimmed string of 1 to 32 characters', () => {
+test('silent-triggers is the first array with a valid entry, each entry a trimmed string of at least 1 character', () => {
   expect(silentTriggersOf([])).toBeUndefined()
   expect(silentTriggersOf([triggers(['  >>  ', '+++'])])).toEqual(['>>', '+++'])
-  expect(silentTriggersOf([triggers(['   ', 5, null, 'x'.repeat(33), '##'])])).toEqual(['##'])
+  expect(silentTriggersOf([triggers(['   ', 5, null, 'x'.repeat(33), '##'])])).toEqual(['x'.repeat(33), '##'])
   expect(silentTriggersOf([triggers(['>>', '>>', ' >> '])])).toEqual(['>>'])
   expect(silentTriggersOf([triggers([])])).toBeUndefined()
   expect(silentTriggersOf([triggers(['  ', 5])])).toBeUndefined()

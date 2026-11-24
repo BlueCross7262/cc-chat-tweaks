@@ -295,7 +295,7 @@ const triggersOf = (sources: readonly unknown[], key: string, isEmptyAllowed: bo
         value
           .filter((item): item is string => typeof item === 'string')
           .map(item => item.trim())
-          .filter(item => item.length >= 1 && item.length <= 32),
+          .filter(item => item.length >= 1),
       ),
     ].slice(0, MAX_SILENT_TRIGGERS)
 
