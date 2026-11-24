@@ -22,6 +22,7 @@ Tool folding, the Edit/Write summary, the answer colours, the session band, the 
 | `chat.answer-colors` | `use` | `false` | Draw the row that holds your answers to Claude's questions in three colours: title, question and answer. |
 | `chat.band` | `use` | `false` | Draw one band above the prompt with the session at a glance. |
 | `chat.band` | `use-turns` | `true` | Option of `use`. Show the number of prompts you sent at the input or through Remote Control. |
+| `chat.band` | `use-turns-total` | `true` | Option of `use-turns`. Show the turn count of the session after the number of prompts, as `12/34`. |
 | `chat.band` | `use-elapsed` | `true` | Option of `use`. Show the time since your last prompt, as `mm:ss`. |
 | `chat.band` | `use-speed` | `true` | Option of `use`. Show the output speed of the current or last turn. |
 | `chat.band` | `use-turn-cost` | `true` | Option of `use`. Show the cost since your last prompt. |
@@ -55,6 +56,7 @@ Tool folding, the Edit/Write summary, the answer colours, the session band, the 
       "band": {
         "use": true,
         "use-turns": true,
+        "use-turns-total": true,
         "use-elapsed": true,
         "use-speed": true,
         "use-turn-cost": true,
@@ -164,10 +166,11 @@ The row the engine draws after you answer an `AskUserQuestion` dialog is drawn a
 One band above the prompt shows the session at a glance:
 
 ```
- Turn 12 | 02:05 | 84 t/s | $0.31 | $4.20 | 42% | 37:12
+ Turn 12/34 | 02:05 | 84 t/s | $0.31 | $4.20 | 42% | 37:12
 ```
 
 - `Turn 12` is the number of prompts you sent at the input or through Remote Control in this session. Notifications, scheduled prompts and prompts of other sessions or plugins do not count. The count is kept in the plugin store under the session id, so after `/reload-plugins` or a resume of the same session your next prompt goes on from the last number. It shows `—` until that prompt. The store keeps the counts of the newest 200 sessions. A session that gets a new id starts at 1.
+- `/34` is the turn count of the session as Claude Code gives it through `$.session.turns()`. It is read each time the band is drawn and is not stored. It is not shown while the number of prompts shows `—`, or when `use-turns-total` or `use-turns` is off.
 - The time after the turn number runs from your last prompt, as `mm:ss`. It counts each second while a turn works and stops at the end of the last turn that followed the prompt, notifications included. It shows `--:--` until your first prompt after the plugin loaded.
 - The speed is output tokens per second over the current turn. Each model request is timed from its first text, thinking or tool chunk to its end, less the time of tools the API ran itself (the advisor is one). The requests of a turn are added up. Subagent requests are left out. The value of the last turn stays until the new turn has at least 20 tokens over half a second.
 - The first cost is what the session spent since your last prompt, the second the session. It takes in every turn, subagent and notification that followed that prompt, and the prompt upgrade of that prompt. A prompt whose start cost could not be read shows `—`. The first cost is green, turns yellow at 50% of the session cost, orange at 100% and red at 200%.

@@ -316,6 +316,7 @@ test('reads every flag at once', () => {
     'use-answer-colors': false,
     'use-band': false,
     'use-band-turns': true,
+    'use-band-turns-total': true,
     'use-band-elapsed': true,
     'use-band-speed': true,
     'use-band-turn-cost': true,
@@ -354,6 +355,7 @@ test('adds only the missing switches with their default and keeps everything els
     'use-answer-colors',
     'use-band',
     'use-band-turns',
+    'use-band-turns-total',
     'use-band-elapsed',
     'use-band-speed',
     'use-band-turn-cost',
@@ -378,7 +380,7 @@ test('adds only the missing switches with their default and keeps everything els
         'tool-fold': { use: true, 'unfolded-tools': ['AskUserQuestion', 'Skill', 'Agent'] },
         'use-edit-summary': false,
         'answer-colors': { use: false },
-        band: { use: false, 'use-turns': true, 'use-elapsed': true, 'use-speed': true, 'use-turn-cost': true, 'use-session-cost': true, 'use-context': true, 'use-cache': true, order: ['turns', 'elapsed', 'speed', 'turn-cost', 'session-cost', 'context', 'cache'] },
+        band: { use: false, 'use-turns': true, 'use-turns-total': true, 'use-elapsed': true, 'use-speed': true, 'use-turn-cost': true, 'use-session-cost': true, 'use-context': true, 'use-cache': true, order: ['turns', 'elapsed', 'speed', 'turn-cost', 'session-cost', 'context', 'cache'] },
         'turn-log': { use: false },
         'session-rename': { use: false, 'use-haiku-generated-name': false },
       },
@@ -402,15 +404,15 @@ test('adds only the missing switches with their default and keeps everything els
 })
 
 test('builds the whole section for an empty or malformed file', () => {
-  expect(withMissingDefaults({}).added).toHaveLength(24)
-  expect(withMissingDefaults(null).added).toHaveLength(24)
+  expect(withMissingDefaults({}).added).toHaveLength(25)
+  expect(withMissingDefaults(null).added).toHaveLength(25)
   expect(withMissingDefaults({ ccChatTweaks: 'x' }).settings).toEqual({
     ccChatTweaks: {
       chat: {
         'tool-fold': { use: false, 'unfolded-tools': ['AskUserQuestion', 'Skill', 'Agent'] },
         'use-edit-summary': false,
         'answer-colors': { use: false },
-        band: { use: false, 'use-turns': true, 'use-elapsed': true, 'use-speed': true, 'use-turn-cost': true, 'use-session-cost': true, 'use-context': true, 'use-cache': true, order: ['turns', 'elapsed', 'speed', 'turn-cost', 'session-cost', 'context', 'cache'] },
+        band: { use: false, 'use-turns': true, 'use-turns-total': true, 'use-elapsed': true, 'use-speed': true, 'use-turn-cost': true, 'use-session-cost': true, 'use-context': true, 'use-cache': true, order: ['turns', 'elapsed', 'speed', 'turn-cost', 'session-cost', 'context', 'cache'] },
         'turn-log': { use: false },
         'session-rename': { use: false, 'use-haiku-generated-name': false },
       },
@@ -543,7 +545,7 @@ test('the default unfolded list written to a file is a copy', () => {
 test('reports nothing to add when every switch is present', () => {
   const full = {
     ccChatTweaks: {
-      chat: { 'tool-fold': { use: true, 'unfolded-tools': ['Bash'] }, 'use-edit-summary': false, 'answer-colors': { use: true }, band: { use: false, 'use-turns': true, 'use-elapsed': true, 'use-speed': true, 'use-turn-cost': true, 'use-session-cost': true, 'use-context': true, 'use-cache': true, order: ['turns', 'elapsed', 'speed', 'turn-cost', 'session-cost', 'context', 'cache'] }, 'turn-log': { use: false }, 'session-rename': { use: true, 'use-haiku-generated-name': false } },
+      chat: { 'tool-fold': { use: true, 'unfolded-tools': ['Bash'] }, 'use-edit-summary': false, 'answer-colors': { use: true }, band: { use: false, 'use-turns': true, 'use-turns-total': true, 'use-elapsed': true, 'use-speed': true, 'use-turn-cost': true, 'use-session-cost': true, 'use-context': true, 'use-cache': true, order: ['turns', 'elapsed', 'speed', 'turn-cost', 'session-cost', 'context', 'cache'] }, 'turn-log': { use: false }, 'session-rename': { use: true, 'use-haiku-generated-name': false } },
       prompt: {
         'prompt-upgrade': {
           use: false,
@@ -575,7 +577,7 @@ test('session rename is switched by ccChatTweaks.chat.session-rename.use, its Ha
   expect(isFlagOn([{ ccChatTweaks: { chat: { 'session-rename': { use: true, 'use-haiku-generated-name': true } } } }], 'use-session-rename-haiku-generated-name')).toBe(true)
 })
 
-const bandKeys: FlagKey[] = ['use-band-turns', 'use-band-elapsed', 'use-band-speed', 'use-band-turn-cost', 'use-band-session-cost', 'use-band-context', 'use-band-cache']
+const bandKeys: FlagKey[] = ['use-band-turns', 'use-band-turns-total', 'use-band-elapsed', 'use-band-speed', 'use-band-turn-cost', 'use-band-session-cost', 'use-band-context', 'use-band-cache']
 
 test('the turn log is switched by ccChatTweaks.chat.turn-log.use and is off by default', () => {
   expect(FLAG_PATHS['use-turn-log']).toEqual(['chat', 'turn-log'])
@@ -589,6 +591,7 @@ test('the band is switched by ccChatTweaks.chat.band.use and each item by its ow
   expect(FLAG_PATHS['use-band']).toEqual(['chat', 'band'])
   expect(labelOf('use-band')).toBe('chat.band.use')
   expect(labelOf('use-band-turns')).toBe('chat.band.use-turns')
+  expect(labelOf('use-band-turns-total')).toBe('chat.band.use-turns-total')
   expect(labelOf('use-band-elapsed')).toBe('chat.band.use-elapsed')
   expect(labelOf('use-band-speed')).toBe('chat.band.use-speed')
   expect(labelOf('use-band-turn-cost')).toBe('chat.band.use-turn-cost')

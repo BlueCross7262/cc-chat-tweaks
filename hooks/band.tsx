@@ -181,7 +181,7 @@ export async function startPrompt($: EngineInterface, origin: PromptOrigin | und
 
 const parts = (...nodes: (RenderElement | null)[]): RenderElement[] => nodes.filter((node): node is RenderElement => node !== null)
 
-type BandView = { items: BandItem[]; state: BandState; seconds: number | null; now: number }
+type BandView = { items: BandItem[]; state: BandState; seconds: number | null; now: number; sessionTurns: number | null }
 
 async function viewOf($: EngineInterface, hasSurvey: boolean, isWorking: boolean): Promise<BandView | null> {
   if (hasSurvey) return null
@@ -195,7 +195,9 @@ async function viewOf($: EngineInterface, hasSurvey: boolean, isWorking: boolean
 
   if (enabled.length === 0) return null
 
-  if ((await $.session.turns()) === 0) return null
+  const sessionTurns = await $.session.turns()
+
+  if (sessionTurns === 0) return null
 
   const state = await read($, bandAtom)
   await read($, bandNowAtom)
@@ -206,7 +208,7 @@ async function viewOf($: EngineInterface, hasSurvey: boolean, isWorking: boolean
 
   if (items.length === 0) return null
 
-  return { items, state, seconds, now }
+  return { items, state, seconds, now, sessionTurns: flags['use-band-turns-total'] ? sessionTurns : null }
 }
 
 export function startBandTick($: EngineInterface): void {
@@ -298,8 +300,8 @@ export const registerBand = (on: Parameters<Register>[0]): void => {
     const ui = $.ui.resolve(e)
     const { Box, Text } = ui
     const Svg = e.surface !== 'terminal' && 'Svg' in ui ? ui.Svg : null
-    const { items, state, seconds, now } = view
-    const turns = state.prompts === 0 ? '—' : String(state.prompts)
+    const { items, state, seconds, now, sessionTurns } = view
+    const turns = state.prompts === 0 ? '—' : sessionTurns === null ? String(state.prompts) : `${state.prompts}/${sessionTurns}`
     const layout = layoutOf(e.props.bodyColumns)
     const warn = items.includes('cache') ? warnColor(seconds, e.props.isWorking) : null
     const contextWarn = state.context === null ? null : contextColor(state.context)

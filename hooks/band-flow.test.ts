@@ -224,6 +224,36 @@ test('after one turn the band shows turns, speed, turn cost, session cost, conte
   expect(drawn.texts).toContain('BASE')
 })
 
+test('the turn number is followed by the session turn count with no space around the slash', async ($, on) => {
+  const w = world($, on)
+  await firstTurn($, w)
+
+  expect((await draw($)).line).toContain('Turn 1/3')
+
+  w.turns = 5
+
+  expect((await draw($)).line).toContain('Turn 1/5')
+})
+
+test('the session turn count is left out when use-turns-total is off', async ($, on) => {
+  const w = world($, on, { band: { 'use-turns-total': false } })
+  await firstTurn($, w)
+
+  const drawn = await draw($)
+
+  expect(drawn.line).toContain('Turn 1')
+  expect(drawn.line).not.toContain('Turn 1/')
+})
+
+test('the session turn count is left out before the first prompt', async ($, on) => {
+  world($, on)
+
+  const drawn = await draw($)
+
+  expect(drawn.line).toContain('Turn —')
+  expect(drawn.line).not.toContain('Turn —/')
+})
+
 test('the band keeps what the hooks beneath drew and stacks its own row under it', async ($, on) => {
   const w = world($, on)
   await firstTurn($, w)
