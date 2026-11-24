@@ -249,11 +249,11 @@ test('the todo lines join the common rules only when the todo switch is on, and 
   expect(splitMeta('원인을 찾는다.', '원인을 찾아 줘', [], true).wrap).toEqual({ types: [], todo: true })
 })
 
-test('a prompt without hangul is left as the draft, with or without a type', () => {
-  expect(withMeta('Find the cause.', 'find the cause', ['research'])).toBe('Find the cause.')
-  expect(withMeta('Find the cause.', 'find the cause', [])).toBe('Find the cause.')
+test('a prompt without hangul is wrapped like a Korean prompt, with or without a type', () => {
+  expect(withMeta('Find the cause.', 'find the cause', ['research'])).toBe(wrapped('Find the cause.', RESEARCH_RULES))
+  expect(withMeta('Find the cause.', 'find the cause', [])).toBe(wrapped('Find the cause.', COMMON_TAIL))
   expect(withMeta('Find the cause.\n결과나 결론을 첫 줄에 쓴다.', 'find the cause', ['research'])).toBe(
-    'Find the cause.\n결과나 결론을 첫 줄에 쓴다.',
+    wrapped('Find the cause.', RESEARCH_RULES),
   )
 })
 
@@ -344,8 +344,11 @@ test('splitMeta drops the repeated rule lines from the box', () => {
   })
 })
 
-test('splitMeta leaves no wrap for a prompt without hangul and for a draft that names a tag', () => {
-  expect(splitMeta('Find the cause.', 'find the cause', ['research'])).toEqual({ box: 'Find the cause.', wrap: null })
+test('splitMeta wraps a prompt without hangul and leaves no wrap for a draft that names a tag', () => {
+  expect(splitMeta('Find the cause.', 'find the cause', ['research'])).toEqual({
+    box: 'Find the cause.',
+    wrap: { types: ['research'], todo: false },
+  })
   expect(splitMeta('`<hard rule>` 태그는 없어?', '태그가 없는지 알려 줘', ['research'])).toEqual({
     box: `\`<hard rule>\` 태그는 없어?\n\n${RESEARCH_RULES}`,
     wrap: null,

@@ -2,16 +2,16 @@
 
 A feature of cc-chat-tweaks.
 It intercepts a prompt you submit and sends it at once.
-For a Korean prompt the text is sent as a message that asks Claude to write a prompt from your text, print it in the chat and answer it.
+The text is sent as a message that asks Claude to write a prompt from your text, print it in the chat and answer it.
 The message says that it is not an approval to run anything. It says that the `<source>` part alone decides whether a running mode, such as a discussion mode, stays on.
-A prompt without Korean characters is sent as you typed it, without the trigger.
+This applies to a prompt in any language, with or without Korean characters.
 
 ## Security notice
 
 - A mod runs with your user permissions and has no sandbox.
 - While `use` is `true`, the mod sees every prompt you submit.
 - The prompt upgrade is on by default, so the mod sees your prompts until you set `use` to `false`.
-- Each Korean prompt that is upgraded costs one prompt type call on your plan or API key. The default model is `haiku`. A prompt without Korean characters costs none.
+- Each prompt that is upgraded and is at least `min-length` long costs one prompt type call on your plan or API key. The default model is `haiku`.
 - The mod sends prompt text to the model only through `$.model.complete`.
 - The mod makes no other network call and does not use `$.http`.
 - The mod stores no prompt text. The probe log keeps lengths and origin only.
@@ -37,11 +37,11 @@ A key that is absent uses its default.
 
 | Key | Default | Feature |
 |---|---|---|
-| `use` | `true` | Intercept your prompts and send a Korean prompt with the instruction and the fixed lines. |
-| `skip-silent-trigger` | `true` | Option of `use`. When `true`, the trigger check is skipped and every prompt is upgraded; a Korean prompt shorter than `min-length` gets no prompt type call and only the common rules in the `<hard rule>` block. When `false`, only a prompt with the trigger is upgraded and any other prompt passes through unchanged. |
+| `use` | `true` | Intercept your prompts and send them with the instruction and the fixed lines. |
+| `skip-silent-trigger` | `true` | Option of `use`. When `true`, the trigger check is skipped and every prompt is upgraded; a prompt shorter than `min-length` gets no prompt type call and only the common rules in the `<hard rule>` block. When `false`, only a prompt with the trigger is upgraded and any other prompt passes through unchanged. |
 | `silent-triggers` | `["+++"]` | The trigger texts, as an array of strings. Any one of them at the start or the end of a prompt is a trigger. Each entry is 1 to 32 characters after trimming. An entry that is blank or not text is dropped, a repeated entry counts once, and only the first 10 entries are used. An array with no valid entry uses the default. The old key `silent-trigger` is not read. |
 | `silent-off-triggers` | `["---"]` | Option of `use`. The texts that turn the upgrade off for one prompt, as an array of strings. Any one of them at the start or the end of a prompt is a trigger. The entry rules are those of `silent-triggers`, except that an empty array `[]` is valid and turns the opt-out off. |
-| `min-length` | `10` | Shortest prompt that gets the prompt type call and the type rules, in characters. A Korean prompt shorter than this gets no prompt type call, and its `<hard rule>` block holds the common rules only. A character is a grapheme, as in the character count label, and white space at both ends is left out. A whole number from 1 to 10000. It beats the value set by `/prompt-upgrade threshold`. |
+| `min-length` | `10` | Shortest prompt that gets the prompt type call and the type rules, in characters. A prompt shorter than this gets no prompt type call, and its `<hard rule>` block holds the common rules only. A character is a grapheme, as in the character count label, and white space at both ends is left out. A whole number from 1 to 10000. It beats the value set by `/prompt-upgrade threshold`. |
 | `models.classify.model` | `haiku` | The model of the prompt type call. An alias or a full model id, 1 to 100 characters after trimming. A blank or non-text value, or a `models` entry that is not an object, uses the default. |
 | `models.classify.effort` | `low` | The effort of the prompt type call: `low`, `medium`, `high`, `xhigh` or `max`. Any other value uses the default. |
 
@@ -88,8 +88,7 @@ Your prompt > Prompt type > Sent with the instruction and the fixed lines
 ```
 
 - No prompt is dropped and nothing goes to the prompt box. The prompt you typed is sent in the same submit.
-- A prompt without Korean characters is sent at once, without the trigger, and no model call is made.
-- A Korean prompt waits in the submit for the prompt type call, up to 5 seconds. It is then sent with the instruction and the fixed lines, and with your prompt, cleaned as below, between `<source>` tags.
+- A prompt waits in the submit for the prompt type call, up to 5 seconds. It is then sent with the instruction and the fixed lines, and with your prompt, cleaned as below, between `<source>` tags.
 - The prompt type call reads up to the last six messages of the conversation (500 characters each, 3000 in all), so a prompt such as "fix the code above" can be sorted.
 - The call sorts the prompt into `research`, `discuss` and `execute`, one or more in the order the prompt asks for them. If the call fails or finds no known type, the `<hard rule>` block holds the common rules only.
 - The message has three parts: an instruction of twelve lines, the fixed lines between `<hard rule>` and `</hard rule>`, and your prompt between `<source>` and `</source>` at the end.
@@ -161,7 +160,7 @@ An error in the mod passes the prompt on as you typed it, and a log row says why
 - The prompt type call sees only a short slice of the conversation (see Flow).
 - The mod cannot check what Claude writes. Whether the prompt Claude writes carries the `<hard rule>` sentences unchanged depends on the instruction.
 - The mod knows only the wording of the current instruction. A message that an earlier version sent shows its whole text in the chat row, and its old instruction lines stay in the `<source>` part when you send it again.
-- A Korean prompt waits up to 5 seconds for the prompt type call before it is sent.
+- A prompt waits up to 5 seconds for the prompt type call before it is sent.
 
 ## Source
 

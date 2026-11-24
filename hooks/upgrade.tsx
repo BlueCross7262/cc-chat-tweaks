@@ -14,7 +14,6 @@ import {
   CLASSIFY_LOG_PREFIX,
   classifyTail,
   decideGate,
-  hasHangul,
   MIN_LEN,
   normalizeCompletion,
   parseMinLen,
@@ -185,7 +184,7 @@ const interceptOrPass = async ($: EngineInterface, e: PromptSubmitInput): Promis
     skipTrigger,
   })
   if (!gate.intercept) return null
-  if ('off' in gate || !hasHangul(gate.text)) return gate.text
+  if ('off' in gate) return gate.text
 
   const types = 'short' in gate ? [] : await classify($, gate.text, await readContext($))
 

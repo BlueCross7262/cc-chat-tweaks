@@ -213,13 +213,15 @@ test('each Korean prompt gets its own wrapper and nothing is kept for the next s
   expect(s.entered).toEqual([commonWrapped(KOREAN), commonWrapped('짧은 다음 질문 하나만 더')])
 })
 
-test('a prompt without Korean is sent at once without the trigger and with no model call', async ($, on) => {
-  const s = world($, on)
+test('a prompt without Korean is upgraded like a Korean prompt, after the prompt type call', async ($, on) => {
+  const s = world($, on, { types: JSON.stringify({ types: ['research'] }) })
   const result = await submit($, `${LONG} +++`)
-  expect(result).toMatchObject({ text: LONG })
+  const sent = fullWrapped(FLOW_RESEARCH_RULES, LONG)
+  expect(result).toMatchObject({ text: sent })
   expect(s.others).toEqual([])
-  expect(s.classified).toEqual([])
-  expect(s.entered).toEqual([LONG])
+  expect(s.classified).toHaveLength(1)
+  expect(s.classified[0]?.prompt).toContain(`<prompt>${LONG}</prompt>`)
+  expect(s.entered).toEqual([sent])
 })
 
 test('the off trigger sends the prompt as it is without a model call, even when every prompt is upgraded', async ($, on) => {

@@ -163,9 +163,6 @@ export const parseMinLen = (value: unknown): number =>
 export const clip = (text: string, max: number): string =>
   text.length <= max ? text : `${text.slice(0, max)}...`
 
-const HANGUL = /[ㄱ-ㆎ가-힣]/
-
-export const hasHangul = (text: string): boolean => HANGUL.test(text)
 type PromptType = (typeof PROMPT_TYPES)[number]
 
 const COMMON_LINES: readonly string[] = [
@@ -258,8 +255,6 @@ export const splitMeta = (
   types: readonly string[],
   todo = false,
 ): { box: string; wrap: Wrap | null } => {
-  if (!HANGUL.test(original)) return { box: draft, wrap: null }
-
   const dropped = new Set(
     [...HEAD_LINES, ...COMMON_LINES, ...(todo ? TODO_LINES : []), ...typeBlocks(types).flat()].map(normalizeLine),
   )
