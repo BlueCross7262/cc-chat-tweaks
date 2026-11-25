@@ -150,7 +150,8 @@ export const decideGate = (g: GateInput): Gate => {
   if (MENTION.test(withoutPasted(cleaned ?? text))) return pass('mention')
   if (isOff) {
     if (cleaned === null || cleaned === '') return pass('trigger-only')
-    return scan.kept === null ? pass('off') : { intercept: true, off: true, text: scan.kept }
+    const kept = scan.kept ?? text
+    return kept === g.text ? pass('off') : { intercept: true, off: true, text: kept }
   }
   if (stripped !== null) {
     if (stripped === '') return pass('trigger-only')

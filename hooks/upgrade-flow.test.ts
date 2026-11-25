@@ -232,6 +232,13 @@ test('the off trigger sends the prompt as it is, with the trigger, without a mod
   expect(s.entered).toEqual([`${KOREAN} ---`])
 })
 
+test('the off trigger sends the prompt without spaces and new lines at both ends', async ($, on) => {
+  const s = world($, on, { extra: { 'skip-silent-trigger': true } })
+  expect(await submit($, `\n${KOREAN} ---\n `)).toMatchObject({ text: `${KOREAN} ---` })
+  expect(s.classified).toEqual([])
+  expect(s.entered).toEqual([`${KOREAN} ---`])
+})
+
 test('the off trigger with the silent trigger removes only the silent trigger, without a model call', async ($, on) => {
   const s = world($, on, { extra: { 'skip-silent-trigger': true } })
   expect(await submit($, `+++ ${KOREAN} ---`)).toMatchObject({ text: `${KOREAN} ---` })

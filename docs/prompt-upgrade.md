@@ -120,7 +120,7 @@ The trigger (`+++` by default) at the start or the end of a prompt is what start
 - A prompt with the trigger skips the `min-length` check.
 - While `skip-silent-trigger` is `true`, the trigger check is skipped. Every prompt is upgraded, whether it has the trigger or not. A prompt with the trigger still has the trigger removed and still skips the `min-length` check.
 - An off trigger (`---` by default) at the start or the end of a prompt turns the upgrade off for that prompt only. No model call is made.
-  - The off trigger stays in the prompt, and the prompt is sent as you typed it.
+  - The off trigger stays in the prompt, and the prompt is sent as you typed it, without the spaces and new lines at its start and its end.
   - It works with `skip-silent-trigger` `true` too, which is its main use.
   - It skips the `min-length` check.
   - If the prompt has both an off trigger and a trigger, the off trigger wins. The off trigger stays and only the trigger is removed, also when the trigger stands between the off trigger and the text, as in `--- +++ text`.

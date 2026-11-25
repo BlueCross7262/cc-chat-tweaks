@@ -519,6 +519,12 @@ test('the off trigger at either end passes the prompt as it is, with the trigger
   expect(gate({ ...off, text: `--- ${base.text}` })).toEqual({ intercept: false, reason: 'off' })
 })
 
+test('the off trigger removes spaces and new lines at both ends of the prompt', () => {
+  expect(gate({ ...off, text: `\n  ${base.text} ---\n ` })).toEqual({ intercept: true, off: true, text: `${base.text} ---` })
+  expect(gate({ ...off, text: ` ---\n${base.text}\n` })).toEqual({ intercept: true, off: true, text: `---\n${base.text}` })
+  expect(gate({ ...off, text: `\n+++ ${base.text} ---\n` })).toEqual({ intercept: true, off: true, text: `${base.text} ---` })
+})
+
 test('the off trigger wins over the silent trigger, stays, and only the silent trigger goes', () => {
   expect(gate({ ...off, text: `+++ ${base.text} ---` })).toEqual({ intercept: true, off: true, text: `${base.text} ---` })
   expect(gate({ ...off, text: `--- +++ ${base.text}` })).toEqual({ intercept: true, off: true, text: `--- ${base.text}` })
