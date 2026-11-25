@@ -152,7 +152,7 @@ test('a Korean prompt that is only pasted material is upgraded and the paste sta
 test('a prompt with attachments and the off trigger is sent as it is with the attachments', async ($, on) => {
   const s = world($, on, { extra: { 'skip-silent-trigger': true } })
   const attachments = [{ type: 'image', id: 'img-1' }]
-  expect(await submit($, `${KOREAN} ---`, { attachments })).toMatchObject({ text: KOREAN })
+  expect(await submit($, `${KOREAN} ---`, { attachments })).toMatchObject({ text: `${KOREAN} ---` })
   expect(s.attachments).toEqual([attachments])
   expect(s.classified).toEqual([])
 })
@@ -224,12 +224,27 @@ test('a prompt without Korean is upgraded like a Korean prompt, after the prompt
   expect(s.entered).toEqual([sent])
 })
 
-test('the off trigger sends the prompt as it is without a model call, even when every prompt is upgraded', async ($, on) => {
+test('the off trigger sends the prompt as it is, with the trigger, without a model call, even when every prompt is upgraded', async ($, on) => {
   const s = world($, on, { extra: { 'skip-silent-trigger': true } })
   const result = await submit($, `${KOREAN} ---`, { turnId: 'turn-1' })
-  expect(result).toMatchObject({ text: KOREAN })
+  expect(result).toMatchObject({ text: `${KOREAN} ---` })
   expect(s.classified).toEqual([])
-  expect(s.entered).toEqual([KOREAN])
+  expect(s.entered).toEqual([`${KOREAN} ---`])
+})
+
+test('the off trigger with the silent trigger removes only the silent trigger, without a model call', async ($, on) => {
+  const s = world($, on, { extra: { 'skip-silent-trigger': true } })
+  expect(await submit($, `+++ ${KOREAN} ---`)).toMatchObject({ text: `${KOREAN} ---` })
+  expect(s.classified).toEqual([])
+  expect(s.entered).toEqual([`${KOREAN} ---`])
+})
+
+test('a prompt through Remote Control is upgraded like one at the composer', async ($, on) => {
+  const s = world($, on, { types: JSON.stringify({ types: ['research'] }) })
+  const sent = fullWrapped(FLOW_RESEARCH_RULES, KOREAN)
+  expect(await submit($, `${KOREAN} +++`, { origin: { kind: 'bridge' } })).toMatchObject({ text: sent })
+  expect(s.classified).toHaveLength(1)
+  expect(s.entered).toEqual([sent])
 })
 
 test('without skip-silent-trigger a prompt without the trigger passes through untouched', async ($, on) => {

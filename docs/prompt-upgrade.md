@@ -40,7 +40,7 @@ A key that is absent uses its default.
 | `use` | `true` | Intercept your prompts and send them with the instruction and the fixed lines. |
 | `skip-silent-trigger` | `true` | Option of `use`. When `true`, the trigger check is skipped and every prompt is upgraded; a prompt shorter than `min-length` gets no prompt type call and only the common rules in the `<hard rule>` block. When `false`, only a prompt with the trigger is upgraded and any other prompt passes through unchanged. |
 | `silent-triggers` | `["+++"]` | The trigger texts, as an array of strings. Any one of them at the start or the end of a prompt is a trigger. Each entry is trimmed and has no length limit. An entry that is blank or not text is dropped, a repeated entry counts once, and only the first 10 entries are used. An array with no valid entry uses the default. The old key `silent-trigger` is not read. |
-| `silent-off-triggers` | `["---"]` | Option of `use`. The texts that turn the upgrade off for one prompt, as an array of strings. Any one of them at the start or the end of a prompt is a trigger. The entry rules are those of `silent-triggers`, except that an empty array `[]` is valid and turns the opt-out off. |
+| `silent-off-triggers` | `["---"]` | Option of `use`. The texts that turn the upgrade off for one prompt, as an array of strings. Any one of them at the start or the end of a prompt is a trigger. It stays in the prompt. The entry rules are those of `silent-triggers`, except that an empty array `[]` is valid and turns the opt-out off. |
 | `min-length` | `10` | Shortest prompt that gets the prompt type call and the type rules, in characters. A prompt shorter than this gets no prompt type call, and its `<hard rule>` block holds the common rules only. A character is a grapheme, as in the character count label, and white space at both ends is left out. A whole number from 1 to 10000. It beats the value set by `/prompt-upgrade threshold`. |
 | `models.classify.model` | `haiku` | The model of the prompt type call. An alias or a full model id, 1 to 100 characters after trimming. A blank or non-text value, or a `models` entry that is not an object, uses the default. |
 | `models.classify.effort` | `low` | The effort of the prompt type call: `low`, `medium`, `high`, `xhigh` or `max`. Any other value uses the default. |
@@ -108,7 +108,8 @@ Your prompt > Prompt type > Sent with the instruction and the fixed lines
 - If a tag still stands inside a line, for example when the prompt talks about the tags, the mod adds no wrapper. The prompt then ends with the fixed lines once.
 - The prompt row in the chat shows only the part between `<source>` and `</source>`. The instruction and the `<hard rule>` block are not drawn, in the ctrl+o view too.
   This changes the drawing only. The message the model gets still holds the instruction and the fixed lines.
-  A row is cut only when its text is a wrapper that the mod built and the person sent from the prompt box. Any other row is drawn as it is.
+  A row is cut only when its text is a wrapper that the mod built and the person sent from the prompt box or through Remote Control. Any other row is drawn as it is.
+  This drawing rule is for the terminal. Whether the Remote Control app draws the wrapper is not checked.
 
 ## Triggers
 
@@ -119,12 +120,14 @@ The trigger (`+++` by default) at the start or the end of a prompt is what start
 - A prompt with the trigger skips the `min-length` check.
 - While `skip-silent-trigger` is `true`, the trigger check is skipped. Every prompt is upgraded, whether it has the trigger or not. A prompt with the trigger still has the trigger removed and still skips the `min-length` check.
 - An off trigger (`---` by default) at the start or the end of a prompt turns the upgrade off for that prompt only. No model call is made.
-  - The off trigger is removed and the rest is sent as it is. Repeated triggers at an edge go too.
+  - The off trigger stays in the prompt, and the prompt is sent as you typed it.
   - It works with `skip-silent-trigger` `true` too, which is its main use.
   - It skips the `min-length` check.
-  - If the prompt has both an off trigger and a trigger, the off trigger wins and both are removed.
+  - If the prompt has both an off trigger and a trigger, the off trigger wins. The off trigger stays and only the trigger is removed, also when the trigger stands between the off trigger and the text, as in `--- +++ text`.
+  - A text that is in both lists counts as an off trigger and stays.
+  - When only the trigger is removed, the white space next to it goes with it. Any other white space stays as you typed it.
 - A trigger or an off trigger on its own, and a prompt that starts with `/` or `!` (after the triggers) pass through with the trigger text in them.
-- The prompt enters as the prompt you typed, with the trigger removed. The mod does not drop it and does not submit it a second time.
+- The prompt enters as the prompt you typed, with the trigger removed and the off trigger kept. The mod does not drop it and does not submit it a second time.
 - A prompt with an image or another attachment is upgraded like any other. The mod changes only the text and passes the rest of the submission on, so the attachments go on with it.
 
 ## Usage log
@@ -144,7 +147,7 @@ cc-chat-tweaks: Prompt classify: haiku low · 0.6s · research, execute
 ## What is not intercepted
 
 - `use` is not `true`.
-- The prompt does not come from your own Enter at the prompt box.
+- The prompt does not come from your own Enter at the prompt box or from your message through Remote Control (a phone or web client).
   - Notifications, peer messages, scheduled prompts, SDK and `-p` turns pass through.
 - It starts with `/`.
 - It starts with `!`, which makes it a shell command.

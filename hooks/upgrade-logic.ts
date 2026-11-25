@@ -1,4 +1,5 @@
 import type { Wrap } from '../types'
+import { isUserOrigin } from './band-logic'
 import { countChars } from './char-count-logic'
 
 export const MIN_LEN = 10
@@ -93,6 +94,42 @@ export const parseTrigger = (text: string, triggers: readonly string[]): string 
   return isFound ? rest.trim() : null
 }
 
+
+const scanTriggers = (text: string, offTriggers: readonly string[], silentTriggers: readonly string[]): { hasOff: boolean; kept: string | null } => {
+  const list = [...offTriggers, ...silentTriggers].filter(trigger => trigger !== '').sort((a, b) => b.length - a.length)
+  const body = text.trim()
+  let start = 0
+  let end = body.length
+  let head = ''
+  let tail = ''
+  let isDropped = false
+  let hasOff = false
+  let isChanged = true
+  while (isChanged) {
+    isChanged = false
+    for (const trigger of list) {
+      const rest = body.slice(start, end)
+      const isKept = offTriggers.includes(trigger)
+      if (rest.startsWith(trigger)) {
+        const next = end - body.slice(start + trigger.length, end).trimStart().length
+        if (isKept) head += body.slice(start, next)
+        start = next
+      } else if (rest.endsWith(trigger)) {
+        const next = start + body.slice(start, end - trigger.length).trimEnd().length
+        if (isKept) tail = body.slice(next, end) + tail
+        end = next
+      } else {
+        continue
+      }
+      isDropped ||= !isKept
+      hasOff ||= isKept
+      isChanged = true
+    }
+  }
+
+  return { hasOff, kept: isDropped ? `${head}${body.slice(start, end)}${tail}`.trim() : null }
+}
+
 const MENTION = /(^|\s)@[\w./\\-]+/
 
 const PASTED = /<pasted_content\b[^>]*>[\s\S]*?<\/pasted_content\b[^>]*>/g
@@ -103,17 +140,17 @@ export const decideGate = (g: GateInput): Gate => {
   const text = g.text.trim()
   const pass = (reason: string): Gate => ({ intercept: false, reason })
   if (!g.isEnabled) return pass('disabled')
-  // UNVERIFIED: only the user's own Enter (origin kind composer) is intercepted; every other origin passes
-  if (g.originKind !== 'composer') return pass('origin')
+  if (!isUserOrigin(g.originKind)) return pass('origin')
   const stripped = parseTrigger(text, g.silentTriggers)
-  const isOff = parseTrigger(text, g.offTriggers) !== null
+  const scan = scanTriggers(text, g.offTriggers, g.silentTriggers)
+  const isOff = scan.hasOff
   const cleaned = isOff ? parseTrigger(text, [...g.offTriggers, ...g.silentTriggers]) : stripped
   if ((cleaned ?? text).startsWith('/')) return pass('slash')
   if ((cleaned ?? text).startsWith('!')) return pass('shell')
   if (MENTION.test(withoutPasted(cleaned ?? text))) return pass('mention')
   if (isOff) {
     if (cleaned === null || cleaned === '') return pass('trigger-only')
-    return { intercept: true, off: true, text: cleaned }
+    return scan.kept === null ? pass('off') : { intercept: true, off: true, text: scan.kept }
   }
   if (stripped !== null) {
     if (stripped === '') return pass('trigger-only')

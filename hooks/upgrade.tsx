@@ -6,6 +6,7 @@ import type {
 } from 'claude-code'
 
 import { startPrompt } from './band'
+import { isUserOrigin } from './band-logic'
 import { recount } from './char-count'
 import {
   askInput,
@@ -215,7 +216,7 @@ export const registerUpgrade = (on: Parameters<Register>[0]): void => {
   })
 
   on('ui.render', { component: 'UserMessage' }, async ($, e, next) => {
-    if (e.props.origin.kind !== 'composer') return next(e)
+    if (!isUserOrigin(e.props.origin.kind)) return next(e)
 
     const source = sourceOf(e.props.text)
 

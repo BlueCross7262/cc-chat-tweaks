@@ -39,6 +39,11 @@ test('a row that holds no wrapper is drawn as it is', async ($, on) => {
   expect(await rowText($, SOURCE, composer)).toBe(SOURCE)
 })
 
+test('a row sent through Remote Control shows only the source', async ($, on) => {
+  world(on)
+  expect(await rowText($, wrapText(SOURCE, { types: ['execute'], todo: false }), { kind: 'bridge' })).toBe(SOURCE)
+})
+
 test('a row from another sender keeps its wrapper', async ($, on) => {
   world(on)
   const text = wrapText(SOURCE, { types: ['execute'], todo: false })

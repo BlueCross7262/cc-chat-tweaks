@@ -38,12 +38,20 @@ test('intercepts a long composer prompt when enabled', () => {
   expect(gate({})).toEqual({ intercept: true, text: base.text })
 })
 
+test('a prompt through Remote Control gets the same gate as one at the composer', () => {
+  for (const text of [base.text, `${base.text} +++`, '짧은 말', `+++ ${base.text} ---`, `${base.text} ---`, '/clear']) {
+    const triggers = { silentTriggers: ['+++'], offTriggers: ['---'] }
+    expect(gate({ ...triggers, text, originKind: 'bridge' })).toEqual(gate({ ...triggers, text, originKind: 'composer' }))
+  }
+  expect(gate({ originKind: 'bridge' })).toMatchObject({ intercept: true })
+})
+
 test('passes while disabled', () => {
   expect(gate({ isEnabled: false })).toMatchObject({ intercept: false, reason: 'disabled' })
 })
 
-test('passes every origin except the person at the composer', () => {
-  for (const kind of ['plugin', 'peer', 'task-notification', 'scheduled-trigger', 'sdk', 'bridge', 'channel', undefined]) {
+test('passes every origin except the person at the composer or through Remote Control', () => {
+  for (const kind of ['plugin', 'peer', 'task-notification', 'scheduled-trigger', 'sdk', 'channel', undefined]) {
     expect(gate({ originKind: kind })).toMatchObject({ intercept: false, reason: 'origin' })
   }
 })
@@ -506,21 +514,37 @@ test('the call log is cut so the whole row stays within the limit', () => {
 
 const off = { skipTrigger: true, silentTriggers: ['+++'], offTriggers: ['---'] }
 
-test('the off trigger at either end sends the prompt as it is, without the trigger', () => {
-  expect(gate({ ...off, text: `${base.text} ---` })).toEqual({ intercept: true, off: true, text: base.text })
-  expect(gate({ ...off, text: `--- ${base.text}` })).toEqual({ intercept: true, off: true, text: base.text })
+test('the off trigger at either end passes the prompt as it is, with the trigger', () => {
+  expect(gate({ ...off, text: `${base.text} ---` })).toEqual({ intercept: false, reason: 'off' })
+  expect(gate({ ...off, text: `--- ${base.text}` })).toEqual({ intercept: false, reason: 'off' })
 })
 
-test('the off trigger wins over the silent trigger and removes both', () => {
-  expect(gate({ ...off, text: `+++ ${base.text} ---` })).toEqual({ intercept: true, off: true, text: base.text })
+test('the off trigger wins over the silent trigger, stays, and only the silent trigger goes', () => {
+  expect(gate({ ...off, text: `+++ ${base.text} ---` })).toEqual({ intercept: true, off: true, text: `${base.text} ---` })
+  expect(gate({ ...off, text: `--- +++ ${base.text}` })).toEqual({ intercept: true, off: true, text: `--- ${base.text}` })
+  expect(gate({ ...off, text: `+++ --- ${base.text} +++` })).toEqual({ intercept: true, off: true, text: `--- ${base.text}` })
+  expect(gate({ ...off, text: `---\n${base.text} +++` })).toEqual({ intercept: true, off: true, text: `---\n${base.text}` })
+})
+
+test('a text in both trigger lists counts as an off trigger and stays', () => {
+  const both = { ...off, silentTriggers: ['---', '+++'] }
+  expect(gate({ ...both, text: `--- +++ ${base.text}` })).toEqual({ intercept: true, off: true, text: `--- ${base.text}` })
+  expect(gate({ ...both, text: `--- ${base.text}` })).toEqual({ intercept: false, reason: 'off' })
+})
+
+test('several off triggers keep their order when the silent trigger goes', () => {
+  const two = { ...off, offTriggers: ['---', '~~'] }
+  expect(gate({ ...two, text: `~~ --- +++ ${base.text} +++ --- ~~` })).toEqual({ intercept: true, off: true, text: `~~ --- ${base.text} --- ~~` })
 })
 
 test('the off trigger applies to a short prompt', () => {
-  expect(gate({ ...off, minLen: 1000, text: `${base.text} ---` })).toMatchObject({ off: true })
+  expect(gate({ ...off, minLen: 1000, text: `${base.text} ---` })).toMatchObject({ reason: 'off' })
+  expect(gate({ ...off, minLen: 1000, text: `+++ ${base.text} ---` })).toMatchObject({ off: true })
 })
 
 test('the off trigger on its own or with a slash command passes', () => {
   expect(gate({ ...off, text: '---' })).toMatchObject({ intercept: false, reason: 'trigger-only' })
+  expect(gate({ ...off, text: '--- +++' })).toMatchObject({ intercept: false, reason: 'trigger-only' })
   expect(gate({ ...off, text: '--- /clear' })).toMatchObject({ intercept: false, reason: 'slash' })
 })
 
@@ -552,7 +576,7 @@ test('a prompt that is only pasted material is intercepted like any other prompt
   expect(gate({ ...off, text: PASTE })).toEqual({ intercept: true, text: PASTE })
   expect(gate({ text: `please find the cause of this failure\n${PASTE}` })).toMatchObject({ intercept: true })
   expect(gate({ ...off, text: `+++ ${PASTE}` })).toEqual({ intercept: true, text: PASTE })
-  expect(gate({ ...off, text: `${PASTE} ---` })).toEqual({ intercept: true, off: true, text: PASTE })
+  expect(gate({ ...off, text: `${PASTE} ---` })).toEqual({ intercept: false, reason: 'off' })
   expect(gate({ ...off, minLen: 1000, text: PASTE })).toMatchObject({ intercept: true, short: true })
 })
 
