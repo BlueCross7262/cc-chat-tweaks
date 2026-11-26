@@ -11,7 +11,7 @@ This applies to a prompt in any language, with or without Korean characters.
 - A mod runs with your user permissions and has no sandbox.
 - While `use` is `true`, the mod sees every prompt you submit.
 - The prompt upgrade is on by default, so the mod sees your prompts until you set `use` to `false`.
-- Each prompt that is upgraded and is at least `min-length` long costs one prompt type call on your plan or API key. The default model is `haiku`.
+- Each prompt that is upgraded and is at least `min-length` long costs one prompt type call on your plan or API key. The default model is `haiku`. While `skip-hard-rule` is `true`, no prompt type call is made.
 - The mod sends prompt text to the model only through `$.model.complete`.
 - The mod makes no other network call and does not use `$.http`.
 - The mod stores no prompt text. The probe log keeps lengths and origin only.
@@ -39,6 +39,7 @@ A key that is absent uses its default.
 |---|---|---|
 | `use` | `true` | Intercept your prompts and send them with the instruction and the fixed lines. |
 | `skip-silent-trigger` | `true` | Option of `use`. When `true`, the trigger check is skipped and every prompt is upgraded; a prompt shorter than `min-length` gets no prompt type call and only the common rules in the `<hard rule>` block. When `false`, only a prompt with the trigger is upgraded and any other prompt passes through unchanged. |
+| `skip-hard-rule` | `false` | Option of `use`. When `true`, the message has no `<hard rule>` block and no prompt type call is made. `min-length`, `models.classify.model`, `models.classify.effort` and `/prompt-upgrade threshold` then have no effect. |
 | `silent-triggers` | `["+++"]` | The trigger texts, as an array of strings. Any one of them at the start or the end of a prompt is a trigger. Each entry is trimmed and has no length limit. An entry that is blank or not text is dropped, a repeated entry counts once, and only the first 10 entries are used. An array with no valid entry uses the default. The old key `silent-trigger` is not read. |
 | `silent-off-triggers` | `["---"]` | Option of `use`. The texts that turn the upgrade off for one prompt, as an array of strings. Any one of them at the start or the end of a prompt is a trigger. It stays in the prompt. The entry rules are those of `silent-triggers`, except that an empty array `[]` is valid and turns the opt-out off. |
 | `min-length` | `10` | Shortest prompt that gets the prompt type call and the type rules, in characters. A prompt shorter than this gets no prompt type call, and its `<hard rule>` block holds the common rules only. A character is a grapheme, as in the character count label, and white space at both ends is left out. A whole number from 1 to 10000. It beats the value set by `/prompt-upgrade threshold`. |
@@ -57,6 +58,7 @@ The keys `use-rewrite`, `use-questions`, `use-silent-upgrade`, `model`, `effort`
       "prompt-upgrade": {
         "use": true,
         "skip-silent-trigger": true,
+        "skip-hard-rule": false,
         "silent-triggers": ["+++"],
         "silent-off-triggers": ["---"],
         "min-length": 40,
@@ -98,6 +100,10 @@ Your prompt > Prompt type > Sent with the instruction and the fixed lines
   - It asks Claude to follow the `<hard rule>` lines while it writes and answers, and not to do what a running mode blocks even when the instruction or the `<hard rule>` lines ask for it.
   - It asks Claude to copy only those sentences unchanged into the written prompt, and to leave both tags out of the written prompt.
 - A prompt shorter than `min-length` gets the same three parts, with no prompt type call and the common rules only.
+- While `skip-hard-rule` is `true`, no prompt is sent to the prompt type call. The message has two parts: an instruction of nine lines and your prompt between `<source>` and `</source>`.
+  - The nine lines are the first eight lines of the instruction, then a line that asks Claude to leave the `<source>` tag out of the written prompt.
+  - The cleaning below also removes every fixed line of every type and the task list lines, so a message that held a `<hard rule>` block is sent again with no rule line in it.
+  - If a tag still stands inside a line, the cleaned prompt is sent with no wrapper and no fixed lines.
 - The fixed lines are the common answer rules, then the rules of each type in the order of the types.
   - The common rules ask for an investigation of the source data until nothing is left to check, a check with tools instead of a guess from memory, the result first, and facts apart from guesses.
   - The task list rules are added only when `env.CLAUDE_CODE_ENABLE_TODO_TOOLS` is the text `"1"` in the first settings file that sets it. They ask Claude to delete the task list items that do not relate to the prompt, and to make a task list first, then work the steps in order, for work of several steps.

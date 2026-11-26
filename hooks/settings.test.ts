@@ -210,6 +210,9 @@ test('the defaults when no source sets a key', () => {
   expect(isFlagOn([], 'use-edit-summary')).toBe(false)
   expect(isFlagOn([], 'use-prompt-upgrade')).toBe(true)
   expect(isFlagOn([], 'skip-silent-trigger')).toBe(true)
+  expect(isFlagOn([], 'skip-hard-rule')).toBe(false)
+  expect(isFlagOn([up({ 'skip-hard-rule': true })], 'skip-hard-rule')).toBe(true)
+  expect(isFlagOn([{ ccChatTweaks: { chat: { 'skip-hard-rule': true } } }], 'skip-hard-rule')).toBe(false)
   expect(isFlagOn([], 'use-char-count')).toBe(false)
   expect(isFlagOn([], 'use-answer-colors')).toBe(false)
   expect(isFlagOn([up({ 'skip-silent-trigger': false })], 'skip-silent-trigger')).toBe(false)
@@ -218,7 +221,7 @@ test('the defaults when no source sets a key', () => {
 })
 
 test('the prompt upgrade keys live under ccChatTweaks.prompt.prompt-upgrade and are read from nowhere else', () => {
-  for (const key of ['use-prompt-upgrade', 'skip-silent-trigger'] as const) {
+  for (const key of ['use-prompt-upgrade', 'skip-silent-trigger', 'skip-hard-rule'] as const) {
     expect(FLAG_PATHS[key]).toEqual(['prompt', 'prompt-upgrade'])
   }
   expect(FLAG_PATHS['use-tool-fold']).toEqual(['chat', 'tool-fold'])
@@ -239,6 +242,7 @@ test('the prompt upgrade keys live under ccChatTweaks.prompt.prompt-upgrade and 
 
 test('skip-silent-trigger is an option of the prompt upgrade, not a feature', () => {
   expect(isFeatureKey('skip-silent-trigger')).toBe(false)
+  expect(isFeatureKey('skip-hard-rule')).toBe(false)
   expect(isFeatureKey('use-prompt-upgrade')).toBe(true)
 })
 
@@ -279,6 +283,7 @@ test('the label of a key is the path of its setting under ccChatTweaks', () => {
   expect(labelOf('unfolded-tools')).toBe('chat.tool-fold.unfolded-tools')
   expect(labelOf('use-prompt-upgrade')).toBe('prompt.prompt-upgrade.use')
   expect(labelOf('skip-silent-trigger')).toBe('prompt.prompt-upgrade.skip-silent-trigger')
+  expect(labelOf('skip-hard-rule')).toBe('prompt.prompt-upgrade.skip-hard-rule')
   expect(labelOf('min-length')).toBe('prompt.prompt-upgrade.min-length')
   expect(labelOf('use-char-count')).toBe('prompt.char-count.use')
   expect(labelOf('use-answer-colors')).toBe('chat.answer-colors.use')
@@ -312,6 +317,7 @@ test('reads every flag at once', () => {
     'use-edit-summary': true,
     'use-prompt-upgrade': true,
     'skip-silent-trigger': true,
+    'skip-hard-rule': false,
     'use-char-count': false,
     'use-answer-colors': false,
     'use-band': false,
@@ -351,6 +357,7 @@ test('adds only the missing switches with their default and keeps everything els
     'use-edit-summary',
     'use-prompt-upgrade',
     'skip-silent-trigger',
+    'skip-hard-rule',
     'use-char-count',
     'use-answer-colors',
     'use-band',
@@ -389,6 +396,7 @@ test('adds only the missing switches with their default and keeps everything els
         'prompt-upgrade': {
           use: true,
           'skip-silent-trigger': true,
+          'skip-hard-rule': false,
           'min-length': 10,
           'silent-triggers': ['+++'],
           'silent-off-triggers': ['---'],
@@ -404,8 +412,8 @@ test('adds only the missing switches with their default and keeps everything els
 })
 
 test('builds the whole section for an empty or malformed file', () => {
-  expect(withMissingDefaults({}).added).toHaveLength(25)
-  expect(withMissingDefaults(null).added).toHaveLength(25)
+  expect(withMissingDefaults({}).added).toHaveLength(26)
+  expect(withMissingDefaults(null).added).toHaveLength(26)
   expect(withMissingDefaults({ ccChatTweaks: 'x' }).settings).toEqual({
     ccChatTweaks: {
       chat: {
@@ -420,6 +428,7 @@ test('builds the whole section for an empty or malformed file', () => {
         'prompt-upgrade': {
           use: true,
           'skip-silent-trigger': true,
+          'skip-hard-rule': false,
           'min-length': 10,
           'silent-triggers': ['+++'],
           'silent-off-triggers': ['---'],
@@ -550,6 +559,7 @@ test('reports nothing to add when every switch is present', () => {
         'prompt-upgrade': {
           use: false,
           'skip-silent-trigger': true,
+          'skip-hard-rule': false,
           'min-length': 25,
           'silent-triggers': ['##', '>>'],
           'silent-off-triggers': [],

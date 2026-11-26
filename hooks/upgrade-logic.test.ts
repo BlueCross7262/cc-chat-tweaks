@@ -314,6 +314,30 @@ test('an assembled message that is upgraded again gets one fresh wrapper', () =>
   expect(withMeta(shortOnce, shortOnce, [])).toBe(shortOnce)
 })
 
+const shortWrapped = (source: string) => `${META_SHORT}\n\n<source>\n${source}\n</source>`
+
+test('without the hard rule the wrapper is the short head and the source, and the source draws alone', () => {
+  const sent = withMeta('원인을 찾는다.', '원인을 찾아 줘', [], false, false)
+  expect(sent).toBe(shortWrapped('원인을 찾는다.'))
+  expect(sent).not.toContain('<hard rule>')
+  expect(sourceOf(sent)).toBe('원인을 찾는다.')
+  expect(splitMeta('원인을 찾는다.', '원인을 찾아 줘', [], true, false).wrap).toEqual({ types: [], todo: true, rules: false })
+  expect(wrapText('원인을 찾는다.', { types: ['research'], todo: true, rules: false })).toBe(shortWrapped('원인을 찾는다.'))
+  expect(wrapText('원인을 찾는다.', { types: ['research'], todo: false })).toBe(wrapped('원인을 찾는다.', RESEARCH_RULES))
+})
+
+test('without the hard rule an old full wrapper with type and todo rules is wrapped again as the short form only', () => {
+  const full = withMeta('원인을 찾고 고친다.', '원인을 찾고 고쳐 줘', ['research', 'execute'], true)
+  expect(withMeta(full, full, [], false, false)).toBe(shortWrapped('원인을 찾고 고친다.'))
+  expect(withMeta(full, full, [], true, false)).toBe(shortWrapped('원인을 찾고 고친다.'))
+  const short = shortWrapped('원인을 찾는다.')
+  expect(withMeta(short, short, [], true, false)).toBe(short)
+})
+
+test('without the hard rule a draft that names a tag gets no wrapper and no rules', () => {
+  expect(withMeta('`<hard rule>` 태그는 없어?', '태그가 없는지 알려 줘', [], true, false)).toBe('`<hard rule>` 태그는 없어?')
+})
+
 test('splitMeta puts the body alone in the box and wrapText builds the message withMeta built before', () => {
   const first = splitMeta('원인을 찾는다.', '원인을 찾아 줘', ['research'])
   expect(first.box).toBe('원인을 찾는다.')

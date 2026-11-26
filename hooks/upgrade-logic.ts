@@ -292,10 +292,10 @@ export const splitMeta = (
   original: string,
   types: readonly string[],
   todo = false,
+  rules = true,
 ): { box: string; wrap: Wrap | null } => {
-  const dropped = new Set(
-    [...HEAD_LINES, ...COMMON_LINES, ...(todo ? TODO_LINES : []), ...typeBlocks(types).flat()].map(normalizeLine),
-  )
+  const ruleLines = rules ? [...(todo ? TODO_LINES : []), ...typeBlocks(types).flat()] : [...TODO_LINES, ...typeBlocks(PROMPT_TYPES).flat()]
+  const dropped = new Set([...HEAD_LINES, ...COMMON_LINES, ...ruleLines].map(normalizeLine))
   const body = tidyBody(
     draft
       .split('\n')
@@ -303,13 +303,15 @@ export const splitMeta = (
       .filter(line => !META_TAGS.includes(line.trim()))
       .join('\n'),
   )
-  if (META_TAGS.some(tag => body.includes(tag))) return { box: `${body}\n\n${ruleTail(types, todo)}`, wrap: null }
+  if (META_TAGS.some(tag => body.includes(tag))) return { box: rules ? `${body}\n\n${ruleTail(types, todo)}` : body, wrap: null }
 
-  return { box: body, wrap: { types: [...new Set(types.filter(isPromptType))], todo } }
+  return { box: body, wrap: { types: [...new Set(types.filter(isPromptType))], todo, ...(rules ? {} : { rules: false }) } }
 }
 
 export const wrapText = (body: string, wrap: Wrap): string =>
-  `${META_FULL_LINES.join('\n')}\n\n<hard rule>\n${ruleTail(wrap.types, wrap.todo)}\n</hard rule>\n\n<source>\n${body}\n</source>`
+  wrap.rules === false
+    ? `${META_SHORT_LINES.join('\n')}\n\n<source>\n${body}\n</source>`
+    : `${META_FULL_LINES.join('\n')}\n\n<hard rule>\n${ruleTail(wrap.types, wrap.todo)}\n</hard rule>\n\n<source>\n${body}\n</source>`
 
 
 const SOURCE_OPEN = '<source>\n'
@@ -339,8 +341,8 @@ export const sourceOf = (text: string): string | null => {
   return null
 }
 
-export const withMeta = (draft: string, original: string, types: readonly string[], todo = false): string => {
-  const { box, wrap } = splitMeta(draft, original, types, todo)
+export const withMeta = (draft: string, original: string, types: readonly string[], todo = false, rules = true): string => {
+  const { box, wrap } = splitMeta(draft, original, types, todo, rules)
 
   return wrap === null ? box : wrapText(box, wrap)
 }

@@ -113,6 +113,28 @@ const FLOW_RESEARCH_RULES = [
 const fullWrapped = (rules: string, body: string): string =>
   `${FLOW_META_FULL}\n\n<hard rule>\n${rules}\n</hard rule>\n\n<source>\n${body}\n</source>`
 const commonWrapped = (body: string): string => fullWrapped(FLOW_COMMON_RULES, body)
+const FLOW_META_SHORT = [...FLOW_META_FULL.split('\n').slice(0, 8), '쓴 프롬프트에는 <source> 태그를 포함하지 않는다.'].join('\n')
+const shortWrapped = (body: string): string => `${FLOW_META_SHORT}\n\n<source>\n${body}\n</source>`
+
+test('skip-hard-rule sends the short head and the source and makes no prompt type call, for a long, a short and a triggered prompt', async ($, on) => {
+  const s = world($, on, {
+    types: JSON.stringify({ types: ['research'] }),
+    extra: { 'skip-silent-trigger': true, 'skip-hard-rule': true },
+    env: { CLAUDE_CODE_ENABLE_TODO_TOOLS: '1' },
+  })
+  await submit($, KOREAN)
+  await submit($, '짧은 말')
+  await submit($, `${KOREAN} +++`)
+  expect(s.entered).toEqual([shortWrapped(KOREAN), shortWrapped('짧은 말'), shortWrapped(KOREAN)])
+  expect(s.classified).toEqual([])
+})
+
+test('skip-hard-rule set to false keeps the prompt type call and the hard rule', async ($, on) => {
+  const s = world($, on, { types: JSON.stringify({ types: ['research'] }), extra: { 'skip-silent-trigger': true, 'skip-hard-rule': false } })
+  await submit($, KOREAN)
+  expect(s.entered).toEqual([fullWrapped(FLOW_RESEARCH_RULES, KOREAN)])
+  expect(s.classified).toHaveLength(1)
+})
 
 test('nothing is intercepted while disabled', async ($, on) => {
   const s = world($, on, { enabled: false, extra: { 'skip-silent-trigger': true } })

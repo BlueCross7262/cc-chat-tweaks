@@ -8,6 +8,7 @@ export const FLAG_DEFAULTS = {
   'use-edit-summary': false,
   'use-prompt-upgrade': true,
   'skip-silent-trigger': true,
+  'skip-hard-rule': false,
   'use-char-count': false,
   'use-answer-colors': false,
   'use-band': false,
@@ -40,6 +41,7 @@ export const FLAG_PATHS: Record<FlagKey, readonly string[]> = {
   'use-edit-summary': CHAT_PATH,
   'use-prompt-upgrade': PROMPT_UPGRADE_PATH,
   'skip-silent-trigger': PROMPT_UPGRADE_PATH,
+  'skip-hard-rule': PROMPT_UPGRADE_PATH,
   'use-char-count': CHAR_COUNT_PATH,
   'use-answer-colors': ANSWER_COLORS_PATH,
   'use-band': BAND_PATH,
@@ -83,6 +85,7 @@ export const pathText = (path: readonly string[]): string => [SETTINGS_NAMESPACE
 
 export const OPTION_KEYS: readonly FlagKey[] = [
   'skip-silent-trigger',
+  'skip-hard-rule',
   'use-band-turns',
   'use-band-turns-total',
   'use-band-elapsed',
@@ -444,6 +447,7 @@ export const flagsOf = (sources: readonly unknown[]): Flags => ({
   'use-edit-summary': isFlagOn(sources, 'use-edit-summary'),
   'use-prompt-upgrade': isFlagOn(sources, 'use-prompt-upgrade'),
   'skip-silent-trigger': isFlagOn(sources, 'skip-silent-trigger'),
+  'skip-hard-rule': isFlagOn(sources, 'skip-hard-rule'),
   'use-char-count': isFlagOn(sources, 'use-char-count'),
   'use-answer-colors': isFlagOn(sources, 'use-answer-colors'),
   'use-band': isFlagOn(sources, 'use-band'),

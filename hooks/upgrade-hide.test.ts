@@ -32,6 +32,7 @@ test('a prompt row the person sent shows only the source of the wrapper', async 
   world(on)
   expect(await rowText($, wrapText(SOURCE, { types: ['execute'], todo: false }), composer)).toBe(SOURCE)
   expect(await rowText($, wrapText(SOURCE, { types: [], todo: false }), composer)).toBe(SOURCE)
+  expect(await rowText($, wrapText(SOURCE, { types: [], todo: false, rules: false }), composer)).toBe(SOURCE)
 })
 
 test('a row that holds no wrapper is drawn as it is', async ($, on) => {

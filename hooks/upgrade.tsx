@@ -153,6 +153,7 @@ const settingsOf = async ($: EngineInterface) => {
   return {
     isEnabled: flags['use-prompt-upgrade'],
     skipTrigger: flags['skip-silent-trigger'],
+    skipRules: flags['skip-hard-rule'],
     minLen: minLengthOf(sources) ?? parseMinLen(await $.store.get(KEY_MIN_LEN)),
     silentTriggers: flags['use-prompt-upgrade'] ? (silentTriggersOf(sources) ?? DEFAULT_SILENT_TRIGGERS) : [],
     offTriggers: flags['use-prompt-upgrade'] ? (silentOffTriggersOf(sources) ?? DEFAULT_SILENT_OFF_TRIGGERS) : [],
@@ -174,7 +175,7 @@ const readContext = async ($: EngineInterface): Promise<string> => {
 }
 
 const interceptOrPass = async ($: EngineInterface, e: PromptSubmitInput): Promise<string | null> => {
-  const { isEnabled, skipTrigger, minLen, silentTriggers, offTriggers, todo } = await settingsOf($)
+  const { isEnabled, skipTrigger, skipRules, minLen, silentTriggers, offTriggers, todo } = await settingsOf($)
   const gate = decideGate({
     text: e.text,
     originKind: e.origin?.kind,
@@ -187,9 +188,9 @@ const interceptOrPass = async ($: EngineInterface, e: PromptSubmitInput): Promis
   if (!gate.intercept) return null
   if ('off' in gate) return gate.text
 
-  const types = 'short' in gate ? [] : await classify($, gate.text, await readContext($))
+  const types = skipRules || 'short' in gate ? [] : await classify($, gate.text, await readContext($))
 
-  return withMeta(gate.text, gate.text, types, todo)
+  return withMeta(gate.text, gate.text, types, todo, !skipRules)
 }
 
 export const registerUpgrade = (on: Parameters<Register>[0]): void => {

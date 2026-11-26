@@ -8,7 +8,7 @@ export type Timing = { id: string; start: number; end: number }
 
 export type RunState = { runs: Run[]; failed: string[]; done: string[]; changes: Change[]; times: Timing[] }
 
-export type Wrap = { types: string[]; todo: boolean }
+export type Wrap = { types: string[]; todo: boolean; rules?: boolean }
 
 export type BandState = {
   turnId: string | null
