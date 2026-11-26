@@ -10,6 +10,7 @@ import {
   EMPTY_RUN_STATE,
   failedSeparator,
   hasChanges,
+  hasPending,
   hasMoreNames,
   headerText,
   isTrackedRow,
@@ -18,11 +19,13 @@ import {
   namesOf,
   recordChange,
   recordTime,
+  replayRuns,
   timingOf,
   untimedOf,
   viewOf,
   type AppendedRow,
   type Header,
+  type ReplayMessage,
   type RowProps,
 } from './runs'
 
@@ -662,4 +665,118 @@ test('a succeeded call without a time still hides the header time next to a fail
 test('the header has no time when no call has one, even if every call failed', () => {
   expect(viewOf(failedRun(['a', 'b'], 'a', 'b'), ['a']).header?.ms).toBeNull()
   expect(viewOf(failedRun(['a'], 'a'), ['a']).header?.ms).toBeNull()
+})
+
+const said = (value: string): ReplayMessage => ({ role: 'assistant', text: value, toolUses: [] })
+const asked = (value = 'prompt'): ReplayMessage => ({ role: 'user', text: value, toolUses: [] })
+const called = (id: string, tool = 'Read', extra: { input?: Record<string, unknown>; result?: unknown } = {}): ReplayMessage => ({
+  role: 'assistant',
+  text: '',
+  toolUses: [{ tool_use_id: id, tool, input: extra.input ?? {}, ...(extra.result === undefined ? {} : { result: extra.result }) }],
+})
+const answered = (id: string, isError = false): ReplayMessage => ({
+  role: 'user',
+  text: '',
+  toolUses: [],
+  toolResults: [{ tool_use_id: id, isError }],
+})
+
+test('a replay joins the calls of a resumed turn into one closed run, as the live rows did', () => {
+  const state = replayRuns([
+    asked(),
+    said(''),
+    called('a'),
+    called('b'),
+    answered('a'),
+    answered('b', true),
+    called('c', 'Glob'),
+    answered('c'),
+    said('answer'),
+  ])
+
+  expect(state.runs).toHaveLength(1)
+  expect(state.runs[0]?.calls.map(call => call.id)).toEqual(['a', 'b', 'c'])
+  expect(state.runs[0]?.isClosed).toBe(true)
+  expect(state.failed).toEqual(['b'])
+  expect(hasPending(state)).toBe(false)
+  expect(viewOf(state, ['a']).header).toMatchObject({ count: 3, failed: 1, isPending: false, ms: null })
+  expect(viewOf(state, ['b'])).toEqual({ header: null, showRow: false })
+})
+
+test('a replay starts a new run at each prompt and at each text the model wrote', () => {
+  const state = replayRuns([
+    asked(),
+    called('a'),
+    answered('a'),
+    asked(),
+    called('b', 'Bash'),
+    answered('b'),
+    said('between'),
+    called('c'),
+    answered('c'),
+  ])
+
+  expect(state.runs.map(run => run.calls.map(call => call.id))).toEqual([['a'], ['b'], ['c']])
+  expect(state.runs.every(run => run.isClosed)).toBe(true)
+})
+
+test('a replay keeps a run open across rows that hold no text, such as thinking', () => {
+  const state = replayRuns([asked(), called('a'), answered('a'), said(''), said('   '), called('b'), answered('b')])
+
+  expect(state.runs.map(run => run.calls.map(call => call.id))).toEqual([['a', 'b']])
+})
+
+test('a replay leaves a tool in the unfolded list out of the runs and ends the run before it', () => {
+  const state = replayRuns(
+    [asked(), called('a'), answered('a'), called('s', 'Skill'), answered('s'), called('b'), answered('b')],
+    ['Skill'],
+  )
+
+  expect(state.runs.map(run => run.calls.map(call => call.id))).toEqual([['a'], ['b']])
+  expect(viewOf(state, ['s'])).toEqual({ header: null, showRow: true })
+})
+
+test('a replayed call with no result is not pending, so the header does not blink', () => {
+  const state = replayRuns([asked(), called('a'), answered('a'), called('b')])
+
+  expect(hasPending(state)).toBe(false)
+  expect(viewOf(state, ['a']).header?.isPending).toBe(false)
+  expect(viewOf(state, ['a']).header?.count).toBe(2)
+})
+
+test('a replay counts the lines of the Edit and Write calls that succeeded', () => {
+  const write = { type: 'create', content: 'a\nb\nc\n', structuredPatch: [] }
+  const edit = { structuredPatch: [{ oldStart: 2, oldLines: 1, newStart: 2, newLines: 1, lines: ['-b', '+x'] }] }
+  const state = replayRuns([
+    asked(),
+    called('w', 'Write', { input: { file_path: 'w.txt' }, result: write }),
+    answered('w'),
+    called('e', 'Edit', { input: { file_path: 'w.txt' }, result: edit }),
+    answered('e'),
+    called('f', 'Edit', { input: { file_path: 'w.txt' }, result: 'String to replace not found' }),
+    answered('f', true),
+  ])
+
+  expect(viewOf(state, ['w']).header).toMatchObject({ count: 3, failed: 1, added: 4, removed: 1 })
+})
+
+test('a replay counts a Serena replace_content call from its arguments', () => {
+  const state = replayRuns([
+    asked(),
+    called('r', 'mcp__serena__replace_content', { input: { needle: 'a\nb', repl: 'a\nc\nd' }, result: 'ok' }),
+    answered('r'),
+  ])
+
+  expect(viewOf(state, ['r']).header).toMatchObject({ added: 2, removed: 1 })
+})
+
+test('a replay of no messages gives the empty state', () => {
+  expect(replayRuns([])).toEqual(EMPTY_RUN_STATE)
+})
+
+test('a user row that has both a result and text is a result, not a prompt', () => {
+  const both: ReplayMessage = { ...answered('a'), text: 'note' }
+  const state = replayRuns([asked(), called('a'), both, called('b'), answered('b')])
+
+  expect(state.runs.map(run => run.calls.map(call => call.id))).toEqual([['a', 'b']])
 })

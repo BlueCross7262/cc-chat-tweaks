@@ -244,6 +244,55 @@ export const applyRow = (
   return state
 }
 
+
+export type ReplayMessage = {
+  role: string
+  text: string
+  toolUses: readonly { tool_use_id: string; tool: string; input: Record<string, unknown>; result?: unknown }[]
+  toolResults?: readonly { tool_use_id: string; isError: boolean }[]
+}
+
+const rowOfMessage = (message: ReplayMessage): AppendedRow => {
+  if (message.role === 'assistant') {
+    return {
+      door: 'response',
+      content: [
+        { type: 'text', text: message.text },
+        ...message.toolUses.map(use => ({ type: 'tool_use', id: use.tool_use_id, name: use.tool })),
+      ],
+    }
+  }
+
+  const results = message.toolResults ?? []
+
+  return results.length > 0
+    ? {
+        door: 'tool-result',
+        content: results.map(result => ({ type: 'tool_result', tool_use_id: result.tool_use_id, is_error: result.isError })),
+      }
+    : { door: 'prompt', content: [] }
+}
+
+export const replayRuns = (
+  messages: readonly ReplayMessage[],
+  unfolded: readonly string[] = DEFAULT_UNFOLDED_TOOLS,
+): RunState => {
+  const state = closeOpenRun(messages.reduce((sum, message) => applyRow(sum, rowOfMessage(message), unfolded), EMPTY_RUN_STATE))
+  const uses = messages.flatMap(message => (message.role === 'assistant' ? message.toolUses : []))
+  const answered = new Set(state.done)
+  const changes = uses.flatMap(use => {
+    const change = changeOf(use.tool, use.input, use.result)
+
+    return change === null ? [] : [{ id: use.tool_use_id, ...change }]
+  })
+
+  return {
+    ...state,
+    done: [...state.done, ...uses.map(use => use.tool_use_id).filter(id => !answered.has(id))].slice(-MAX_IDS),
+    changes: changes.slice(-MAX_IDS),
+  }
+}
+
 export const hasPending = (stored: RunState): boolean => {
   const state = normalizeState(stored)
   const last = state.runs[state.runs.length - 1]

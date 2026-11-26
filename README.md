@@ -128,6 +128,11 @@ Consecutive tool calls with no assistant message between them fold into one line
 - Every run folds, even a single call: `● Called 1 time Edit … +3 -1`. A failed call folds in too: its row and error text are hidden, and the header adds an orange `N failed` count.
 - A call row is not drawn while the model is still writing the call. The folded line appears when the call is stored. A call that is in no run, such as one made by a subagent, stays hidden until it has a result.
 - Calls made by subagents are not folded.
+- The calls of a resumed session fold the same way, whether `claude --resume` started the session or `/resume` switched to it in a running one.
+  - The runs are built again from the transcript, and a prompt or a text from the model ends a run as it did live.
+  - Every user row without a tool result counts as a prompt. A notice that came in during a turn, such as a task notification, ends the run there, so the resumed line can be split where the live line was not.
+  - The `+N -M` total comes from the stored call results. The time after the count is left out, because the transcript has no call times.
+  - Only the newest 4096 entries of the transcript are read. A call older than that is not folded.
 - The tools in `unfolded-tools` are never folded. The default is `AskUserQuestion`, `Skill` and `Agent`. Each keeps its own row and ends the run before it.
   - The names are the exact tool names, with the same letter case, such as `Bash` or `mcp__serena__find_symbol`. A name that matches no tool does nothing.
   - Each entry is 1 to 100 characters after trimming. A blank or non-text entry is dropped, a repeated entry counts once, and only the first 50 entries are used.

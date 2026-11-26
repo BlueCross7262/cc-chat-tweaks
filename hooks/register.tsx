@@ -31,6 +31,7 @@ import {
   normalizeState,
   recordChange,
   recordTime,
+  replayRuns,
   SHOW_ROW,
   timingOf,
   untimedOf,
@@ -68,6 +69,7 @@ const BLINK_MS = 600
 const expandedAtom = atom({ plugin: 'cc-chat-tweaks', key: 'expanded' } as const, [])
 const runsAtom = atom({ plugin: 'cc-chat-tweaks', key: 'runs' } as const, EMPTY_RUN_STATE)
 const blinkAtom = atom({ plugin: 'cc-chat-tweaks', key: 'blink' } as const, true)
+const hydratedAtom = atom({ plugin: 'cc-chat-tweaks', key: 'hydrated' } as const, '')
 
 type ToolUseInput = RenderInputOf<'ToolUse', RenderSurface>
 
@@ -106,13 +108,41 @@ const recordDuration = async (
   }
 }
 
+const hydrateRuns = async ($: EngineInterface): Promise<void> => {
+  try {
+    const id = await $.session.id()
+
+    if ((await read($, hydratedAtom)) === id) {
+      return
+    }
+
+    await update($, hydratedAtom, () => id)
+
+    const found = await $.session.messages()
+
+    if (!Array.isArray(found)) {
+      return
+    }
+
+    const replayed = replayRuns(found, await readUnfolded($))
+
+    await update($, runsAtom, state => ({ ...replayed, times: normalizeState(state).times }))
+  } catch {
+    return
+  }
+}
+
 export const register: Register = on => {
   registerUpgrade(on)
   registerCharCount(on)
   registerBand(on)
 
   on('session.start', async ($, e, next) => {
+    await hydrateRuns($)
+
     const blinkTick = async (): Promise<void> => {
+      await hydrateRuns($)
+
       try {
         const isPending = hasPending(await read($, runsAtom))
         const isOn = await read($, blinkAtom)
