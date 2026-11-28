@@ -93,15 +93,16 @@ Your prompt > Prompt type > Sent with the instruction and the fixed lines
 - A prompt waits in the submit for the prompt type call, up to 5 seconds. It is then sent with the instruction and the fixed lines, and with your prompt, cleaned as below, between `<source>` tags.
 - The prompt type call reads up to the last six messages of the conversation (500 characters each, 3000 in all), so a prompt such as "fix the code above" can be sorted.
 - The call sorts the prompt into `research`, `discuss` and `execute`, one or more in the order the prompt asks for them. If the call fails or finds no known type, the `<hard rule>` block holds the common rules only.
-- The message has three parts: an instruction of twelve lines, the fixed lines between `<hard rule>` and `</hard rule>`, and your prompt between `<source>` and `</source>` at the end.
+- The message has three parts: an instruction of thirteen lines, the fixed lines between `<hard rule>` and `</hard rule>`, and your prompt between `<source>` and `</source>` at the end.
   - The instruction asks Claude to write a new prompt from the `<source>` part in easy words, as an expert advises a beginner, in the order request, background, analysis, goal, task order, constraints, output format and completion criteria, with no part that is not in the `<source>` part, and with nouns turned into verbs.
+  - It asks Claude to add, after the completion criteria, a way to prove the work with an independent tool when the work changes code or files.
   - It asks Claude to print the prompt in the chat and answer it in the same turn.
   - It says that the instruction is not an approval to run anything, and that only the `<source>` part decides whether to run and whether a running mode stays on.
   - It asks Claude to follow the `<hard rule>` lines while it writes and answers, and not to do what a running mode blocks even when the instruction or the `<hard rule>` lines ask for it.
   - It asks Claude to copy only those sentences unchanged into the written prompt, and to leave both tags out of the written prompt.
 - A prompt shorter than `min-length` gets the same three parts, with no prompt type call and the common rules only.
-- While `skip-hard-rule` is `true`, no prompt is sent to the prompt type call. The message has two parts: an instruction of nine lines and your prompt between `<source>` and `</source>`.
-  - The nine lines are the first eight lines of the instruction, then a line that asks Claude to leave the `<source>` tag out of the written prompt.
+- While `skip-hard-rule` is `true`, no prompt is sent to the prompt type call. The message has two parts: an instruction of ten lines and your prompt between `<source>` and `</source>`.
+  - The ten lines are the first nine lines of the instruction, then a line that asks Claude to leave the `<source>` tag out of the written prompt.
   - The cleaning below also removes every fixed line of every type and the task list lines, so a message that held a `<hard rule>` block is sent again with no rule line in it.
   - If a tag still stands inside a line, the cleaned prompt is sent with no wrapper and no fixed lines.
 - The fixed lines are the common answer rules, then the rules of each type in the order of the types.

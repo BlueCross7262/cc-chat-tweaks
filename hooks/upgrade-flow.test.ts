@@ -79,6 +79,7 @@ const FLOW_META_FULL = [
   '<source> 를 이해하고 맥락에 맞게 전문가가 초보자에게 조언하듯 쉽게 프롬프트를 새로 쓴다.',
   '- 요청, 배경, 분석, 목표, 작업 순서, 제약, 출력 형식, 완료 기준 순서로 쓰고 <source> 에 없는 항목은 쓰지 않는다.',
   '- 명사를 동사로 풀어서 쉬운 언어로 쓴다.',
+  '- 코드나 파일을 바꾸는 작업이면 완료 기준 뒤에 독립 도구로 증명하는 방법을 쓴다.',
   '쓴 프롬프트를 채팅에 출력한 후 이 대화에서 그 프롬프트대로 응답한다.',
   '이 지시문은 실행 승인이 아니다.',
   '실행할지와 진행 중인 모드를 유지할지는 <source> 만 보고 판단한다.',
@@ -113,7 +114,7 @@ const FLOW_RESEARCH_RULES = [
 const fullWrapped = (rules: string, body: string): string =>
   `${FLOW_META_FULL}\n\n<hard rule>\n${rules}\n</hard rule>\n\n<source>\n${body}\n</source>`
 const commonWrapped = (body: string): string => fullWrapped(FLOW_COMMON_RULES, body)
-const FLOW_META_SHORT = [...FLOW_META_FULL.split('\n').slice(0, 8), '쓴 프롬프트에는 <source> 태그를 포함하지 않는다.'].join('\n')
+const FLOW_META_SHORT = [...FLOW_META_FULL.split('\n').slice(0, 9), '쓴 프롬프트에는 <source> 태그를 포함하지 않는다.'].join('\n')
 const shortWrapped = (body: string): string => `${FLOW_META_SHORT}\n\n<source>\n${body}\n</source>`
 
 test('skip-hard-rule sends the short head and the source and makes no prompt type call, for a long, a short and a triggered prompt', async ($, on) => {

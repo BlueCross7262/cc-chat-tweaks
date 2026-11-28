@@ -155,6 +155,7 @@ const META_FULL = [
   '<source> 를 이해하고 맥락에 맞게 전문가가 초보자에게 조언하듯 쉽게 프롬프트를 새로 쓴다.',
   '- 요청, 배경, 분석, 목표, 작업 순서, 제약, 출력 형식, 완료 기준 순서로 쓰고 <source> 에 없는 항목은 쓰지 않는다.',
   '- 명사를 동사로 풀어서 쉬운 언어로 쓴다.',
+  '- 코드나 파일을 바꾸는 작업이면 완료 기준 뒤에 독립 도구로 증명하는 방법을 쓴다.',
   '쓴 프롬프트를 채팅에 출력한 후 이 대화에서 그 프롬프트대로 응답한다.',
   '이 지시문은 실행 승인이 아니다.',
   '실행할지와 진행 중인 모드를 유지할지는 <source> 만 보고 판단한다.',
@@ -170,6 +171,7 @@ const META_SHORT = [
   '<source> 를 이해하고 맥락에 맞게 전문가가 초보자에게 조언하듯 쉽게 프롬프트를 새로 쓴다.',
   '- 요청, 배경, 분석, 목표, 작업 순서, 제약, 출력 형식, 완료 기준 순서로 쓰고 <source> 에 없는 항목은 쓰지 않는다.',
   '- 명사를 동사로 풀어서 쉬운 언어로 쓴다.',
+  '- 코드나 파일을 바꾸는 작업이면 완료 기준 뒤에 독립 도구로 증명하는 방법을 쓴다.',
   '쓴 프롬프트를 채팅에 출력한 후 이 대화에서 그 프롬프트대로 응답한다.',
   '이 지시문은 실행 승인이 아니다.',
   '실행할지와 진행 중인 모드를 유지할지는 <source> 만 보고 판단한다.',
@@ -215,18 +217,32 @@ test('sourceOf returns null for text that is not an intact wrapper', () => {
   expect(sourceOf(`앞 문장.\n${whole}`)).toBeNull()
 })
 
-test('the instruction is the twelve lines of the full form, with or without a type', () => {
+test('the instruction is the thirteen lines of the full form, with or without a type', () => {
   const full = withMeta('원인을 찾는다.', '원인을 찾아 줘', ['research']).split('\n')
-  expect(full.slice(0, 12)).toEqual(META_FULL.split('\n'))
-  expect(full[12]).toBe('')
-  expect(full[13]).toBe('<hard rule>')
+  expect(full.slice(0, 13)).toEqual(META_FULL.split('\n'))
+  expect(full[13]).toBe('')
+  expect(full[14]).toBe('<hard rule>')
   expect(full.at(-4)).toBe('')
   expect(full.at(-3)).toBe('<source>')
   expect(full.at(-2)).toBe('원인을 찾는다.')
   expect(full.at(-1)).toBe('</source>')
   const bare = withMeta('원인을 찾는다.', '원인을 찾아 줘', []).split('\n')
-  expect(bare.slice(0, 12)).toEqual(META_FULL.split('\n'))
-  expect(bare[13]).toBe('<hard rule>')
+  expect(bare.slice(0, 13)).toEqual(META_FULL.split('\n'))
+  expect(bare[14]).toBe('<hard rule>')
+})
+
+const PROOF_LINE = '- 코드나 파일을 바꾸는 작업이면 완료 기준 뒤에 독립 도구로 증명하는 방법을 쓴다.'
+
+test('the sixth instruction line asks for a proof step in both forms', () => {
+  expect(withMeta('원인을 찾는다.', '원인을 찾아 줘', ['research']).split('\n')[5]).toBe(PROOF_LINE)
+  expect(withMeta('원인을 찾는다.', '원인을 찾아 줘', [], false, false).split('\n')[5]).toBe(PROOF_LINE)
+})
+
+test('a full wrapper of the earlier twelve-line instruction sent again gets one fresh wrapper', () => {
+  const oldHead = META_FULL.split('\n').filter(line => line !== PROOF_LINE).join('\n')
+  const old = `${oldHead}\n\n<hard rule>\n${RESEARCH_RULES}\n</hard rule>\n\n<source>\n원인을 찾는다.\n</source>`
+  expect(oldHead.split('\n')).toHaveLength(12)
+  expect(withMeta(old, old, ['research'])).toBe(wrapped('원인을 찾는다.', RESEARCH_RULES))
 })
 
 test('several types put the common lines once and the type lines in the order of the types without repeats', () => {
